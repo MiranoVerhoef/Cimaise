@@ -277,7 +277,7 @@
               <div class="space-y-4">
                 <label class="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" name="hero_enabled" value="1"
-                         {{ settings['home.hero_enabled']|default(true) ? 'checked' : '' }}
+                         {% if settings['home.hero_enabled'] is not defined or settings['home.hero_enabled'] %}checked{% endif %}
                          class="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black">
                   <span>
                     <span class="block text-sm font-medium text-gray-900">{{ trans('admin.pages.home.hero_enabled') }}</span>
