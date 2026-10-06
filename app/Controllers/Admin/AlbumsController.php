@@ -253,10 +253,6 @@ class AlbumsController extends BaseController
         }
 
         $settingsService = new SettingsService($this->db);
-        $item['show_equipment'] = SettingsService::boolean(
-            $settingsService->get('album.' . $id . '.show_equipment', true),
-            true
-        );
         $defaultAlbumPageTemplate = (string)($settingsService->get('gallery.page_template', 'classic') ?? 'classic');
         $albumPageTemplates = $this->getAlbumPageTemplates();
 
@@ -546,6 +542,10 @@ class AlbumsController extends BaseController
         }
 
         $settingsService = new SettingsService($this->db);
+        $item['show_equipment'] = SettingsService::boolean(
+            $settingsService->get('album.' . $id . '.show_equipment', true),
+            true
+        );
         $defaultAlbumPageTemplate = (string)($settingsService->get('gallery.page_template', 'classic') ?? 'classic');
         $albumPageTemplates = $this->getAlbumPageTemplates();
 
