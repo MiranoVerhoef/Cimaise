@@ -944,6 +944,12 @@ class PageController extends BaseController
             ]);
         }
 
+        $albumSettings = new \App\Services\SettingsService($this->db);
+        $album['show_equipment'] = \App\Services\SettingsService::boolean(
+            $albumSettings->get('album.' . (int)$album['id'] . '.show_equipment', true),
+            true
+        );
+
         // Check if user is admin (admins bypass password/NSFW protection)
         $isAdmin = $this->isAdmin();
         $nsfwConsent = $this->hasNsfwConsent();
