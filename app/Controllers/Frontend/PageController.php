@@ -1501,6 +1501,7 @@ class PageController extends BaseController
             'show_date' => (int) ($album['show_date'] ?? 1),
             'tags' => $tags,
             'equipment' => $equipment,
+            'show_equipment' => $album['show_equipment'],
             'allow_downloads' => !empty($album['allow_downloads']),
             'cover' => $album['cover'] ?? null,
         ];
