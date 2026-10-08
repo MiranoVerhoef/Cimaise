@@ -66,7 +66,9 @@
                   <select name="categories[]" id="album-categories" class="form-input" multiple>
                     <option value="0">{{ trans('admin.albums.none_category', {}, 'None') }}</option>
                     {% for c in categories %}
+                      {% if c.slug != 'none' %}
                       <option value="{{ c.id }}" {{ c.slug == 'photo' ? 'selected' : '' }}>{{ c.name }}</option>
+                      {% endif %}
                     {% endfor %}
                   </select>
                   <p class="text-xs text-gray-500 mt-1">{{ trans('admin.albums.categories_help') }}</p>
@@ -843,16 +845,7 @@
         
         showProgress('{{ trans('admin.albums.creating_album')|e('js') }}');
         
-        let body;
-        try { body = prepareCreatePayload(); } catch(e){
-          if (e && e.message === 'missing_category') {
-            const msg = '{{ trans('admin.albums.select_category')|e('js') }}';
-            if (window.showToast) showToast(msg, 'error'); else alert(msg);
-            hideProgress();
-            throw e;
-          }
-          throw e;
-        }
+        const body = prepareCreatePayload();
         const res = await fetch(form.action, { 
           method:'POST', 
           headers:{ 
