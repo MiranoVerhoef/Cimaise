@@ -1,3 +1,10 @@
+## [1.4.23-test.4] - 2026-10-08
+
+- Fix maintenance logo URLs for uploaded images, legacy filenames and subdirectory installations.
+- Allow WebP and AVIF logo requests during maintenance mode.
+- Verify maintenance settings save, logo visibility and visitor/admin access in Chromium.
+- Include all combined image generation, progress, gallery, translation and Brotli fixes from test.3.
+
 ## [1.4.23-test.3] - 2026-10-08
 
 - Enable Apache Brotli compression with gzip fallback and detect server compression in settings.
