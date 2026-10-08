@@ -155,8 +155,20 @@ final class ImageJobQueue
                 if (PHP_OS_FAMILY !== 'Windows' && is_executable($php) && function_exists('exec')) {
                     $console = dirname(__DIR__, 2) . '/bin/console';
                     exec(escapeshellarg($php) . ' ' . escapeshellarg($console) . ' images:work --watch > /dev/null 2>&1 &');
+                    $this->drain();
+                } else {
+                    // Another upload can enqueue after a worker's directory scan.
+                    // Keep waking the queue instead of abandoning jobs when its
+                    // lock is held by a concurrent response's shutdown handler.
+                    $deadline = time() + 280;
+                    do {
+                        $this->drain();
+                        if (!$this->hasJobs()) {
+                            break;
+                        }
+                        sleep(1);
+                    } while (time() < $deadline);
                 }
-                $this->drain();
             } catch (\Throwable $e) {
                 Logger::warning('Image worker deferred until next request', ['error' => $e->getMessage()], 'upload');
             }
