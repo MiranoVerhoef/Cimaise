@@ -96,7 +96,7 @@
     <div id="media-sidebar" class="w-full lg:w-96 bg-white rounded-lg border border-gray-200 hidden flex-shrink-0 max-w-full flex-col">
       <div class="p-4 border-b border-gray-200 relative">
         <h3 class="font-semibold text-gray-900 mb-4">{{ trans('admin.media.image_details') }}</h3>
-        <button id="sidebar-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100" type="button">
+        <button id="media-sidebar-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100" type="button">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -108,6 +108,11 @@
           <div class="mt-2 text-xs text-gray-500" id="sidebar-dimensions"></div>
         </div>
 
+        <section class="mb-4" aria-labelledby="image-versions-title">
+          <h3 id="image-versions-title" class="text-sm font-semibold mb-2">{{ trans('admin.media.versions', {}, 'Image versions') }}</h3>
+          <p id="image-versions-status" class="text-xs text-gray-600 mb-2" role="status"></p>
+          <div id="image-versions-list" class="space-y-2 text-xs"></div>
+        </section>
         <!-- Image details form -->
         <form id="sidebar-form" class="space-y-4">
           <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -460,7 +465,7 @@
       const grid = document.getElementById('media-grid');
       const sidebar = document.getElementById('media-sidebar');
       const sidebarForm = document.getElementById('sidebar-form');
-      const sidebarClose = document.getElementById('sidebar-close');
+      const sidebarClose = document.getElementById('media-sidebar-close');
       const attachBtn = document.getElementById('media-attach-btn');
       const deleteBtn = document.getElementById('media-delete-btn');
       const selectAll = document.getElementById('media-select-all');
@@ -469,6 +474,43 @@
       if (!grid) return;
       
       let currentImageId = null;
+      let versionsTimer = null;
+
+      async function loadVersions(imageId) {
+        clearTimeout(versionsTimer);
+        const status = document.getElementById('image-versions-status');
+        const list = document.getElementById('image-versions-list');
+        try {
+          const response = await fetch(`${window.basePath || ''}/admin/media/images/${imageId}/variants`, { cache: 'no-store', headers: { Accept: 'application/json' } });
+          if (!response.ok) throw new Error('Unavailable');
+          const data = await response.json();
+          if (currentImageId !== imageId || !sidebar.isConnected) return;
+          list.replaceChildren();
+          const ready = data.variants.filter(variant => variant.ready).length;
+          status.textContent = window.adminTf('admin.media.versions_ready', { ready, total: data.variants.length }, '{ready}/{total} versions ready');
+          if (data.job?.pending && data.job.state === 'retrying') status.textContent += ' · ' + window.adminT('admin.media.versions_retrying', 'Waiting to retry automatically');
+          for (const variant of data.variants) {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-2';
+            const label = document.createElement('span');
+            label.textContent = variant.name + (variant.ready ? ` · ${variant.width} × ${variant.height} · ${Math.ceil(variant.bytes / 1024)} KB` : ' · ' + window.adminT('admin.media.versions_missing', 'Not generated'));
+            row.appendChild(label);
+            if (variant.ready) {
+              const link = document.createElement('a');
+              link.href = (window.basePath || '') + variant.url;
+              link.target = '_blank';
+              link.rel = 'noopener';
+              link.className = 'underline';
+              link.textContent = window.adminT('admin.media.versions_view', 'View');
+              row.appendChild(link);
+            }
+            list.appendChild(row);
+          }
+          if (data.job?.pending) versionsTimer = setTimeout(() => loadVersions(imageId), 2000);
+        } catch (_) {
+          if (currentImageId === imageId) status.textContent = window.adminT('admin.image_jobs.unavailable', 'Reconnecting to image generation status…');
+        }
+      }
 
       // Add checkboxes to grid items
       grid.querySelectorAll('[data-media-id]')?.forEach(card => {
@@ -489,6 +531,12 @@
           // Don't open sidebar if checkbox was clicked
           if (e.target.type === 'checkbox') return;
           openSidebarWithExif(id, card);
+        });
+        card.addEventListener('keydown', (e) => {
+          if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            openSidebarWithExif(id, card);
+          }
         });
 
         // Update selection count when checkbox changes
@@ -530,6 +578,9 @@
       // Open sidebar with image details
       function openSidebar(imageId, cardElement) {
         currentImageId = imageId;
+        document.getElementById('image-versions-list').replaceChildren();
+        document.getElementById('image-versions-status').textContent = '…';
+        loadVersions(imageId);
         sidebar.classList.remove('hidden');
         sidebar.classList.add('flex');
         
@@ -580,6 +631,7 @@
 
       // Close sidebar function
       function closeSidebar() {
+        clearTimeout(versionsTimer);
         if (sidebar) {
           sidebar.classList.add('hidden');
           sidebar.classList.remove('flex');
@@ -602,7 +654,7 @@
       // Close sidebar when clicking outside
       document.addEventListener('click', (e) => {
         // Handle direct clicks on close button
-        if (e.target.closest('#sidebar-close')) {
+        if (e.target.closest('#media-sidebar-close')) {
           e.preventDefault();
           e.stopPropagation();
           closeSidebar();
@@ -614,7 +666,7 @@
             !sidebar.contains(e.target) && 
             e.target !== sidebar &&
             !e.target.closest('[data-media-id]') &&
-            !e.target.closest('#sidebar-close')) {
+            !e.target.closest('#media-sidebar-close')) {
           closeSidebar();
         }
       });
@@ -1035,7 +1087,8 @@
       });
 
       // Load EXIF when sidebar opens
-      const originalOpenSidebar = window.openSidebar || openSidebar;
+      // SPA navigation must bind to this page's sidebar, never a detached old one.
+      const originalOpenSidebar = openSidebar;
       function openSidebarWithExif(imageId, cardElement) {
         // Reset EXIF editor state
         exifEditor.classList.add('hidden');

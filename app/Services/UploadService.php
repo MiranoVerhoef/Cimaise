@@ -626,13 +626,13 @@ class UploadService
      * @param string|null $onlyFormat  Restrict generation to a single format ('jpg'|'webp'|'avif').
      *                                 Upload/cron callers omit both and keep full generation.
      */
-    public function generateVariantsForImage(int $imageId, bool $force = false, ?string $onlyVariant = null, ?string $onlyFormat = null): array
+    public function generateVariantsForImage(int $imageId, bool $force = false, ?string $onlyVariant = null, ?string $onlyFormat = null, ?callable $progress = null): array
     {
         return \App\Support\ImageProcessingLock::run($imageId,
-            fn () => $this->generateVariantsUnlocked($imageId, $force, $onlyVariant, $onlyFormat));
+            fn () => $this->generateVariantsUnlocked($imageId, $force, $onlyVariant, $onlyFormat, $progress));
     }
 
-    private function generateVariantsUnlocked(int $imageId, bool $force, ?string $onlyVariant, ?string $onlyFormat): array
+    private function generateVariantsUnlocked(int $imageId, bool $force, ?string $onlyVariant, ?string $onlyFormat, ?callable $progress): array
     {
         clearstatcache();
         $pdo = $this->db->pdo();
@@ -715,30 +715,25 @@ class UploadService
 
         $haveImagick = class_exists(\Imagick::class) && !$this->imagickDisabled();
         $stats = ['generated' => 0, 'failed' => 0, 'skipped' => 0];
+        $enabledFormats = array_values(array_filter(['avif', 'webp', 'jpg', 'jxl'], static function ($fmt) use ($formats, $onlyFormat): bool {
+            return ($onlyFormat === null || $fmt === $onlyFormat)
+                && filter_var($formats[$fmt] ?? false, FILTER_VALIDATE_BOOLEAN)
+                && ($fmt !== 'jxl' || \App\Services\Imaging\ImageEngine::capabilities()['jxl_write']);
+        }));
+        $total = count($enabledFormats) * count(array_filter(array_keys($breakpoints), static fn ($variant) => $onlyVariant === null || (string)$variant === $onlyVariant));
 
         foreach ($breakpoints as $variant => $targetW) {
             if ($onlyVariant !== null && (string)$variant !== $onlyVariant) {
                 continue;
             }
             $targetW = max(1, (int)$targetW);
-            foreach (['avif','webp','jpg','jxl'] as $fmt) {
-                if ($onlyFormat !== null && $fmt !== $onlyFormat) {
-                    continue;
-                }
-                $enabled = $formats[$fmt] ?? false;
-                if (is_string($enabled)) {
-                    $enabled = filter_var($enabled, FILTER_VALIDATE_BOOLEAN);
-                }
-                if (!$enabled) {
-                    continue;
-                }
-
-                if ($fmt === 'jxl' && !\App\Services\Imaging\ImageEngine::capabilities()['jxl_write']) {
-                    continue;
-                }
+            foreach ($enabledFormats as $fmt) {
                 $destRelUrl = "/media/{$imageId}_{$variant}.{$fmt}";
                 $destPath = $mediaDir . "/{$imageId}_{$variant}.{$fmt}";
                 $key = $variant . '|' . $fmt;
+                if ($progress !== null) {
+                    $progress($stats['generated'] + $stats['skipped'], $total, (string)$variant . '.' . $fmt);
+                }
 
                 // Check if variant already exists in DB
                 $existsInDb = isset($existingVariants[$key]);
@@ -810,6 +805,9 @@ class UploadService
             }
         }
 
+        if ($progress !== null) {
+            $progress($stats['generated'] + $stats['skipped'], $total, 'placeholder');
+        }
         return $stats;
     }
 

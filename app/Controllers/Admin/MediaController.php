@@ -26,6 +26,58 @@ class MediaController extends BaseController
 
     private const PER_PAGE = 60;
 
+    public function variants(Request $request, Response $response, array $args): Response
+    {
+        $id = (int)$args['id'];
+        $stmt = $this->db->pdo()->prepare('SELECT id FROM images WHERE id = ?');
+        $stmt->execute([$id]);
+        $exists = $stmt->fetchColumn();
+        $stmt->closeCursor();
+        if (!$exists) {
+            return $response->withStatus(404);
+        }
+        $settings = new SettingsService($this->db);
+        $defaults = $settings->defaults();
+        $formats = $settings->get('image.formats', $defaults['image.formats']);
+        $breakpoints = $settings->get('image.breakpoints', $defaults['image.breakpoints']);
+        $formats = is_array($formats) && $formats ? $formats : $defaults['image.formats'];
+        $breakpoints = is_array($breakpoints) && $breakpoints ? $breakpoints : $defaults['image.breakpoints'];
+        if (!array_filter($formats)) { $formats['jpg'] = true; }
+        $stmt = $this->db->pdo()->prepare('SELECT variant, format, width, height, size_bytes FROM image_variants WHERE image_id = ?');
+        $stmt->execute([$id]);
+        $registered = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $registered[$row['variant'] . '.' . $row['format']] = $row;
+        }
+        $stmt->closeCursor();
+        $storage = new \App\Services\ProtectedMediaStorage($this->db);
+        $protected = $storage->isImageProtected($id);
+        $directory = dirname(__DIR__, 3) . ($protected ? '/storage/protected-media/' : '/public/media/');
+        $variants = [];
+        foreach ($breakpoints as $variant => $_width) {
+            foreach (['jpg', 'webp', 'avif', 'jxl'] as $format) {
+                if (!filter_var($formats[$format] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || ($format === 'jxl' && !\App\Services\Imaging\ImageEngine::capabilities()['jxl_write'])) {
+                    continue;
+                }
+                $key = $variant . '.' . $format;
+                // Never turn a customized setting into a filesystem path or URL.
+                if (!preg_match('/^[a-zA-Z0-9_-]+\.(jpg|webp|avif|jxl)$/D', $key)) { continue; }
+                $row = $registered[$key] ?? [];
+                $file = $directory . $id . '_' . $key;
+                $ready = $row && is_file($file) && filesize($file) > 0;
+                $variants[] = ['name' => $key, 'ready' => (bool)$ready,
+                    'width' => (int)($row['width'] ?? 0), 'height' => (int)($row['height'] ?? 0),
+                    'bytes' => $ready ? (int)filesize($file) : 0,
+                    'url' => $ready ? ($protected ? '/media/protected/' . $id . '/' . $key : '/media/' . $id . '_' . $key) : null];
+            }
+        }
+        $jobs = (new \App\Services\ImageJobQueue($this->db))->status();
+        $job = array_values(array_filter($jobs, static fn ($job) => $job['id'] === $id))[0] ?? null;
+        $response->getBody()->write(json_encode(['variants' => $variants, 'job' => $job], JSON_THROW_ON_ERROR));
+        return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
+    }
+
     private function invalidateAlbumCaches(int $albumId): void
     {
         try {

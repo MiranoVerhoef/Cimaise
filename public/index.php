@@ -337,7 +337,10 @@ $app->add(new FlashMiddleware());
 $app->add(new SecurityHeadersMiddleware());
 $app->add(new EarlyHintsMiddleware($basePath));
 
-$twigCacheDir = __DIR__ . '/../storage/cache/twig';
+// The storage volume survives Docker upgrades, but compiled templates must not.
+// auto_reload is disabled in production; namespace caches by the shipped release.
+$templateRelease = substr((string)hash_file('sha256', __DIR__ . '/../version.json'), 0, 16);
+$twigCacheDir = __DIR__ . '/../storage/cache/twig/' . $templateRelease;
 $twigCache = false;
 if (!is_dir($twigCacheDir)) {
     @mkdir($twigCacheDir, 0755, true);

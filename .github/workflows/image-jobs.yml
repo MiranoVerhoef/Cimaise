@@ -28,6 +28,7 @@ jobs:
           docker run -d --name cimaise-apache -p 8080:80 -v "$PWD/tests/integration:/tests:ro" cimaise:test
           bash tests/integration/web-upload.sh cimaise-apache 8080
       - name: Build PHP-FPM test host
+        # Production Apache browser checks also exercise all combined admin controls.
         run: |
           docker create --name fpm-source cimaise:test
           mkdir -p /tmp/fpm-source
@@ -36,6 +37,19 @@ jobs:
           # This test host must retain the already-built production dependencies.
           rm /tmp/fpm-source/.dockerignore
           docker build -f tests/integration/Dockerfile.fpm -t cimaise:fpm /tmp/fpm-source
+      - name: Verify admin gallery, visibility controls and progress in Chromium
+        run: |
+          npm install --prefix /tmp/cimaise-browser-tests --no-audit --no-fund playwright
+          /tmp/cimaise-browser-tests/node_modules/.bin/playwright install --with-deps chromium
+          docker exec -u www-data cimaise-apache touch /var/www/html/storage/image-jobs/999.job
+          NODE_PATH=/tmp/cimaise-browser-tests/node_modules node tests/integration/admin-ui.cjs
+      - name: Upload admin screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-gallery-preview
+          path: /tmp/cimaise-admin-gallery.png
+          if-no-files-found: ignore
       - name: Verify PHP-FPM HTTP upload and restart recovery
         run: |
           docker run -d --name cimaise-fpm -p 8081:80 -v "$PWD/tests/integration:/tests:ro" cimaise:fpm

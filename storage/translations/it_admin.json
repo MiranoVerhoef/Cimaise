@@ -6,6 +6,18 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.media.versions": "Versioni immagine",
+    "admin.media.versions_ready": "{ready}/{total} versioni pronte",
+    "admin.media.versions_retrying": "In attesa di un nuovo tentativo automatico",
+    "admin.media.versions_missing": "Non generata",
+    "admin.media.versions_view": "Visualizza",
+    "admin.image_jobs.label": "Avanzamento generazione immagini",
+    "admin.image_jobs.progress": "Creazione versioni immagini: {completed}/{total} passaggi · {pending} immagini rimanenti",
+    "admin.image_jobs.placeholder": "anteprima",
+    "admin.image_jobs.retrying": "{count} in attesa di un nuovo tentativo automatico",
+    "admin.image_jobs.complete": "Versioni immagini pronte",
+    "admin.image_jobs.unavailable": "Riconnessione allo stato di generazione immagini…",
+    "admin.settings.compression_server_managed": "Apache gestisce automaticamente la compressione. I controlli seguenti si applicano solo alla compressione PHP quando quella del server non è disponibile.",
     "admin.albums.add_more_images": "Aggiungi altre immagini",
     "admin.version_label": "Versione applicazione",
     "admin.albums.add_password": "Aggiungi password",

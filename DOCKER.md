@@ -1,5 +1,13 @@
 # Running Cimaise with Docker
 
+The `1.4.23-test.2` fork image adds Apache Brotli (with gzip fallback) and an
+admin progress bar for queued image variants and retries. Deploy with the same
+ports and volumes using `ghcr.io/miranoverhoef/cimaise:1.4.23-test.2`.
+Compiled Twig caches are isolated per release so upgrades also refresh the
+translated sidebar and album equipment visibility controls. Custom translations
+and application data are preserved. Compression settings report Apache support;
+Apache's compression operates independently of the PHP compression controls.
+
 Cimaise ships as a self-contained, multi-architecture image (`linux/amd64` +
 `linux/arm64`) built on **PHP 8.5 + Apache** (Debian trixie, patched at build
 time). It bundles every extension the CMS needs — GD (with AVIF/WebP), Imagick

@@ -74,6 +74,7 @@ final class ImageJobQueue
                     $state = ['attempts' => $attempt, 'next_at' => time() + min(300, 2 ** $attempt), 'error' => $e->getMessage()];
                     // A crash during this update merely leaves an immediately retryable job.
                     file_put_contents($path, json_encode($state, JSON_THROW_ON_ERROR), LOCK_EX);
+                    $this->report($id, ['state' => 'retrying', 'next_at' => $state['next_at'], 'attempts' => $attempt]);
                     Logger::warning('Image generation job will retry', ['image_id' => $id] + $state, 'upload');
                 }
             }
@@ -114,7 +115,11 @@ final class ImageJobQueue
     public function processImage(int $id): void
     {
         $service = new UploadService($this->db);
-        $stats = $service->generateVariantsForImage($id);
+        $this->report($id, ['state' => 'processing', 'next_at' => 0]);
+        $stats = $service->generateVariantsForImage($id, progress: function (int $completed, int $total, string $current) use ($id): void {
+            // Reserve one step for the placeholder; 100% means the entire job finished.
+            $this->report($id, ['state' => 'processing', 'completed' => $completed, 'total' => $total + 1, 'current' => $current]);
+        });
         if ($stats['failed'] > 0) {
             throw new RuntimeException($stats['failed'] . ' image variants failed');
         }
@@ -126,6 +131,58 @@ final class ImageJobQueue
         $placeholder = $protected ? $service->generateBlurredVariant($id) : $service->generateLQIP($id);
         if ($placeholder === null) {
             throw new RuntimeException('Image placeholder generation failed');
+        }
+        $this->report($id, ['state' => 'complete', 'completed' => $stats['generated'] + $stats['skipped'] + 1, 'current' => '']);
+    }
+
+    /** Files keep frequent progress updates out of SQLite. No paths/errors are exposed. */
+    public function status(): array
+    {
+        $jobs = [];
+        foreach (glob($this->directory . '/*.progress') ?: [] as $path) {
+            $id = (int)basename($path, '.progress');
+            $state = json_decode((string)@file_get_contents($path), true);
+            if (!is_array($state)) {
+                continue;
+            }
+            $pending = is_file($this->directory . '/' . $id . '.job');
+            if ($pending && ($state['state'] ?? '') === 'complete') {
+                $state = ['state' => 'queued', 'completed' => 0, 'total' => 0, 'current' => ''];
+            }
+            if (!$pending && (int)($state['updated_at'] ?? 0) < time() - 300) {
+                continue;
+            }
+            $jobs[] = ['id' => $id, 'pending' => $pending] + $state;
+        }
+        // Include legacy job markers that predate progress reporting.
+        $known = array_column($jobs, 'id');
+        foreach (glob($this->directory . '/*.job') ?: [] as $path) {
+            $id = (int)basename($path, '.job');
+            if (!in_array($id, $known, true)) {
+                $jobs[] = ['id' => $id, 'pending' => true, 'state' => 'queued', 'completed' => 0, 'total' => 0, 'current' => ''];
+            }
+        }
+        return $jobs;
+    }
+
+    private function report(int $id, array $changes): void
+    {
+        $this->ensureDirectory();
+        $path = $this->directory . '/' . $id . '.progress';
+        $state = json_decode((string)@file_get_contents($path), true) ?: [];
+        $state = array_replace($state, $changes, ['updated_at' => time()]);
+        $temporary = $path . '.tmp';
+        // Queue workers are serialized. Atomic rename gives readers a full snapshot.
+        if (@file_put_contents($temporary, json_encode($state, JSON_THROW_ON_ERROR)) !== false) {
+            @rename($temporary, $path);
+        }
+        // Bounded retention; active jobs are never removed.
+        if (($changes['state'] ?? '') === 'complete') {
+            foreach (glob($this->directory . '/*.progress') ?: [] as $old) {
+                if (@filemtime($old) < time() - 300 && !is_file(substr($old, 0, -9) . '.job')) {
+                    @unlink($old);
+                }
+            }
         }
     }
 

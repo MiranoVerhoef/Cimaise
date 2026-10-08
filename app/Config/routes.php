@@ -448,6 +448,18 @@ return function (App $app, array $container) {
         return $resp;
     });
 
+    // Read-only, authenticated progress polling; no database writes or job claims.
+    $app->get('/admin/api/image-jobs', function (Request $request, Response $response) use ($container) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $jobs = (new \App\Services\ImageJobQueue($container['db']))->status();
+        $response->getBody()->write(json_encode(['jobs' => $jobs], JSON_THROW_ON_ERROR));
+        return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
+    });
+
     // Upload + API
     $app->post('/admin/albums/{id}/upload', function (Request $request, Response $response, array $args) use ($container) {
         $controller = new \App\Controllers\Admin\UploadController($container['db']);
@@ -2263,6 +2275,12 @@ return function (App $app, array $container) {
         $resp = new \Slim\Psr7\Response(503);
         $resp->getBody()->write('Service Unavailable');
         return $resp;
+    });
+    $app->get('/admin/media/images/{id}/variants', function (Request $request, Response $response, array $args) use ($container) {
+        $controller = new \App\Controllers\Admin\MediaController($container['db'], Twig::fromRequest($request), new \App\Services\ExifService($container['db']));
+        return $controller->variants($request, $response, $args);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
     });
     $app->post('/admin/media/images/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
         $exifService = new \App\Services\ExifService($container['db']);

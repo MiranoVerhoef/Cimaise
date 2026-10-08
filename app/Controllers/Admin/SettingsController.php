@@ -48,9 +48,11 @@ class SettingsController extends BaseController
         }
 
         // Check compression availability
+        $apacheModules = function_exists('apache_get_modules') ? apache_get_modules() : [];
         $compressionAvailability = [
-            'brotli' => function_exists('brotli_compress'),
-            'gzip' => function_exists('gzencode'),
+            'brotli' => function_exists('brotli_compress') || in_array('mod_brotli', $apacheModules, true),
+            'gzip' => function_exists('gzencode') || in_array('mod_deflate', $apacheModules, true),
+            'server' => in_array('mod_brotli', $apacheModules, true) || in_array('mod_deflate', $apacheModules, true),
             'deflate' => function_exists('gzdeflate'),
             'zlib' => extension_loaded('zlib')
         ];

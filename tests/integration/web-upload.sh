@@ -19,6 +19,32 @@ curl -fsS -b "$tmp/cookies" -c "$tmp/cookies" -D "$tmp/headers" \
 grep -q '302' "$tmp/headers"
 csrf=$(awk 'tolower($1)=="x-csrf-token:" {gsub("\r", "", $2); print $2}' "$tmp/headers")
 test -n "$csrf"
+curl -fsS -b "$tmp/cookies" "$base/admin/api/image-jobs" > "$tmp/jobs.json"
+python3 -c 'import json,sys; assert isinstance(json.load(open(sys.argv[1]))["jobs"],list)' "$tmp/jobs.json"
+curl -sS -D "$tmp/anonymous-headers" "$base/admin/api/image-jobs" > /dev/null
+grep -q '302' "$tmp/anonymous-headers"
+docker exec "$container" php /tests/prime-template-cache.php prime
+curl -fsS -b "$tmp/cookies" "$base/admin/albums/1/edit" > "$tmp/old-admin"
+grep -q 'OLD-ITALIAN-SIDEBAR' "$tmp/old-admin"
+grep -q 'id="old-equipment-field"' "$tmp/old-admin"
+docker exec "$container" php /tests/prime-template-cache.php restore
+curl -fsS -b "$tmp/cookies" "$base/admin/albums/1/edit" > "$tmp/admin"
+grep -q 'id="image-job-progress"' "$tmp/admin"
+grep -q 'Overview' "$tmp/admin"
+grep -q 'id="show_equipment"' "$tmp/admin"
+if grep -q 'OLD-ITALIAN-SIDEBAR' "$tmp/admin"; then exit 1; fi
+echo 'PASS: release upgrade refreshes cached sidebar and equipment controls'
+if [ "${3:-}" != "fpm" ]; then
+  for encoding in br gzip; do
+    curl -fsS --compressed -H "Accept-Encoding: $encoding" -D "$tmp/compression" "$base/admin/login" > "$tmp/decoded"
+    grep -qi "content-encoding: $encoding" "$tmp/compression"
+    grep -qi '<!doctype html>' "$tmp/decoded"
+  done
+  curl -fsS -b "$tmp/cookies" "$base/admin/settings" > "$tmp/settings"
+  grep -q 'Brotli Available' "$tmp/settings"
+  echo 'PASS: Brotli/gzip negotiation, decoding and Apache diagnostics'
+fi
+echo 'PASS: authenticated progress endpoint and English sidebar'
 curl -fsS -b "$tmp/cookies" -D "$tmp/headers" -H "X-CSRF-Token: $csrf" \
   -F "file=@$tmp/upload.jpg" "$base/admin/albums/1/upload" > "$tmp/result"
 cat "$tmp/result"
@@ -34,6 +60,12 @@ for size in sm md lg; do
   done
 done
 echo 'PASS: authenticated HTTP upload automatically generated all variants'
+curl -fsS -b "$tmp/cookies" "$base/admin/api/image-jobs" > "$tmp/jobs.json"
+python3 -c 'import json,sys; jobs=json.load(open(sys.argv[1]))["jobs"]; j=next(j for j in jobs if j["id"]==int(sys.argv[2])); assert j["total"]==10 and j["completed"]==10 and j["state"]=="complete"' "$tmp/jobs.json" "$id"
+curl -fsS -b "$tmp/cookies" "$base/admin/media/images/$id/variants" > "$tmp/variants.json"
+python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))["variants"]; assert len(v)==9 and all(x["ready"] and x["url"].startswith("/media/") for x in v)' "$tmp/variants.json"
+curl -sS -D "$tmp/anonymous-headers" "$base/admin/media/images/$id/variants" > /dev/null
+grep -q '302' "$tmp/anonymous-headers"
 pids=""
 for number in 1 2 3 4; do
   curl -fsS -b "$tmp/cookies" -H "X-CSRF-Token: $csrf" \

@@ -53,8 +53,11 @@ try {
     $job = $root . '/storage/image-jobs/' . $id . '.job';
     check(is_file($job), 'asynchronous upload persists its job');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'asynchronous upload defers larger variants');
+    check(array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0]['state'] === 'queued', 'queued progress is visible before processing');
     check($queue->drain() === 0, 'queued image generates without errors');
     check(!is_file($job), 'successful job is removed');
+    $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
+    check($progress['state'] === 'complete' && $progress['completed'] === 10 && $progress['total'] === 10, 'progress counts all nine variants and the placeholder');
     foreach (['sm', 'md', 'lg'] as $size) {
         foreach (['jpg', 'webp', 'avif'] as $format) {
             check(is_file($root . '/public/media/' . $id . '_' . $size . '.' . $format), "generates {$size}.{$format}");
@@ -75,6 +78,8 @@ try {
     check($queue->drain() === 1 && is_file($job), 'failed job remains queued');
     $state = json_decode(file_get_contents($job), true);
     check($state['attempts'] === 1 && $state['next_at'] > time(), 'failed job receives retry backoff');
+    $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
+    check($progress['state'] === 'retrying' && !isset($progress['error']), 'retry status does not expose internal error paths');
     foreach ([new ImagesGenerateCommand($db), new ImagesGenerateVariantsCommand($db)] as $command) {
         $tester = new CommandTester($command);
         check($tester->execute(['--image' => $id]) === 1, 'CLI generation reports failure for missing original');
