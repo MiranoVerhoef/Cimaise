@@ -78,10 +78,16 @@ const assert = require('node:assert/strict');
   });
   assert.equal(uploadedLogo.status(), 200, await uploadedLogo.text());
   await page.reload();
+  // The upload fixture uses tiny breakpoints for speed; settings require >=100.
+  for (const [index, size] of ['sm', 'md', 'lg', 'xl', 'xxl'].entries()) {
+    await page.locator(`[name="bp_${size}"]`).fill(String((index + 1) * 100));
+  }
   await page.locator('label').filter({ has: page.locator('[name="maintenance_enabled"]') }).click();
   assert.equal(await page.locator('[name="maintenance_enabled"]').isChecked(), true);
   await page.locator('[name="maintenance_show_logo"]').check();
   await saveForm('#settings-form');
+  await page.reload();
+  assert.equal(await page.locator('[name="maintenance_enabled"]').isChecked(), true);
   const visitor = await browser.newContext({ baseURL: 'http://localhost:8080' });
   const maintenance = await visitor.newPage();
   const unavailable = await maintenance.goto('/');
