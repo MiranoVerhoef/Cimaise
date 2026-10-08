@@ -494,7 +494,8 @@
             const row = document.createElement('div');
             row.className = 'flex items-center justify-between gap-2';
             const label = document.createElement('span');
-            label.textContent = variant.name + (variant.ready ? ` · ${variant.width} × ${variant.height} · ${Math.ceil(variant.bytes / 1024)} KB` : ' · ' + window.adminT('admin.media.versions_missing', 'Not generated'));
+            const size = variant.bytes >= 1048576 ? `${(variant.bytes / 1048576).toFixed(2)} MB` : `${Math.ceil(variant.bytes / 1024)} KB`;
+            label.textContent = variant.name + (variant.ready ? ` · ${variant.width} × ${variant.height} · ${size}` : ' · ' + window.adminT('admin.media.versions_missing', 'Not generated'));
             row.appendChild(label);
             if (variant.ready) {
               const link = document.createElement('a');

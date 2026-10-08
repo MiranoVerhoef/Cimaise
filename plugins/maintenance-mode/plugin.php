@@ -223,7 +223,7 @@ class MaintenanceModePlugin
             }
 
             // Allow static assets
-            if (preg_match('/\.(css|js|png|jpg|jpeg|gif|webp|avif|ico|svg|woff|woff2|ttf|eot)$/i', $path)) {
+            if (preg_match('/\.(css|js|png|jpg|jpeg|gif|webp|avif|ico|svg|woff|woff2|ttf|otf|eot)$/i', $path)) {
                 return false;
             }
 
