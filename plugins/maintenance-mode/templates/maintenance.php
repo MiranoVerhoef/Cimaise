@@ -25,6 +25,16 @@ $siteLogo = $config['site_logo'] ?? null;
 $showLogo = $config['show_logo'] ?? true;
 $showCountdown = $config['show_countdown'] ?? true;
 $basePath ??= '';
+// Uploaded logos already include /media/. Keep legacy bare filenames working.
+$logoUrl = null;
+if (is_string($siteLogo) && $siteLogo !== '') {
+    if (preg_match('#^https?://#i', $siteLogo)) {
+        $logoUrl = $siteLogo;
+    } else {
+        $logoPath = str_starts_with($siteLogo, '/') ? $siteLogo : '/media/' . $siteLogo;
+        $logoUrl = $basePath . $logoPath;
+    }
+}
 $nonce = bin2hex(random_bytes(16));
 
 // Set response headers
@@ -240,7 +250,7 @@ header('Content-Type: text/html; charset=UTF-8');
         <!-- Logo or Site Name -->
         <div class="logo">
             <?php if ($showLogo && $siteLogo): ?>
-                <img src="<?= $basePath ?>/media/<?= htmlspecialchars($siteLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
+                <img src="<?= htmlspecialchars($logoUrl ?? '', ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
             <?php endif; ?>
         </div>
 

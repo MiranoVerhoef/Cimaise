@@ -67,5 +67,38 @@ const assert = require('node:assert/strict');
   await page.screenshot({ path: '/tmp/cimaise-admin-gallery.png', fullPage: true });
   assert.deepEqual(errors, []);
   console.log('PASS: gallery click/keyboard, SPA re-entry, variant views and retry progress');
+
+  await page.goto('/admin/settings');
+  const csrf = await page.locator('#settings-form input[name="csrf"]').inputValue();
+  const uploadedLogo = await context.request.post('/admin/settings/logo-upload', {
+    headers: { 'X-CSRF-Token': csrf },
+    multipart: { file: { name: 'logo.jpg', mimeType: 'image/jpeg', buffer: await image.body() } }
+  });
+  assert.equal(uploadedLogo.status(), 200, await uploadedLogo.text());
+  await page.reload();
+  await page.locator('[name="maintenance_enabled"]').check();
+  await page.locator('[name="maintenance_show_logo"]').check();
+  await saveForm('#settings-form');
+  const visitor = await browser.newContext({ baseURL: 'http://localhost:8080' });
+  const maintenance = await visitor.newPage();
+  const unavailable = await maintenance.goto('/');
+  assert.equal(unavailable.status(), 503);
+  assert.equal(unavailable.headers()['retry-after'], '3600');
+  const logo = maintenance.locator('.logo img');
+  assert.match(await logo.getAttribute('src'), /^\/media\/logo-/);
+  await logo.evaluate(element => element.decode());
+  assert.equal((await visitor.request.get(await logo.getAttribute('src'))).status(), 200);
+  await page.goto('/admin/settings');
+  assert.equal(await page.locator('[name="maintenance_show_logo"]').isChecked(), true);
+  await page.locator('[name="maintenance_show_logo"]').uncheck();
+  await saveForm('#settings-form');
+  assert.equal((await maintenance.reload()).status(), 503);
+  assert.equal(await maintenance.locator('.logo img').count(), 0);
+  await page.goto('/admin/settings');
+  await page.locator('[name="maintenance_enabled"]').uncheck();
+  await saveForm('#settings-form');
+  assert.equal((await maintenance.reload()).status(), 200);
+  await visitor.close();
+  console.log('PASS: maintenance settings save, visitor 503 and logo on/off with real upload');
   await browser.close();
 })().catch(error => { console.error(error); process.exit(1); });
