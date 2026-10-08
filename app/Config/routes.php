@@ -2276,6 +2276,12 @@ return function (App $app, array $container) {
         $resp->getBody()->write('Service Unavailable');
         return $resp;
     });
+    $app->get('/admin/media/images/{id}/variants/{variant}.{format}', function (Request $request, Response $response, array $args) use ($container) {
+        $controller = new \App\Controllers\Admin\MediaController($container['db'], Twig::fromRequest($request), new \App\Services\ExifService($container['db']));
+        return $controller->viewVariant($request, $response, $args);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
+    });
     $app->get('/admin/media/images/{id}/variants', function (Request $request, Response $response, array $args) use ($container) {
         $controller = new \App\Controllers\Admin\MediaController($container['db'], Twig::fromRequest($request), new \App\Services\ExifService($container['db']));
         return $controller->variants($request, $response, $args);

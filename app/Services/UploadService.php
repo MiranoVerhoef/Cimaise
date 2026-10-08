@@ -616,16 +616,6 @@ class UploadService
         return $ok;
     }
 
-    /**
-     * Generate variants for an image that was uploaded in fast mode
-     * Returns array with statistics: ['generated' => int, 'failed' => int, 'skipped' => int]
-     * @param bool $force Force regeneration of existing variants
-     * @param string|null $onlyVariant Restrict generation to a single breakpoint (e.g. 'md').
-     *                                 Used by MediaController's on-demand path so a request
-     *                                 never pays for the full 5-sizes × 3-formats matrix.
-     * @param string|null $onlyFormat  Restrict generation to a single format ('jpg'|'webp'|'avif').
-     *                                 Upload/cron callers omit both and keep full generation.
-     */
     /** The worker and admin UI use the same enabled size/format matrix. */
     public static function variantConfiguration(SettingsService $settings): array
     {
@@ -641,6 +631,11 @@ class UploadService
         return ['breakpoints' => $breakpoints, 'formats' => $enabled];
     }
 
+    /**
+     * Generate configured variants, optionally restricted for on-demand media requests.
+     * @return array{generated: int, failed: int, skipped: int}
+     * @param callable(int, int, string): void|null $progress Completed steps, total, current variant.
+     */
     public function generateVariantsForImage(int $imageId, bool $force = false, ?string $onlyVariant = null, ?string $onlyFormat = null, ?callable $progress = null): array
     {
         return \App\Support\ImageProcessingLock::run($imageId,

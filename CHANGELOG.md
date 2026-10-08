@@ -3,6 +3,7 @@
 - Enable Apache Brotli compression with gzip fallback and detect server compression in settings.
 - Show background image generation progress across admin pages, including current size/format and automatic retries.
 - Restore gallery details after SPA navigation; list configured variants with dimensions, readiness and view links.
+- Use authenticated admin previews for unpublished and protected images without publishing their albums.
 - Namespace compiled Twig templates by release so Docker upgrades refresh the translated sidebar and visibility controls.
 - Retain all image generation fixes and combined PR changes from test.1.
 

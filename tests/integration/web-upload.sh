@@ -63,7 +63,11 @@ echo 'PASS: authenticated HTTP upload automatically generated all variants'
 curl -fsS -b "$tmp/cookies" "$base/admin/api/image-jobs" > "$tmp/jobs.json"
 python3 -c 'import json,sys; jobs=json.load(open(sys.argv[1]))["jobs"]; j=next(j for j in jobs if j["id"]==int(sys.argv[2])); assert j["total"]==10 and j["completed"]==10 and j["state"]=="complete"' "$tmp/jobs.json" "$id"
 curl -fsS -b "$tmp/cookies" "$base/admin/media/images/$id/variants" > "$tmp/variants.json"
-python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))["variants"]; assert len(v)==9 and all(x["ready"] and x["url"].startswith("/media/") for x in v)' "$tmp/variants.json"
+python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))["variants"]; assert len(v)==9 and all(x["ready"] and x["url"].startswith("/admin/media/") for x in v)' "$tmp/variants.json"
+curl -fsS -b "$tmp/cookies" "$base/admin/media/images/$id/variants/lg.jpg" > "$tmp/preview.jpg"
+test -s "$tmp/preview.jpg"
+curl -sS -D "$tmp/anonymous-preview" "$base/admin/media/images/$id/variants/lg.jpg" > /dev/null
+grep -q '302' "$tmp/anonymous-preview"
 curl -sS -D "$tmp/anonymous-headers" "$base/admin/media/images/$id/variants" > /dev/null
 grep -q '302' "$tmp/anonymous-headers"
 pids=""

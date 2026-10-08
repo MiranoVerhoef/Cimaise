@@ -60,13 +60,42 @@ class MediaController extends BaseController
                 $variants[] = ['name' => $key, 'ready' => (bool)$ready,
                     'width' => (int)($row['width'] ?? 0), 'height' => (int)($row['height'] ?? 0),
                     'bytes' => $ready ? (int)filesize($file) : 0,
-                    'url' => $ready ? ($protected ? '/media/protected/' . $id . '/' . $key : '/media/' . $id . '_' . $key) : null];
+                    'url' => $ready ? '/admin/media/images/' . $id . '/variants/' . $key : null];
             }
         }
         $jobs = (new \App\Services\ImageJobQueue($this->db))->status();
         $job = array_values(array_filter($jobs, static fn ($job) => $job['id'] === $id))[0] ?? null;
         $response->getBody()->write(json_encode(['variants' => $variants, 'job' => $job], JSON_THROW_ON_ERROR));
         return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
+    }
+
+    /** AuthMiddleware protects previews, including unpublished and protected albums. */
+    public function viewVariant(Request $request, Response $response, array $args): Response
+    {
+        $id = (int)$args['id'];
+        $variant = (string)$args['variant'];
+        $format = (string)$args['format'];
+        $types = ['jpg' => 'image/jpeg', 'webp' => 'image/webp', 'avif' => 'image/avif', 'jxl' => 'image/jxl'];
+        if (!isset($types[$format]) || !preg_match('/^[a-zA-Z0-9_-]+$/D', $variant)) {
+            return $response->withStatus(404);
+        }
+        $stmt = $this->db->pdo()->prepare('SELECT image_id FROM image_variants WHERE image_id = ? AND variant = ? AND format = ?');
+        $stmt->execute([$id, $variant, $format]);
+        $exists = $stmt->fetchColumn();
+        $stmt->closeCursor();
+        $protected = (new \App\Services\ProtectedMediaStorage($this->db))->isImageProtected($id);
+        $directory = dirname(__DIR__, 3) . ($protected ? '/storage/protected-media/' : '/public/media/');
+        $path = $directory . $id . '_' . $variant . '.' . $format;
+        $real = realpath($path);
+        $base = realpath($directory);
+        if (!$exists || !$real || !$base || !str_starts_with($real, $base . DIRECTORY_SEPARATOR) || !is_file($real)) {
+            return $response->withStatus(404);
+        }
+        $stream = @fopen($real, 'rb');
+        if ($stream === false) { return $response->withStatus(404); }
+        return $response->withBody(new \Slim\Psr7\Stream($stream))
+            ->withHeader('Content-Type', $types[$format])->withHeader('Content-Length', (string)filesize($real))
+            ->withHeader('Cache-Control', 'private, no-store')->withHeader('X-Robots-Tag', 'noindex, noimageindex');
     }
 
     private function invalidateAlbumCaches(int $albumId): void
@@ -171,6 +200,12 @@ class MediaController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $items = $stmt->fetchAll() ?: [];
+        foreach ($items as &$item) {
+            if (preg_match('/^' . (int)$item['id'] . '_([a-zA-Z0-9_-]+)\.(jpg|webp|avif|jxl)$/D', basename((string)$item['preview_path']), $match)) {
+                $item['preview_path'] = '/admin/media/images/' . (int)$item['id'] . '/variants/' . $match[1] . '.' . $match[2];
+            }
+        }
+        unset($item);
 
         $partial = (string)($request->getQueryParams()['partial'] ?? '') === '1';
         $tpl = $partial ? 'admin/media/_grid.twig' : 'admin/media/index.twig';

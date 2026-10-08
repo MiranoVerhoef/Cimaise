@@ -103,7 +103,10 @@ try {
     $request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/admin/media/images/' . $id . '/variants');
     $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);
     $detail = json_decode((string)$response->getBody(), true);
-    check(count($detail['variants']) === 9 && count(array_filter($detail['variants'], fn ($variant) => $variant['ready'] && str_starts_with($variant['url'], '/media/protected/'))) === 9, 'gallery details use authenticated URLs for protected variants');
+    check(count($detail['variants']) === 9 && count(array_filter($detail['variants'], fn ($variant) => $variant['ready'] && str_starts_with($variant['url'], '/admin/media/images/'))) === 9, 'gallery details use authenticated URLs for protected variants');
+    $preview = $controller->viewVariant($request, new \Slim\Psr7\Response(), ['id' => $id, 'variant' => 'lg', 'format' => 'jpg']);
+    check($preview->getStatusCode() === 200 && $preview->getBody()->getSize() > 0 && $preview->getHeaderLine('Cache-Control') === 'private, no-store', 'admin previews stream unpublished protected images privately');
+    unset($preview);
     unlink($root . '/storage/protected-media/' . $id . '_lg.jpg');
     clearstatcache();
     $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);
