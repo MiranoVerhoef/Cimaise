@@ -45,6 +45,8 @@ const assert = require('node:assert/strict');
   const image = await context.request.get(await links.first().getAttribute('href'));
   assert.equal(image.status(), 200);
   assert.match(image.headers()['content-type'], /^image\//);
+  const webpLogo = await context.request.get(await page.locator('#image-versions-list a[href$=".webp"]').first().getAttribute('href'));
+  assert.equal(webpLogo.status(), 200);
   await page.locator('#media-sidebar-close').click();
   assert.equal(await page.locator('#media-sidebar').isVisible(), false);
   // Re-enter through actual SPA links: old window.openSidebar closures caused this failure.
@@ -72,7 +74,7 @@ const assert = require('node:assert/strict');
   const csrf = await page.locator('#settings-form input[name="csrf"]').inputValue();
   const uploadedLogo = await context.request.post('/admin/settings/logo-upload', {
     headers: { 'X-CSRF-Token': csrf },
-    multipart: { file: { name: 'logo.jpg', mimeType: 'image/jpeg', buffer: await image.body() } }
+    multipart: { file: { name: 'logo.webp', mimeType: 'image/webp', buffer: await webpLogo.body() } }
   });
   assert.equal(uploadedLogo.status(), 200, await uploadedLogo.text());
   await page.reload();
