@@ -95,23 +95,6 @@ class UploadController extends BaseController
             return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
         }
 
-        // Check if album needs blur generation (NSFW or password-protected)
-        $needsBlur = false;
-        try {
-            $albumCheck = $this->db->pdo()->prepare('SELECT is_nsfw, password_hash FROM albums WHERE id = ?');
-            $albumCheck->execute([$albumId]);
-            $album = $albumCheck->fetch();
-            $albumCheck->closeCursor();
-            $needsBlur = !empty($album['is_nsfw']) || !empty($album['password_hash']);
-        } catch (\Throwable $e) {
-            // Backwards compatibility: older schemas may not include is_nsfw and/or password_hash.
-            Logger::warning('UploadController: album blur check failed (missing columns?)', [
-                'album_id' => $albumId,
-                'columns' => ['is_nsfw', 'password_hash'],
-                'error' => $e->getMessage(),
-            ], 'upload');
-        }
-
         // Prepare array compatible with UploadService
         $fArr = ['tmp_name' => $tmpPath, 'error' => $file->getError()];
         try {

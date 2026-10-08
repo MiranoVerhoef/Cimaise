@@ -33,6 +33,7 @@ final class ImageJobQueue
 
     public function drain(int $limit = 10): int
     {
+        clearstatcache();
         if (!is_dir($this->directory)) {
             return 0;
         }
@@ -85,6 +86,27 @@ final class ImageJobQueue
     public function hasJobs(): bool
     {
         return (bool)glob($this->directory . '/*.job');
+    }
+
+    public function runSynchronously(int $id): void
+    {
+        $this->ensureDirectory();
+        $lock = fopen($this->directory . '/worker.lock', 'c');
+        if ($lock === false) {
+            throw new RuntimeException('Cannot open image worker lock');
+        }
+        try {
+            // Claim the queue before enqueueing so a background worker cannot
+            // race this upload. A killed request leaves its job for recovery.
+            if (!flock($lock, LOCK_EX)) {
+                throw new RuntimeException('Cannot acquire image worker lock');
+            }
+            $this->enqueue($id);
+            $this->processImage($id);
+            unlink($this->directory . '/' . $id . '.job');
+        } finally {
+            fclose($lock);
+        }
     }
 
     public function processImage(int $id): void

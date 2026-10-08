@@ -283,6 +283,7 @@ if ($container['db'] !== null && !$isInstallerRoute) {
                 $pluginCheckStmt = $container['db']->pdo()->prepare('SELECT is_active FROM plugin_status WHERE slug = ? AND is_installed = 1');
                 $pluginCheckStmt->execute(['maintenance-mode']);
                 $pluginStatus = $pluginCheckStmt->fetch(\PDO::FETCH_ASSOC);
+                $pluginCheckStmt->closeCursor();
                 $isActive = $pluginStatus && $pluginStatus['is_active'];
                 // Atomic write: ensure directory exists, write to temp file, then rename
                 $cacheDir = dirname($cacheFile);

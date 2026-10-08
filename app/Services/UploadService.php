@@ -476,10 +476,10 @@ class UploadService
         }
 
         $queue = new ImageJobQueue($this->db);
-        $queue->enqueue($imageId);
-        if (!SettingsService::boolean($settingsSvc->get('image.variants_async', true), true)) {
-            // Preserve a durable retry job if synchronous generation fails.
-            $queue->processImage($imageId);
+        if (SettingsService::boolean($settingsSvc->get('image.variants_async', true), true)) {
+            $queue->enqueue($imageId);
+        } else {
+            $queue->runSynchronously($imageId);
         }
 
         return ['id' => $imageId,'path' => $dest,'mime' => $mime,'width' => $width,'height' => $height,'preview_url' => $previewRel];
@@ -708,6 +708,11 @@ class UploadService
         $mediaDir = $protectedStorage->directoryForProtection($isProtectedAlbum);
         ImagesService::ensureDir($mediaDir);
 
+        // A terminated encoder may leave temporary output, never a published file.
+        foreach (glob($mediaDir . "/{$imageId}_*.tmp-*") ?: [] as $temporary) {
+            self::safeUnlink($temporary);
+        }
+
         $haveImagick = class_exists(\Imagick::class) && !$this->imagickDisabled();
         $stats = ['generated' => 0, 'failed' => 0, 'skipped' => 0];
 
@@ -742,7 +747,7 @@ class UploadService
                 // 1. force is false AND
                 // 2. DB record exists AND
                 // 3. file exists on disk
-                if (!$force && $existsInDb && is_file($destPath)) {
+                if (!$force && $existsInDb && is_file($destPath) && filesize($destPath) > 0) {
                     $stats['skipped']++;
                     continue;
                 }
@@ -1463,6 +1468,7 @@ class UploadService
             'image/jpeg' => @imagecreatefromjpeg($src),
             'image/png' => @imagecreatefrompng($src),
             'image/webp' => @imagecreatefromwebp($src),
+            'image/avif' => function_exists('imagecreatefromavif') ? @imagecreatefromavif($src) : null,
             default => null,
         };
 
