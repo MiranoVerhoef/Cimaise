@@ -47,7 +47,8 @@ try {
         $cache->set('home', ['old' => true]);
         $cache->set('galleries', ['old' => true]);
         $cache->set('album:options-1', ['old' => true]);
-        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/admin/social');
+        $_SERVER['SCRIPT_NAME'] = '/photos/index.php';
+        $request = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('POST', '/photos/admin/social');
         $handler = new class implements Psr\Http\Server\RequestHandlerInterface {
             public function handle(Psr\Http\Message\ServerRequestInterface $request): Psr\Http\Message\ResponseInterface {
                 return new Slim\Psr7\Response(302);

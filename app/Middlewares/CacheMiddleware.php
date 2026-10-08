@@ -33,6 +33,11 @@ class CacheMiddleware implements MiddlewareInterface
         // (e.g. /foo must not match /foobar).
         $path = $request->getUri()->getPath();
         $basePath = rtrim((string) $this->settings->get('site.base_path', ''), '/');
+        if ($basePath === '') {
+            $scriptDirectory = dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+            if (str_ends_with($scriptDirectory, '/public')) { $scriptDirectory = substr($scriptDirectory, 0, -7); }
+            $basePath = in_array($scriptDirectory, ['/', '.', '\\'], true) ? '' : $scriptDirectory;
+        }
         if ($basePath !== '' && str_starts_with($path, $basePath) && (strlen($path) === strlen($basePath) || $path[strlen($basePath)] === '/')) {
             $path = substr($path, strlen($basePath)) ?: '/';
         }
