@@ -142,6 +142,8 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           provenance: false
           cache-from: type=gha,scope=${{ steps.vars.outputs.pair }}
           cache-to: type=gha,mode=max,scope=${{ steps.vars.outputs.pair }}

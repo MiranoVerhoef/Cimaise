@@ -32,6 +32,9 @@ jobs:
           docker create --name fpm-source cimaise:test
           mkdir -p /tmp/fpm-source
           docker cp fpm-source:/var/www/html/. /tmp/fpm-source/
+          # The production context excludes vendor because Composer rebuilds it.
+          # This test host must retain the already-built production dependencies.
+          rm /tmp/fpm-source/.dockerignore
           docker build -f tests/integration/Dockerfile.fpm -t cimaise:fpm /tmp/fpm-source
       - name: Verify PHP-FPM HTTP upload and restart recovery
         run: |
