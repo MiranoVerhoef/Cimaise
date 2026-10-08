@@ -23,6 +23,10 @@
   <style nonce="{{ csp_nonce() }}">
     body, .font-sans { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important; }
     :root { --z-modal: 100000; }
+    #image-job-progress progress { appearance: none; height: 6px; border: 0; border-radius: 3px; background: #e5e7eb; }
+    #image-job-progress progress::-webkit-progress-bar { background: #e5e7eb; border-radius: 3px; }
+    #image-job-progress progress::-webkit-progress-value { background: var(--color-accent); border-radius: 3px; }
+    #image-job-progress progress::-moz-progress-bar { background: var(--color-accent); border-radius: 3px; }
   </style>
   <script nonce="{{ csp_nonce() }}">
     window.basePath = '{{ base_path|e('js') }}';
@@ -594,7 +598,7 @@
               <i class="fas fa-language"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.texts') }}</span><span class="nav-sub">{{ trans('admin.sidebar.texts_sub') }}</span></span>
             </a>
             {# Hook: admin_sidebar_navigation - Add custom navigation items #}
-            {{ do_action('admin_sidebar_navigation', {base_path: base_path}) }}
+            {{ do_action('admin_sidebar_navigation', {base_path: base_path, translations: admin_translations|default({})}) }}
           </div>
         </div>
 

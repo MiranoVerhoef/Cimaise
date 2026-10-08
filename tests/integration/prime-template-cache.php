@@ -14,7 +14,7 @@ foreach ($files as $index => $file) {
     copy($path, $backup);
     $source = file_get_contents($path);
     $source = match ($index) {
-        0 => str_replace('1.4.23-test.2', 'legacy-cache-test', $source),
+        0 => preg_replace('/"version":\s*"[^"]+"/', '"version": "legacy-cache-test"', $source),
         1 => str_replace("{{ trans('admin.sidebar.dashboard_sub') }}", 'OLD-ITALIAN-SIDEBAR', $source),
         2 => str_replace('id="show_equipment"', 'id="old-equipment-field"', $source),
     };

@@ -1,8 +1,8 @@
 # Running Cimaise with Docker
 
-The `1.4.23-test.2` fork image adds Apache Brotli (with gzip fallback) and an
+The `1.4.23-test.3` fork image adds Apache Brotli (with gzip fallback) and an
 admin progress bar for queued image variants and retries. Deploy with the same
-ports and volumes using `ghcr.io/miranoverhoef/cimaise:1.4.23-test.2`.
+ports and volumes using `ghcr.io/miranoverhoef/cimaise:1.4.23-test.3`.
 Compiled Twig caches are isolated per release so upgrades also refresh the
 translated sidebar and album equipment visibility controls. Custom translations
 and application data are preserved. Compression settings report Apache support;

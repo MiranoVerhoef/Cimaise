@@ -506,9 +506,10 @@ class CimaiseAnalyticsProPlugin
     public function renderSidebarLink(array $context): void
     {
         $basePath = htmlspecialchars((string)($context['base_path'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $subtitle = htmlspecialchars((string)($context['translations']['admin.sidebar.analytics_pro_sub'] ?? 'Advanced statistics'), ENT_QUOTES, 'UTF-8');
         echo <<<HTML
             <a href="{$basePath}/admin/analytics-pro" class="sidebar-link" data-spa-link>
-                <i class="fas fa-chart-line"></i><span class="nav-text"><span class="nav-title">Analytics Pro</span><span class="nav-sub">Statistiche avanzate</span></span>
+                <i class="fas fa-chart-line"></i><span class="nav-text"><span class="nav-title">Analytics Pro</span><span class="nav-sub">{$subtitle}</span></span>
             </a>
 HTML;
     }

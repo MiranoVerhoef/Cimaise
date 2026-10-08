@@ -6,6 +6,9 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.sidebar.custom_templates": "Template personalizzati",
+    "admin.sidebar.custom_templates_sub": "Layout personalizzati",
+    "admin.sidebar.analytics_pro_sub": "Statistiche avanzate",
     "admin.media.versions": "Versioni immagine",
     "admin.media.versions_ready": "{ready}/{total} versioni pronte",
     "admin.media.versions_retrying": "In attesa di un nuovo tentativo automatico",
