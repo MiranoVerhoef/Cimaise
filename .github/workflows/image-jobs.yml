@@ -1,0 +1,44 @@
+name: Verify image jobs
+on:
+  workflow_dispatch:
+  push:
+    branches: ['fix/image-generation-worker']
+  pull_request:
+    paths: ['app/Services/UploadService.php', 'app/Services/ImageJobQueue.php', 'docker/**', 'tests/integration/**']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build production Apache image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: cimaise:test
+          cache-from: type=gha,scope=image-jobs
+          cache-to: type=gha,mode=max,scope=image-jobs
+      - name: Verify queue, SQLite contention and CLI failures
+        run: docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" cimaise:test /var/www/html/tests/integration/image-jobs.php
+      - name: Verify Apache HTTP upload and restart recovery
+        run: |
+          docker run -d --name cimaise-apache -p 8080:80 -v "$PWD/tests/integration:/tests:ro" cimaise:test
+          bash tests/integration/web-upload.sh cimaise-apache 8080
+      - name: Build PHP-FPM test host
+        run: |
+          docker create --name fpm-source cimaise:test
+          mkdir -p /tmp/fpm-source
+          docker cp fpm-source:/var/www/html/. /tmp/fpm-source/
+          docker build -f tests/integration/Dockerfile.fpm -t cimaise:fpm /tmp/fpm-source
+      - name: Verify PHP-FPM HTTP upload and restart recovery
+        run: |
+          docker run -d --name cimaise-fpm -p 8081:80 -v "$PWD/tests/integration:/tests:ro" cimaise:fpm
+          bash tests/integration/web-upload.sh cimaise-fpm 8081 fpm
+      - name: Container diagnostics
+        if: always()
+        run: |
+          docker logs cimaise-apache || true
+          docker logs cimaise-fpm || true

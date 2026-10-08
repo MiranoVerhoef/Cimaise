@@ -1,3 +1,11 @@
+## [1.4.23-test.1] - 2026-10-08
+
+- Generate uploaded image variants automatically on Apache and PHP-FPM, honoring the async setting.
+- Persist image jobs and retry failures with backoff; Docker runs its own worker without cron.
+- Serialize processing per image, close SQLite read cursors, and safely retry standalone writes.
+- Return failure exit codes from both image generation commands; share the same encoder path.
+- Include diagnostics storage path, sidebar translation, Classic hero toggle, and album equipment PRs.
+
 # Changelog
 
 All notable changes to Cimaise are documented in this file.

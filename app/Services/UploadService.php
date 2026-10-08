@@ -356,7 +356,7 @@ class UploadService
 
         // Insert DB record with EXIF editor fields
         $pdo = $this->db->pdo();
-        $stmt = $pdo->prepare('INSERT INTO images(
+        $insertSql = 'INSERT INTO images(
             album_id, original_path, file_hash, width, height, mime, alt_text, caption, exif,
             camera_id, lens_id, iso, shutter_speed, aperture, sort_order,
             exif_make, exif_model, exif_lens_maker, exif_lens_model, software,
@@ -372,7 +372,7 @@ class UploadService
             :metering_mode, :exposure_mode, :date_original, :color_space, :contrast,
             :saturation, :sharpness, :scene_capture_type, :light_source,
             :gps_lat, :gps_lng, :artist, :copyright
-        )');
+        )';
 
         // Extract GPS coordinates if available
         $gpsLat = null;
@@ -382,7 +382,7 @@ class UploadService
             $gpsLng = $exif['GPS']['lng'] ?? null;
         }
 
-        $stmt->execute([
+        $this->db->execute($insertSql, [
             ':a' => $albumId,
             ':p' => str_replace(dirname(__DIR__, 2), '', $dest),
             ':h' => $hash,
@@ -426,6 +426,7 @@ class UploadService
         $albumFlagsStmt = $pdo->prepare('SELECT is_nsfw, password_hash FROM albums WHERE id = :id');
         $albumFlagsStmt->execute([':id' => $albumId]);
         $albumFlags = $albumFlagsStmt->fetch() ?: [];
+        $albumFlagsStmt->closeCursor();
         $isProtectedAlbum = (int)($albumFlags['is_nsfw'] ?? 0) === 1 || !empty($albumFlags['password_hash']);
         $protectedStorage = new ProtectedMediaStorage($this->db);
         $mediaDir = $protectedStorage->directoryForProtection($isProtectedAlbum);
@@ -457,28 +458,28 @@ class UploadService
             $relUrl = "/media/{$imageId}_sm.jpg";
             $previewSize = @getimagesize($preview) ?: [$previewW, 0];
             $replaceKeyword = $this->db->replaceKeyword();
-            $pdo->prepare(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword))
-                ->execute([$imageId,'sm','jpg',$relUrl,$previewW,$previewSize[1], (int)filesize($preview)]);
+            $this->db->execute(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword), [$imageId,'sm','jpg',$relUrl,$previewW,$previewSize[1], (int)filesize($preview)]);
             $previewRel = $relUrl;
         } else {
             $previewRel = null;
         }
 
-        // PERFORMANCE: Variant generation moved to controller after response flush.
-        // ingestAlbumUpload() only generates sm preview for immediate UI feedback.
-        // Full variants are generated:
-        // - After fastcgi_finish_request() in FPM environments
-        // - By VariantMaintenanceService cron in non-FPM environments
-
         // Fetch album settings for cover check
         $coverCheck = $pdo->prepare('SELECT cover_image_id FROM albums WHERE id = :id');
         $coverCheck->execute([':id' => $albumId]);
         $album = $coverCheck->fetch();
+        $coverCheck->closeCursor();
 
         // Set as cover if album doesn't have one yet
         if ($album && !$album['cover_image_id']) {
-            $pdo->prepare('UPDATE albums SET cover_image_id = :imageId WHERE id = :albumId')
-                ->execute([':imageId' => $imageId, ':albumId' => $albumId]);
+            $this->db->execute('UPDATE albums SET cover_image_id = :imageId WHERE id = :albumId', [':imageId' => $imageId, ':albumId' => $albumId]);
+        }
+
+        $queue = new ImageJobQueue($this->db);
+        $queue->enqueue($imageId);
+        if (!SettingsService::boolean($settingsSvc->get('image.variants_async', true), true)) {
+            // Preserve a durable retry job if synchronous generation fails.
+            $queue->processImage($imageId);
         }
 
         return ['id' => $imageId,'path' => $dest,'mime' => $mime,'width' => $width,'height' => $height,'preview_url' => $previewRel];
@@ -627,6 +628,13 @@ class UploadService
      */
     public function generateVariantsForImage(int $imageId, bool $force = false, ?string $onlyVariant = null, ?string $onlyFormat = null): array
     {
+        return \App\Support\ImageProcessingLock::run($imageId,
+            fn () => $this->generateVariantsUnlocked($imageId, $force, $onlyVariant, $onlyFormat));
+    }
+
+    private function generateVariantsUnlocked(int $imageId, bool $force, ?string $onlyVariant, ?string $onlyFormat): array
+    {
+        clearstatcache();
         $pdo = $this->db->pdo();
 
         // Get image details
@@ -638,6 +646,7 @@ class UploadService
         );
         $stmt->execute([$imageId]);
         $image = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$image) {
             throw new RuntimeException("Image {$imageId} not found");
@@ -707,7 +716,7 @@ class UploadService
                 continue;
             }
             $targetW = max(1, (int)$targetW);
-            foreach (['avif','webp','jpg'] as $fmt) {
+            foreach (['avif','webp','jpg','jxl'] as $fmt) {
                 if ($onlyFormat !== null && $fmt !== $onlyFormat) {
                     continue;
                 }
@@ -719,6 +728,9 @@ class UploadService
                     continue;
                 }
 
+                if ($fmt === 'jxl' && !\App\Services\Imaging\ImageEngine::capabilities()['jxl_write']) {
+                    continue;
+                }
                 $destRelUrl = "/media/{$imageId}_{$variant}.{$fmt}";
                 $destPath = $mediaDir . "/{$imageId}_{$variant}.{$fmt}";
                 $key = $variant . '|' . $fmt;
@@ -741,10 +753,14 @@ class UploadService
                 }
 
                 @mkdir(dirname($destPath), 0775, true);
+                $finalPath = $destPath;
+                $destPath = $mediaDir . '/' . $imageId . '_' . $variant . '.tmp-' . bin2hex(random_bytes(6)) . '.' . $fmt;
                 $ok = false;
 
                 // Generate based on format
-                if ($fmt === 'jpg') {
+                if ($fmt === 'jxl') {
+                    $ok = \App\Services\Imaging\ImageEngine::encode($originalPath, $destPath, $targetW, $fmt, (int)($quality['jxl'] ?? 80), $this->envFlag('STRIP_EXIF', true));
+                } elseif ($fmt === 'jpg') {
                     $ok = $this->resizeWithImagickOrGd($originalPath, $destPath, $targetW, 'jpeg', (int)($quality['jpg'] ?? 85));
                 } else {
                     // 'webp' or 'avif' (narrowed by the if/elseif chain above).
@@ -765,19 +781,20 @@ class UploadService
                     }
                 }
 
-                if ($ok && is_file($destPath)) {
+                if ($ok && is_file($destPath) && filesize($destPath) > 0 && rename($destPath, $finalPath)) {
+                    $destPath = $finalPath;
                     $oppositeDir = $protectedStorage->directoryForProtection(!$isProtectedAlbum);
                     // Route through safeUnlink so the deletion is confined to the
                     // allowed storage roots (path-traversal guard) instead of a
                     // raw unlink on a composed path.
                     self::safeUnlink($oppositeDir . "/{$imageId}_{$variant}.{$fmt}");
                     $size = (int)filesize($destPath);
-                    [$vw, $vh] = getimagesize($destPath) ?: [$targetW, 0];
+                    [$vw, $vh] = ($fmt === 'jxl' ? false : getimagesize($destPath)) ?: [$targetW, (int)round($targetW * (int)$image['height'] / max(1, (int)$image['width']))];
                     $replaceKeyword = $this->db->replaceKeyword();
-                    $pdo->prepare(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword))
-                        ->execute([$imageId, (string)$variant, (string)$fmt, $destRelUrl, (int)$vw, $vh, $size]);
+                    $this->db->execute(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword), [$imageId, (string)$variant, (string)$fmt, $destRelUrl, (int)$vw, $vh, $size]);
                     $stats['generated']++;
                 } else {
+                    self::safeUnlink($destPath);
                     $stats['failed']++;
                     Logger::warning("UploadService: Failed to generate variant", [
                         'format' => $fmt,
@@ -839,11 +856,17 @@ class UploadService
      */
     public function generateBlurredVariant(int $imageId, bool $force = false): ?string
     {
+        return \App\Support\ImageProcessingLock::run($imageId, fn () => $this->generateBlurredVariantUnlocked($imageId, $force));
+    }
+
+    private function generateBlurredVariantUnlocked(int $imageId, bool $force): ?string
+    {
         $pdo = $this->db->pdo();
 
         $stmt = $pdo->prepare('SELECT * FROM images WHERE id = ?');
         $stmt->execute([$imageId]);
         $image = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$image) {
             return null;
@@ -910,8 +933,7 @@ class UploadService
 
             // Store as blur variant
             $replaceKeyword = $this->db->replaceKeyword();
-            $pdo->prepare(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword))
-                ->execute([$imageId, 'blur', 'jpg', $destRelUrl, $w, $h, $size]);
+            $this->db->execute(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword), [$imageId, 'blur', 'jpg', $destRelUrl, $w, $h, $size]);
 
             return $destRelUrl;
         }
@@ -1221,6 +1243,11 @@ class UploadService
      */
     public function generateLQIP(int $imageId, bool $force = false): ?string
     {
+        return \App\Support\ImageProcessingLock::run($imageId, fn () => $this->generateLQIPUnlocked($imageId, $force));
+    }
+
+    private function generateLQIPUnlocked(int $imageId, bool $force): ?string
+    {
         $pdo = $this->db->pdo();
 
         // SECURITY: Check if image belongs to protected album
@@ -1232,6 +1259,7 @@ class UploadService
         ');
         $stmt->execute([$imageId]);
         $album = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$album) {
             Logger::warning('UploadService: Image not found for LQIP generation', [
@@ -1252,9 +1280,10 @@ class UploadService
         }
 
         // Find source file (prefer md variant for speed, fallback to original)
-        $variantStmt = $pdo->prepare('SELECT path FROM image_variants WHERE image_id = ? AND variant = ? LIMIT 1');
+        $variantStmt = $pdo->prepare('SELECT path FROM image_variants WHERE image_id = ? AND variant = ? ORDER BY CASE format WHEN \'jpg\' THEN 0 WHEN \'webp\' THEN 1 ELSE 2 END LIMIT 1');
         $variantStmt->execute([$imageId, 'md']);
         $mdPath = $variantStmt->fetchColumn();
+        $variantStmt->closeCursor();
 
         $sourcePath = null;
         $triedPaths = [];
@@ -1272,6 +1301,7 @@ class UploadService
             $imgStmt = $pdo->prepare('SELECT original_path FROM images WHERE id = ?');
             $imgStmt->execute([$imageId]);
             $origPath = $imgStmt->fetchColumn();
+            $imgStmt->closeCursor();
 
             if ($origPath && str_starts_with((string) $origPath, '/storage/originals/')) {
                 $tryPath = $root . $origPath;
@@ -1341,8 +1371,7 @@ class UploadService
 
                     // Store as lqip variant
                     $replaceKeyword = $this->db->replaceKeyword();
-                    $pdo->prepare(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword))
-                        ->execute([$imageId, 'lqip', 'jpg', $destRelUrl, $w, $h, $size]);
+                    $this->db->execute(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword), [$imageId, 'lqip', 'jpg', $destRelUrl, $w, $h, $size]);
 
                     Logger::debug('UploadService: LQIP generated successfully', [
                         'image_id' => $imageId,

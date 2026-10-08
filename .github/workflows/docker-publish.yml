@@ -67,13 +67,14 @@ jobs:
             *)            VERSION="${INPUT_TAG}" ;;
           esac
 
-          TAGS=""
-          if [ -n "$VERSION" ]; then
-            TAGS="$VERSION"
+          TAGS="$VERSION"
+          if [ -n "$VERSION" ] && ! [[ "$VERSION" == *-* ]]; then
             MM="$(printf '%s' "$VERSION" | grep -oE '^[0-9]+\.[0-9]+' || true)"
             [ -n "$MM" ] && TAGS="$TAGS $MM"
+            TAGS="$TAGS latest"
+          elif [ -z "$VERSION" ]; then
+            TAGS="latest"
           fi
-          TAGS="$TAGS latest"
 
           {
             echo "tags=$TAGS"
@@ -147,6 +148,14 @@ jobs:
           # name= is double-quoted so the comma between multiple image names is
           # part of the value, not a new CSV field of the outputs string.
           outputs: type=image,"name=${{ steps.vars.outputs.images }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Verify image jobs before publishing tags
+        env:
+          IMAGES: ${{ steps.vars.outputs.images }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          image="${IMAGES%%,*}@${DIGEST}"
+          docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" "$image" /var/www/html/tests/integration/image-jobs.php
 
       - name: Export digest
         run: |
@@ -223,7 +232,7 @@ jobs:
         run: |
           set -euo pipefail
           GHCR="ghcr.io/$(printf '%s' "$REPO" | tr '[:upper:]' '[:lower:]')"
-          docker buildx imagetools inspect "${GHCR}:latest"
+          docker buildx imagetools inspect "${GHCR}:$(printf '%s' '${{ needs.prepare.outputs.tags }}' | cut -d' ' -f1)"
 
       # Keep the Docker Hub repository page (overview + short description) in
       # sync with the repo on every release. Needs the checkout because the
