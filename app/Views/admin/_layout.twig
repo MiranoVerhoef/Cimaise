@@ -692,7 +692,7 @@
           <div data-job-text class="text-sm mb-2"></div>
           <progress class="w-full" max="100" value="0" aria-label="{{ trans('admin.image_jobs.label', {}, 'Image generation progress') }}"></progress>
         </div>
-        <script src="{{ base_path }}/assets/image-job-progress.js" defer nonce="{{ csp_nonce() }}"></script>
+        <script src="{{ base_path }}/assets/image-job-progress.js?v={{ app_version|e('html_attr') }}" defer nonce="{{ csp_nonce() }}"></script>
         <div id="loading-indicator" class="hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
           <div class="bg-white p-4 rounded-lg shadow-lg">
             <i class="fas fa-spinner fa-spin mr-2"></i>{{ trans('admin.common.loading') }}

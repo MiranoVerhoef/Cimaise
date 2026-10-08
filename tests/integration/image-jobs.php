@@ -99,6 +99,17 @@ try {
     check($upload->generateVariantsForImage($id, true)['failed'] === 0, 'protected image generation succeeds');
     check(is_file($root . '/storage/protected-media/' . $id . '_lg.jpg'), 'protected variants remain outside public media');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'protected variants have no public copy');
+    $controller = new \App\Controllers\Admin\MediaController($db, \Slim\Views\Twig::create($root . '/app/Views'), new \App\Services\ExifService($db));
+    $request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/admin/media/images/' . $id . '/variants');
+    $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);
+    $detail = json_decode((string)$response->getBody(), true);
+    check(count($detail['variants']) === 9 && count(array_filter($detail['variants'], fn ($variant) => $variant['ready'] && str_starts_with($variant['url'], '/media/protected/'))) === 9, 'gallery details use authenticated URLs for protected variants');
+    unlink($root . '/storage/protected-media/' . $id . '_lg.jpg');
+    clearstatcache();
+    $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);
+    $detail = json_decode((string)$response->getBody(), true);
+    $missing = array_values(array_filter($detail['variants'], fn ($variant) => $variant['name'] === 'lg.jpg'))[0];
+    check(!$missing['ready'] && $missing['url'] === null, 'gallery details detect missing files despite existing database rows');
 
     if (function_exists('proc_open')) {
         $ready = $directory . '/ready';

@@ -115,7 +115,7 @@ final class ImageJobQueue
     public function processImage(int $id): void
     {
         $service = new UploadService($this->db);
-        $this->report($id, ['state' => 'processing', 'next_at' => 0]);
+        $this->report($id, ['state' => 'processing', 'next_at' => 0, 'completed' => 0, 'total' => 0, 'current' => '']);
         $stats = $service->generateVariantsForImage($id, progress: function (int $completed, int $total, string $current) use ($id): void {
             // Reserve one step for the placeholder; 100% means the entire job finished.
             $this->report($id, ['state' => 'processing', 'completed' => $completed, 'total' => $total + 1, 'current' => $current]);
@@ -139,6 +139,14 @@ final class ImageJobQueue
     public function status(): array
     {
         $jobs = [];
+        $total = null;
+        $expectedSteps = function () use (&$total): int {
+            if ($total === null) {
+                $configuration = UploadService::variantConfiguration(new SettingsService($this->db));
+                $total = count($configuration['breakpoints']) * count($configuration['formats']) + 1;
+            }
+            return $total;
+        };
         foreach (glob($this->directory . '/*.progress') ?: [] as $path) {
             $id = (int)basename($path, '.progress');
             $state = json_decode((string)@file_get_contents($path), true);
@@ -152,6 +160,9 @@ final class ImageJobQueue
             if (!$pending && (int)($state['updated_at'] ?? 0) < time() - 300) {
                 continue;
             }
+            if ($pending && empty($state['total'])) {
+                $state['total'] = $expectedSteps();
+            }
             $jobs[] = ['id' => $id, 'pending' => $pending] + $state;
         }
         // Include legacy job markers that predate progress reporting.
@@ -159,7 +170,7 @@ final class ImageJobQueue
         foreach (glob($this->directory . '/*.job') ?: [] as $path) {
             $id = (int)basename($path, '.job');
             if (!in_array($id, $known, true)) {
-                $jobs[] = ['id' => $id, 'pending' => true, 'state' => 'queued', 'completed' => 0, 'total' => 0, 'current' => ''];
+                $jobs[] = ['id' => $id, 'pending' => true, 'state' => 'queued', 'completed' => 0, 'total' => $expectedSteps(), 'current' => ''];
             }
         }
         return $jobs;

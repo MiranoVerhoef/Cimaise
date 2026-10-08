@@ -37,12 +37,7 @@ class MediaController extends BaseController
             return $response->withStatus(404);
         }
         $settings = new SettingsService($this->db);
-        $defaults = $settings->defaults();
-        $formats = $settings->get('image.formats', $defaults['image.formats']);
-        $breakpoints = $settings->get('image.breakpoints', $defaults['image.breakpoints']);
-        $formats = is_array($formats) && $formats ? $formats : $defaults['image.formats'];
-        $breakpoints = is_array($breakpoints) && $breakpoints ? $breakpoints : $defaults['image.breakpoints'];
-        if (!array_filter($formats)) { $formats['jpg'] = true; }
+        $configuration = \App\Services\UploadService::variantConfiguration($settings);
         $stmt = $this->db->pdo()->prepare('SELECT variant, format, width, height, size_bytes FROM image_variants WHERE image_id = ?');
         $stmt->execute([$id]);
         $registered = [];
@@ -54,12 +49,8 @@ class MediaController extends BaseController
         $protected = $storage->isImageProtected($id);
         $directory = dirname(__DIR__, 3) . ($protected ? '/storage/protected-media/' : '/public/media/');
         $variants = [];
-        foreach ($breakpoints as $variant => $_width) {
-            foreach (['jpg', 'webp', 'avif', 'jxl'] as $format) {
-                if (!filter_var($formats[$format] ?? false, FILTER_VALIDATE_BOOLEAN)
-                    || ($format === 'jxl' && !\App\Services\Imaging\ImageEngine::capabilities()['jxl_write'])) {
-                    continue;
-                }
+        foreach ($configuration['breakpoints'] as $variant => $_width) {
+            foreach ($configuration['formats'] as $format) {
                 $key = $variant . '.' . $format;
                 // Never turn a customized setting into a filesystem path or URL.
                 if (!preg_match('/^[a-zA-Z0-9_-]+\.(jpg|webp|avif|jxl)$/D', $key)) { continue; }

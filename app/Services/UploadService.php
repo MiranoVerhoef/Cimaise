@@ -626,6 +626,21 @@ class UploadService
      * @param string|null $onlyFormat  Restrict generation to a single format ('jpg'|'webp'|'avif').
      *                                 Upload/cron callers omit both and keep full generation.
      */
+    /** The worker and admin UI use the same enabled size/format matrix. */
+    public static function variantConfiguration(SettingsService $settings): array
+    {
+        $defaults = $settings->defaults();
+        $formats = $settings->get('image.formats', $defaults['image.formats']);
+        $breakpoints = $settings->get('image.breakpoints', $defaults['image.breakpoints']);
+        $formats = is_array($formats) && $formats ? $formats : $defaults['image.formats'];
+        $breakpoints = is_array($breakpoints) && $breakpoints ? $breakpoints : $defaults['image.breakpoints'];
+        $formats = array_map(static fn ($enabled) => filter_var($enabled, FILTER_VALIDATE_BOOLEAN), $formats);
+        if (!array_filter($formats)) { $formats['jpg'] = true; }
+        $enabled = array_values(array_filter(['avif', 'webp', 'jpg', 'jxl'], static fn ($fmt) => ($formats[$fmt] ?? false)
+            && ($fmt !== 'jxl' || \App\Services\Imaging\ImageEngine::capabilities()['jxl_write'])));
+        return ['breakpoints' => $breakpoints, 'formats' => $enabled];
+    }
+
     public function generateVariantsForImage(int $imageId, bool $force = false, ?string $onlyVariant = null, ?string $onlyFormat = null, ?callable $progress = null): array
     {
         return \App\Support\ImageProcessingLock::run($imageId,
@@ -684,24 +699,12 @@ class UploadService
         $settings = new \App\Services\SettingsService($this->db);
         $defaults = $settings->defaults();
 
-        $formats = $settings->get('image.formats', $defaults['image.formats']);
-        if (!is_array($formats) || !$formats) {
-            $formats = $defaults['image.formats'];
-        }
-        // jpg is the mandatory baseline. A legacy/corrupt record can be a NON-empty
-        // array with every value false ({avif:false,webp:false,jpg:false}) — that
-        // passes the guard above yet silently disables ALL variant generation.
-        if (!array_filter($formats)) {
-            $formats['jpg'] = true;
-        }
+        $configuration = self::variantConfiguration($settings);
         $quality = $settings->get('image.quality', $defaults['image.quality']);
         if (!is_array($quality) || !$quality) {
             $quality = $defaults['image.quality'];
         }
-        $breakpoints = $settings->get('image.breakpoints', $defaults['image.breakpoints']);
-        if (!is_array($breakpoints) || !$breakpoints) {
-            $breakpoints = $defaults['image.breakpoints'];
-        }
+        $breakpoints = $configuration['breakpoints'];
 
         $isProtectedAlbum = (int)($image['album_is_nsfw'] ?? 0) === 1 || !empty($image['album_password_hash']);
         $protectedStorage = new ProtectedMediaStorage($this->db);
@@ -715,11 +718,7 @@ class UploadService
 
         $haveImagick = class_exists(\Imagick::class) && !$this->imagickDisabled();
         $stats = ['generated' => 0, 'failed' => 0, 'skipped' => 0];
-        $enabledFormats = array_values(array_filter(['avif', 'webp', 'jpg', 'jxl'], static function ($fmt) use ($formats, $onlyFormat): bool {
-            return ($onlyFormat === null || $fmt === $onlyFormat)
-                && filter_var($formats[$fmt] ?? false, FILTER_VALIDATE_BOOLEAN)
-                && ($fmt !== 'jxl' || \App\Services\Imaging\ImageEngine::capabilities()['jxl_write']);
-        }));
+        $enabledFormats = array_values(array_filter($configuration['formats'], static fn ($fmt) => $onlyFormat === null || $fmt === $onlyFormat));
         $total = count($enabledFormats) * count(array_filter(array_keys($breakpoints), static fn ($variant) => $onlyVariant === null || (string)$variant === $onlyVariant));
 
         foreach ($breakpoints as $variant => $targetW) {

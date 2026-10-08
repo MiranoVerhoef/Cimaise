@@ -7,6 +7,9 @@ on:
     paths: ['app/Services/UploadService.php', 'app/Services/ImageJobQueue.php', 'docker/**', 'tests/integration/**']
 permissions:
   contents: read
+concurrency:
+  group: image-jobs-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-24.04
