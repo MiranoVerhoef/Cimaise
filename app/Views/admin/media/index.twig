@@ -489,7 +489,8 @@
           const ready = data.variants.filter(variant => variant.ready).length;
           status.textContent = window.adminTf('admin.media.versions_ready', { ready, total: data.variants.length }, '{ready}/{total} versions ready');
           if (data.job?.pending && data.job.state === 'retrying') status.textContent += ' · ' + window.adminT('admin.media.versions_retrying', 'Waiting to retry automatically');
-          for (const variant of data.variants) {
+          const original = data.original ? { ...data.original, name: window.adminT('admin.media.original', 'Original'), original: true } : null;
+          for (const variant of [...(original ? [original] : []), ...data.variants]) {
             const row = document.createElement('div');
             row.className = 'flex items-center justify-between gap-2';
             const label = document.createElement('span');
@@ -501,7 +502,8 @@
               link.target = '_blank';
               link.rel = 'noopener';
               link.className = 'underline';
-              link.textContent = window.adminT('admin.media.versions_view', 'View');
+              link.textContent = variant.original ? window.adminT('admin.media.download_original', 'Download original') : window.adminT('admin.media.versions_view', 'View');
+              if (variant.original) link.download = '';
               row.appendChild(link);
             }
             list.appendChild(row);

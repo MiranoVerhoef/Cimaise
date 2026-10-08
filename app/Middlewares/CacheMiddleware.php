@@ -67,6 +67,15 @@ class CacheMiddleware implements MiddlewareInterface
 
         $response = $handler->handle($request);
 
+        // These editors change shared layout or page content. Hard-purge after
+        // the final write so the next visitor cannot receive a stale page.
+        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+            && !empty($_SESSION['admin_id']) && $response->getStatusCode() < 400
+            && preg_match('#^/admin/(settings|pages|social|typography)(/|$)#', $path)) {
+            $this->pageCacheService?->clearAll();
+            \App\Services\TwigGlobalsCache::invalidate();
+        }
+
         if (!$cacheEnabled) {
             return $response;
         }
@@ -346,7 +355,7 @@ class CacheMiddleware implements MiddlewareInterface
         if ($backend === 'database') {
             $hash = $this->pageCacheService->getHash($cacheType);
             if ($hash) {
-                return '"' . $hash . '"';
+                return '"' . hash('sha256', $hash . json_encode($this->settings->all())) . '"';
             }
             return null;
         }
@@ -359,7 +368,7 @@ class CacheMiddleware implements MiddlewareInterface
             if ($mtime === false || $size === false) {
                 return null;
             }
-            return '"' . md5($mtime . '-' . $size) . '"';
+            return '"' . hash('sha256', $mtime . '-' . $size . json_encode($this->settings->all())) . '"';
         }
 
         return null;

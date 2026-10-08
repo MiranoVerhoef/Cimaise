@@ -585,6 +585,7 @@ if (!$isInstallerRoute && !$isMediaRequest && $container['db'] !== null) {
             $typographyService = new \App\Services\TypographyService($settingsSvc);
             $criticalFonts = $typographyService->getCriticalFontsForPreload($basePath);
             $twig->getEnvironment()->addGlobal('critical_fonts_preload', $criticalFonts);
+            $twig->getEnvironment()->addGlobal('typography_version', substr(hash('sha256', $typographyService->generateFullCss($basePath)), 0, 16));
         }
     } catch (\Throwable) {
         // Fallback: use TwigGlobalsCache defaults on error

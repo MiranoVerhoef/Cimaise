@@ -103,6 +103,9 @@ class PagesController extends BaseController
         $settings = [
             'home.template' => (string)($svc->get('home.template', 'classic') ?? 'classic'),
             'home.hero_enabled' => SettingsService::boolean($svc->get('home.hero_enabled', true), true),
+            'home.hero_show_title' => SettingsService::boolean($svc->get('home.hero_show_title', true), true),
+            'home.hero_show_text' => SettingsService::boolean($svc->get('home.hero_show_text', true), true),
+            'home.gallery_per_album' => (int)$svc->get('home.gallery_per_album', 0),
             'home.hero_title' => (string)($svc->get('home.hero_title', 'Portfolio') ?? 'Portfolio'),
             'home.hero_subtitle' => (string)($svc->get('home.hero_subtitle', 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.') ?? 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.'),
             'home.albums_title' => (string)($svc->get('home.albums_title', 'Latest Albums') ?? 'Latest Albums'),
@@ -179,6 +182,9 @@ class PagesController extends BaseController
 
         // Hero section (visibility toggle currently applies to the Classic homepage)
         $svc->set('home.hero_enabled', isset($data['hero_enabled']));
+        $svc->set('home.hero_show_title', isset($data['hero_show_title']));
+        $svc->set('home.hero_show_text', isset($data['hero_show_text']));
+        $svc->set('home.gallery_per_album', max(0, min(100, (int)($data['gallery_per_album'] ?? 0))));
         $svc->set('home.hero_title', trim((string)($data['hero_title'] ?? 'Portfolio')) ?: 'Portfolio');
         $svc->set('home.hero_subtitle', trim((string)($data['hero_subtitle'] ?? '')));
 

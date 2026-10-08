@@ -575,6 +575,8 @@ class PageController extends BaseController
         $homeSettings = [
             'template' => $homeTemplate,
             'hero_enabled' => \App\Services\SettingsService::boolean($svc->get('home.hero_enabled', true), true),
+            'hero_show_title' => \App\Services\SettingsService::boolean($svc->get('home.hero_show_title', true), true),
+            'hero_show_text' => \App\Services\SettingsService::boolean($svc->get('home.hero_show_text', true), true),
             'hero_title' => (string) ($svc->get('home.hero_title', 'Portfolio') ?? 'Portfolio'),
             'hero_subtitle' => (string) ($svc->get('home.hero_subtitle', 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.') ?? 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.'),
             'albums_title' => (string) ($svc->get('home.albums_title', 'Latest Albums') ?? 'Latest Albums'),

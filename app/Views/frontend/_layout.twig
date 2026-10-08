@@ -42,14 +42,14 @@
     {% endfor %}
 
     <!-- Preload Critical Resources -->
-    <link rel="preload" href="{{ base_path }}/fonts/typography.css" as="style">
+    <link rel="preload" href="{{ base_path }}/fonts/typography.css?v={{ typography_version|default(app_version) }}" as="style">
     <link rel="preload" href="{{ vite_asset('app.css') }}" as="style">
     <link rel="preload" href="{{ vite_asset('frontend.css') }}" as="style">
 
     <!-- Preload Critical Fonts (user-selected) to prevent FOUT -->
     {% if critical_fonts_preload is defined and critical_fonts_preload|length > 0 %}
         {% for font in critical_fonts_preload %}
-    <link rel="preload" href="{{ font.url }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ font.url }}" as="font" type="{{ font.mime|default('font/woff2') }}" crossorigin>
         {% endfor %}
     {% endif %}
 
@@ -173,7 +173,7 @@
 
     <!-- CRITICAL CSS - Render blocking (required for initial paint) -->
     <link href="{{ vite_asset('app.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ base_path }}/fonts/typography.css">
+    <link rel="stylesheet" href="{{ base_path }}/fonts/typography.css?v={{ typography_version|default(app_version) }}">
 
     <!-- NON-CRITICAL CSS - Loaded async to avoid render blocking -->
     <!-- PhotoSwipe CSS (only needed when lightbox opens) -->
@@ -2269,8 +2269,8 @@
                             name: 'download-button', order: 8, isButton: true, appendTo: 'bar',
                             html: '<svg aria-hidden="true" class="pswp__icn" viewBox="0 0 32 32" width="32" height="32"><path d="M16 18l-6-6h4V6h4v6h4l-6 6zm-8 2v4h16v-4h2v6H6v-6h2z" fill="currentColor"/></svg>',
                             onInit: (el, pswp) => {
-                                el.setAttribute('title', 'Scarica immagine');
-                                el.setAttribute('aria-label', 'Scarica immagine');
+                                el.setAttribute('title', '{{ trans('image.download')|e('js') }}');
+                                el.setAttribute('aria-label', '{{ trans('image.download')|e('js') }}');
                                 const resolveDownloadUrl = () => {
                                     if (!window.allowDownloads) return null;
                                     const data = pswp?.currSlide?.data || {};
@@ -2884,7 +2884,8 @@
     {% endif %}
 
     {# Block right-click on images for non-admin users #}
-    {% if disable_right_click|default(true) and not is_admin %}
+    {% if (disable_right_click|default(true) or not allow_downloads|default(false)) and not is_admin %}
+    <style nonce="{{ csp_nonce() }}">img, picture { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } img { -webkit-user-drag: none; }</style>
     <script nonce="{{ csp_nonce() }}">
     document.addEventListener('contextmenu', function(e) {
       const target = e.target;

@@ -161,6 +161,8 @@ class CacheWarmService
         $homeSettings = [
             'template' => $homeTemplate,
             'hero_enabled' => SettingsService::boolean($this->settings->get('home.hero_enabled', true), true),
+            'hero_show_title' => SettingsService::boolean($this->settings->get('home.hero_show_title', true), true),
+            'hero_show_text' => SettingsService::boolean($this->settings->get('home.hero_show_text', true), true),
             'hero_title' => (string) ($this->settings->get('home.hero_title', 'Portfolio') ?? 'Portfolio'),
             // Defaults must match PageController::home() exactly so warmed data hashes identically
             'hero_subtitle' => (string) ($this->settings->get('home.hero_subtitle', 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.') ?? 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.'),

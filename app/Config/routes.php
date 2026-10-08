@@ -51,6 +51,10 @@ return function (App $app, array $container) {
         return $controller->webManifest($request, $response);
     });
 
+    $app->get('/fonts/custom/{filename}', function (Request $request, Response $response, array $args) use ($container) {
+        return (new \App\Controllers\Admin\TypographyController($container['db'], Twig::fromRequest($request)))->serveFont($request, $response, $args);
+    });
+
     // Typography CSS (dynamic, based on settings)
     $app->get('/fonts/typography.css', function (Request $request, Response $response) use ($container) {
         // Calculate basePath for subdirectory installations
@@ -841,6 +845,11 @@ return function (App $app, array $container) {
             $resp->getBody()->write('Service Unavailable');
             return $resp;
         });
+    $app->post('/admin/typography/upload', function (Request $request, Response $response) use ($container) {
+        return (new \App\Controllers\Admin\TypographyController($container['db'], Twig::fromRequest($request)))->uploadFont($request, $response);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
+    });
     $app->get('/admin/typography/font/{slug}', function (Request $request, Response $response, array $args) use ($container) {
         $controller = new \App\Controllers\Admin\TypographyController($container['db'], Twig::fromRequest($request));
         return $controller->fontInfo($request, $response, $args);
@@ -2275,6 +2284,11 @@ return function (App $app, array $container) {
         $resp = new \Slim\Psr7\Response(503);
         $resp->getBody()->write('Service Unavailable');
         return $resp;
+    });
+    $app->get('/admin/media/images/{id}/original', function (Request $request, Response $response, array $args) use ($container) {
+        return (new \App\Controllers\Frontend\DownloadController($container['db']))->downloadImage($request, $response, $args, true);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
     });
     $app->get('/admin/media/images/{id}/variants/{variant}.{format}', function (Request $request, Response $response, array $args) use ($container) {
         $controller = new \App\Controllers\Admin\MediaController($container['db'], Twig::fromRequest($request), new \App\Services\ExifService($container['db']));

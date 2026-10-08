@@ -3,6 +3,12 @@
 - Fix maintenance logo URLs for uploaded images, legacy filenames and subdirectory installations.
 - Allow WebP and AVIF logo requests during maintenance mode.
 - Verify maintenance settings save, logo visibility and visitor/admin access in Chromium.
+- Preserve uploaded originals by removing client-side recompression; show original size and an authenticated download in Gallery.
+- Add separate Classic hero title/text controls and a unique-photo limit per album across progressive batches.
+- Automatically purge frontend page caches after page, settings, social and typography edits; include settings in HTML validators.
+- Allow albums without a selected category to use the None fallback without a schema migration.
+- Upload local WOFF2, WOFF, TTF and OTF fonts with persistent storage and refreshed typography CSS URLs.
+- Suppress mobile image callouts and context menus when downloads are disabled.
 - Include all combined image generation, progress, gallery, translation and Brotli fixes from test.3.
 
 ## [1.4.23-test.3] - 2026-10-08

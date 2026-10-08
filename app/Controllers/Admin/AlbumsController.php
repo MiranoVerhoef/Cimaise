@@ -20,6 +20,15 @@ use Slim\Views\Twig;
 
 class AlbumsController extends BaseController
 {
+    private function fallbackCategory(): int
+    {
+        $this->db->execute($this->db->insertIgnoreKeyword() . " INTO categories(name, slug) VALUES('None', 'none')");
+        $stmt = $this->db->pdo()->prepare("SELECT id FROM categories WHERE slug = 'none'");
+        $stmt->execute();
+        $id = (int)$stmt->fetchColumn();
+        $stmt->closeCursor();
+        return $id;
+    }
     private ?CustomFieldService $customFieldService = null;
     private ?PageCacheService $pageCacheService = null;
 
@@ -289,8 +298,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;
@@ -761,8 +771,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;

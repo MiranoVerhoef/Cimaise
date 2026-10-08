@@ -25,7 +25,9 @@ jobs:
           cache-from: type=gha,scope=image-jobs
           cache-to: type=gha,mode=max,scope=image-jobs
       - name: Verify queue, SQLite contention and CLI failures
-        run: docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" cimaise:test /var/www/html/tests/integration/image-jobs.php
+        run: |
+          docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" cimaise:test /var/www/html/tests/integration/image-jobs.php
+          docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" cimaise:test /var/www/html/tests/integration/admin-options.php
       - name: Verify Apache HTTP upload and restart recovery
         run: |
           docker run -d --name cimaise-apache -p 8080:80 -v "$PWD/tests/integration:/tests:ro" cimaise:test

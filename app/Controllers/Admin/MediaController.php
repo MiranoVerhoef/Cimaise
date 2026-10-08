@@ -29,9 +29,9 @@ class MediaController extends BaseController
     public function variants(Request $request, Response $response, array $args): Response
     {
         $id = (int)$args['id'];
-        $stmt = $this->db->pdo()->prepare('SELECT id FROM images WHERE id = ?');
+        $stmt = $this->db->pdo()->prepare('SELECT id, original_path, width, height FROM images WHERE id = ?');
         $stmt->execute([$id]);
-        $exists = $stmt->fetchColumn();
+        $exists = $stmt->fetch(\PDO::FETCH_ASSOC);
         $stmt->closeCursor();
         if (!$exists) {
             return $response->withStatus(404);
@@ -65,7 +65,12 @@ class MediaController extends BaseController
         }
         $jobs = (new \App\Services\ImageJobQueue($this->db))->status();
         $job = array_values(array_filter($jobs, static fn ($job) => $job['id'] === $id))[0] ?? null;
-        $response->getBody()->write(json_encode(['variants' => $variants, 'job' => $job], JSON_THROW_ON_ERROR));
+        $originalPath = \App\Services\OriginalImage::resolve((string)$exists['original_path']);
+        $original = ['ready' => $originalPath !== null,
+            'width' => (int)$exists['width'], 'height' => (int)$exists['height'],
+            'bytes' => $originalPath !== null ? (int)filesize($originalPath) : 0,
+            'url' => $originalPath !== null ? '/admin/media/images/' . $id . '/original' : null];
+        $response->getBody()->write(json_encode(['variants' => $variants, 'original' => $original, 'job' => $job], JSON_THROW_ON_ERROR));
         return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
     }
 

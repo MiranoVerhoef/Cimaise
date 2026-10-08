@@ -62,8 +62,9 @@
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label class="block text-sm font-medium text-black mb-2">{{ trans('admin.albums.categories') }} <span class="text-red-500">*</span></label>
-                  <select name="categories[]" id="album-categories" class="form-input" multiple required>
+                  <label class="block text-sm font-medium text-black mb-2">{{ trans('admin.albums.categories') }}</label>
+                  <select name="categories[]" id="album-categories" class="form-input" multiple>
+                    <option value="0">{{ trans('admin.albums.none_category', {}, 'None') }}</option>
                     {% for c in categories %}
                       <option value="{{ c.id }}" {{ c.slug == 'photo' ? 'selected' : '' }}>{{ c.name }}</option>
                     {% endfor %}
@@ -821,11 +822,6 @@
 
       function prepareCreatePayload(){
         const formData = new FormData(form);
-        // Require at least one category; title is optional
-        const cats = formData.getAll('categories[]');
-        if (!cats || cats.length === 0) {
-          throw new Error('missing_category');
-        }
         // Auto-title if missing
         let title = (formData.get('title') || '').toString().trim();
         if (!title) {
@@ -975,16 +971,6 @@
       async function uploadFiles(files){
         if (!files.length) return;
         if (isUploading) return;
-
-        // Validation: require at least one category. Title is optional.
-        const fdCheck = new FormData(form);
-        const cats = fdCheck.getAll('categories[]');
-        const hasCat = cats && cats.length > 0;
-        if (!hasCat) {
-          const msg = '{{ trans('admin.albums.select_category')|e('js') }}';
-          if (window.showToast) showToast(msg, 'error'); else alert(msg);
-          return;
-        }
 
         isUploading = true;
         uploader.classList.add('pointer-events-none', 'opacity-50');
