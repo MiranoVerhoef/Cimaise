@@ -12,5 +12,6 @@ $settings->set('image.formats', ['jpg' => true, 'webp' => true, 'avif' => true])
 $settings->set('image.breakpoints', ['sm' => 48, 'md' => 96, 'lg' => 144]);
 $settings->set('image.variants_async', true);
 file_put_contents('/var/www/html/storage/.env', "DB_CONNECTION=sqlite\nDB_DATABASE=database/test.sqlite\nAPP_ENV=testing\nAPP_DEBUG=false\n");
+file_put_contents('/var/www/html/storage/tmp/.installed', 'integration test');
 $image = imagecreatetruecolor(180, 120);
 imagejpeg($image, '/var/www/html/storage/tmp/upload.jpg');

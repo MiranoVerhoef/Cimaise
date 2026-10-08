@@ -34,6 +34,22 @@ for size in sm md lg; do
   done
 done
 echo 'PASS: authenticated HTTP upload automatically generated all variants'
+pids=""
+for number in 1 2 3 4; do
+  curl -fsS -b "$tmp/cookies" -H "X-CSRF-Token: $csrf" \
+    -F "file=@$tmp/upload.jpg" "$base/admin/albums/1/upload" > "$tmp/batch-$number.json" &
+  pids="$pids $!"
+done
+for pid in $pids; do wait "$pid"; done
+for number in 1 2 3 4; do
+  batch_id=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"]; print(d["id"])' "$tmp/batch-$number.json")
+  for attempt in $(seq 1 60); do
+    if docker exec "$container" test -s "/var/www/html/public/media/${batch_id}_lg.jpg"; then break; fi
+    sleep 2
+  done
+  docker exec "$container" test -s "/var/www/html/public/media/${batch_id}_lg.jpg"
+done
+echo 'PASS: concurrent uploads complete while background generation is running'
 for command in images:generate images:generate-variants; do
   if docker exec -u www-data "$container" php /var/www/html/bin/console "$command" --image=999; then
     echo 'FAIL: CLI swallowed a generation failure'

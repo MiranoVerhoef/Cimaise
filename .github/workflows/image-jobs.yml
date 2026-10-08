@@ -37,8 +37,13 @@ jobs:
         run: |
           docker run -d --name cimaise-fpm -p 8081:80 -v "$PWD/tests/integration:/tests:ro" cimaise:fpm
           bash tests/integration/web-upload.sh cimaise-fpm 8081 fpm
+      - name: Verify PHP-FPM with process execution disabled
+        run: |
+          docker run -d --name cimaise-fpm-restricted -p 8082:80 -v "$PWD/tests/integration:/tests:ro" cimaise:fpm sh -c 'nginx && exec php-fpm -d disable_functions=exec -F'
+          bash tests/integration/web-upload.sh cimaise-fpm-restricted 8082 fpm
       - name: Container diagnostics
         if: always()
         run: |
           docker logs cimaise-apache || true
           docker logs cimaise-fpm || true
+          docker logs cimaise-fpm-restricted || true

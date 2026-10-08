@@ -90,20 +90,22 @@ final class ImageJobQueue
 
     public function runSynchronously(int $id): void
     {
-        $this->ensureDirectory();
+        $this->enqueue($id);
         $lock = fopen($this->directory . '/worker.lock', 'c');
         if ($lock === false) {
             throw new RuntimeException('Cannot open image worker lock');
         }
         try {
-            // Claim the queue before enqueueing so a background worker cannot
-            // race this upload. A killed request leaves its job for recovery.
+            // Persist before waiting: a killed upload still leaves recovery work.
+            // The queue lock lets an already-running worker finish before us.
             if (!flock($lock, LOCK_EX)) {
                 throw new RuntimeException('Cannot acquire image worker lock');
             }
-            $this->enqueue($id);
             $this->processImage($id);
-            unlink($this->directory . '/' . $id . '.job');
+            $path = $this->directory . '/' . $id . '.job';
+            if (is_file($path)) {
+                unlink($path);
+            }
         } finally {
             fclose($lock);
         }
