@@ -2290,31 +2290,7 @@
                                     const url = resolveDownloadUrl();
                                     el.style.display = url ? '' : 'none';
                                 };
-                                el.onclick = async () => {
-                                    const url = resolveDownloadUrl();
-                                    if (!url || el.disabled) return;
-                                    el.disabled = true;
-                                    try {
-                                        const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
-                                        if (!response.ok || !response.headers.get('Content-Type')?.startsWith('image/')) {
-                                            throw new Error(response.status === 503
-                                                ? '{{ trans('image.download_maintenance', {}, 'Downloads are unavailable during maintenance.')|e('js') }}'
-                                                : '{{ trans('image.download_failed', {}, 'Unable to download the original. Check that downloads are enabled and unlock the album if required.')|e('js') }}');
-                                        }
-                                        const blobUrl = URL.createObjectURL(await response.blob());
-                                        const link = document.createElement('a');
-                                        link.href = blobUrl;
-                                        link.download = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || 'original';
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        link.remove();
-                                        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-                                    } catch (error) {
-                                        alert(error.message);
-                                    } finally {
-                                        el.disabled = false;
-                                    }
-                                };
+                                el.onclick = () => window.downloadOriginal(resolveDownloadUrl(), el);
                                 pswp.on('change', updateVisibility);
                                 pswp.on('openingAnimationEnd', updateVisibility);
                                 updateVisibility();
@@ -2880,6 +2856,7 @@
         {% endif %}
     </script>
 
+    {% include 'frontend/_download_runtime.twig' %}
     {% include 'frontend/_pwa_runtime.twig' %}
 
     {% if page_custom_js is defined and page_custom_js %}
