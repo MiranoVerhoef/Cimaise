@@ -64,7 +64,7 @@ class CacheMiddleware implements MiddlewareInterface
                         ->withStatus(304)
                         ->withBody($emptyBody)
                         ->withHeader('ETag', $earlyEtag)
-                        ->withHeader('Cache-Control', "public, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60")
+                        ->withHeader('Cache-Control', "public, no-cache, max-age={$maxAge}, must-revalidate")
                         ->withHeader('Vary', 'Accept-Encoding');
                 }
             }
@@ -301,7 +301,7 @@ class CacheMiddleware implements MiddlewareInterface
                     ->withStatus(304)
                     ->withBody($emptyBody)
                     ->withHeader('ETag', $etag)
-                    ->withHeader('Cache-Control', "{$visibility}, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60");
+                    ->withHeader('Cache-Control', "{$visibility}, no-cache, max-age={$maxAge}, must-revalidate");
                 $vary304 = 'Accept-Encoding';
                 if ($isSessionDependent) {
                     $vary304 .= ', Cookie';
@@ -310,9 +310,9 @@ class CacheMiddleware implements MiddlewareInterface
             }
         }
 
-        // For HTML, use shorter cache with must-revalidate
+        // Keep stored HTML, but validate its content ID before every reuse.
         $result = $response
-            ->withHeader('Cache-Control', "{$visibility}, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60")
+            ->withHeader('Cache-Control', "{$visibility}, no-cache, max-age={$maxAge}, must-revalidate")
             ->withHeader('Expires', gmdate('D, d M Y H:i:s', time() + $maxAge) . ' GMT');
 
         if ($etag) {
@@ -360,7 +360,7 @@ class CacheMiddleware implements MiddlewareInterface
         if ($backend === 'database') {
             $hash = $this->pageCacheService->getHash($cacheType);
             if ($hash) {
-                return '"' . hash('sha256', $hash . json_encode($this->settings->all())) . '"';
+                return $this->htmlContentId($hash);
             }
             return null;
         }
@@ -368,15 +368,17 @@ class CacheMiddleware implements MiddlewareInterface
         // Fall back to file-based ETag
         $cacheFile = $this->pageCacheService->getCacheFilePath($cacheType);
         if ($cacheFile && file_exists($cacheFile)) {
-            $mtime = filemtime($cacheFile);
-            $size = filesize($cacheFile);
-            if ($mtime === false || $size === false) {
-                return null;
-            }
-            return '"' . hash('sha256', $mtime . '-' . $size . json_encode($this->settings->all())) . '"';
+            $hash = hash_file('sha256', $cacheFile);
+            return $hash === false ? null : $this->htmlContentId($hash);
         }
 
         return null;
+    }
+
+    private function htmlContentId(string $hash): string
+    {
+        $release = hash_file('sha256', dirname(__DIR__, 2) . '/version.json');
+        return '"' . hash('sha256', $hash . json_encode($this->settings->all()) . $release) . '"';
     }
 
     /**

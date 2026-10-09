@@ -264,7 +264,9 @@ async function networkFirstStrategy(request, cacheName, maxItems = 20) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const networkResponse = await fetch(request, { signal: controller.signal });
+    // A default fetch can reuse fresh HTTP-cache HTML without reaching the server.
+    // Revalidate its ETag even for copies stored by an older application release.
+    const networkResponse = await fetch(request, { signal: controller.signal, cache: 'no-cache' });
     clearTimeout(timeoutId);
 
     // 2. Cache successful responses (200 OK only)

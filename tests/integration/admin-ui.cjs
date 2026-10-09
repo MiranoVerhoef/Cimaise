@@ -233,6 +233,11 @@ const assert = require('node:assert/strict');
   assert.match(await home.text(), /Only this title/);
   assert.doesNotMatch(await home.text(), /Only this text/);
   const oldEtag = home.headers().etag;
+  assert.match(home.headers()['cache-control'], /no-cache/);
+  const homeBrowser = await anonymous.newPage();
+  await homeBrowser.goto('/');
+  await homeBrowser.waitForFunction(() => !!navigator.serviceWorker.controller);
+  assert.match(await homeBrowser.locator('body').textContent(), /Only this title/);
   await page.reload();
   assert.equal(await page.locator('[name="gallery_per_album"]').inputValue(), '2');
   await page.locator('[name="hero_show_title"]').uncheck();
@@ -242,6 +247,13 @@ const assert = require('node:assert/strict');
   assert.equal(home.status(), 200);
   assert.doesNotMatch(await home.text(), /Only this title/);
   assert.match(await home.text(), /Only this text/);
+  await homeBrowser.goto('/'); // Ordinary navigation through the installed service worker.
+  assert.doesNotMatch(await homeBrowser.locator('body').textContent(), /Only this title/);
+  assert.match(await homeBrowser.locator('body').textContent(), /Only this text/);
+  await homeBrowser.reload();
+  assert.match(await homeBrowser.locator('body').textContent(), /Only this text/);
+  await homeBrowser.close();
+  console.log('PASS: warmed browser/service-worker pages show saved title changes on normal navigation and reload');
   console.log('PASS: title/text controls update the next anonymous request without stale HTML or 304');
 
   await page.goto('/admin/typography');

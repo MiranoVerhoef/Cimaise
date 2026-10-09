@@ -57,6 +57,36 @@ try {
         (new App\Middlewares\CacheMiddleware($settings, $db))->process($request, $handler);
         check($cache->get('home', true) === null && $cache->get('galleries', true) === null && $cache->get('album:options-1', true) === null,
             "successful shared settings edits hard-purge {$backend} pages including stale entries");
+        $_SESSION = [];
+        $cache->set('home', ['title' => 'Before']);
+        $get = (new Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/photos/');
+        $middleware = new App\Middlewares\CacheMiddleware($settings, $db);
+        $htmlHandler = new class implements Psr\Http\Server\RequestHandlerInterface {
+            public int $calls = 0;
+            public function handle(Psr\Http\Message\ServerRequestInterface $request): Psr\Http\Message\ResponseInterface {
+                $this->calls++;
+                $response = new Slim\Psr7\Response();
+                $response->getBody()->write('<html>Current content</html>');
+                return $response->withHeader('Content-Type', 'text/html');
+            }
+        };
+        $first = $middleware->process($get, $htmlHandler);
+        $etag = $first->getHeaderLine('ETag');
+        check(str_contains($first->getHeaderLine('Cache-Control'), 'no-cache'), "{$backend} HTML requires content-ID validation before reuse");
+        $unchanged = $middleware->process($get->withHeader('If-None-Match', $etag), $htmlHandler);
+        check($unchanged->getStatusCode() === 304 && $htmlHandler->calls === 1 && str_contains($unchanged->getHeaderLine('Cache-Control'), 'no-cache'), "{$backend} unchanged content uses the early 304 path and keeps revalidation headers");
+        $cacheFile = $cache->getCacheFilePath('home');
+        $previousTime = $backend === 'file' ? filemtime($cacheFile) : 0;
+        $previousSize = $backend === 'file' ? filesize($cacheFile) : 0;
+        $cache->set('home', ['title' => 'After!']);
+        if ($backend === 'file') {
+            touch($cacheFile, $previousTime);
+            clearstatcache();
+            check(filesize($cacheFile) === $previousSize, 'file cache collision fixture retains size and timestamp');
+        }
+        $changed = $middleware->process($get->withHeader('If-None-Match', $etag), $htmlHandler);
+        check($changed->getStatusCode() === 200 && $changed->getHeaderLine('ETag') !== $etag, "{$backend} changed content replaces the old content ID even with the same length");
+        $_SESSION = ['admin_id' => 1];
     }
 } finally {
     $settings->clearCache();

@@ -1,3 +1,10 @@
+## [1.4.23-test.6] - 2026-10-09
+
+- Revalidate cached HTML on each visit so page and title edits appear without a hard refresh.
+- Have the service worker check the server instead of accepting a still-fresh HTTP-cache page.
+- Include the application release in HTML content IDs and hash file-backed cache contents to avoid same-size/same-time collisions.
+- Retain server-side page caching and conditional 304 responses for unchanged content.
+
 ## [1.4.23-test.5] - 2026-10-09
 
 - Separate Original Image details and download from generated image versions.
