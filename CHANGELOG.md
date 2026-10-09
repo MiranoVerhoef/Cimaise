@@ -1,3 +1,9 @@
+## [1.4.23-test.8] - 2026-10-09
+
+- Cancel pending category-menu hide timers when the pointer returns, preventing the panel from disappearing after reopening.
+- Allow more time to move between the category trigger and panel, and prevent stale animation callbacks from reopening a closed menu.
+- Give dark-logo previews a dark background so white logos remain visible.
+
 ## [1.4.23-test.7] - 2026-10-09
 
 - Add an optional dark-mode logo that switches with the visitor's theme in frontend headers and preloaders.
