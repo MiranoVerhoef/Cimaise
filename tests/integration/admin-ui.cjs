@@ -340,7 +340,18 @@ const assert = require('node:assert/strict');
   const legacyContact = await anonymous.request.post('/about/contact', { form: {}, maxRedirects: 0 });
   assert.equal(legacyContact.status(), 302);
   assert.equal(legacyContact.headers().location, '/contact?error=1');
+  await page.locator('[name="about_slug"]').fill('reach-me');
+  await saveForm('form[action$="/admin/pages/about"]');
+  assert.equal((await anonymous.request.get('/reach-me')).status(), 200);
+  assert.equal((await anonymous.request.get('/contact')).status(), 404);
+  assert.equal((await anonymous.request.get('/about')).status(), 200);
+  const renamedContact = await anonymous.request.post('/reach-me/contact', { form: {}, maxRedirects: 0 });
+  assert.equal(renamedContact.status(), 302);
+  assert.equal(renamedContact.headers().location, '/reach-me?error=1');
+  await page.locator('[name="about_slug"]').fill('contact');
+  await saveForm('form[action$="/admin/pages/about"]');
   console.log('PASS: renamed About permalink serves Contact, routes form validation back to Contact and retains legacy About URLs');
+  console.log('PASS: changing the permalink again dynamically registers the new page/form URL and removes the previous custom URL');
   for (const template of ['classic', 'modern']) {
     await page.goto('/admin/pages/home');
     await page.locator(`[name="home_template"][value="${template}"]`).check({ force: true });
