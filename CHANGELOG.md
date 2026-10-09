@@ -1,3 +1,9 @@
+## [1.4.23-test.12] - 2026-10-09
+
+- Prevent Analytics Pro page rendering from registering a second set of sidebar and tracking hooks.
+- Translate Analytics Pro dashboard and dashboard-widget labels using the selected admin language, with English fallbacks.
+- Preserve browser-supplied user-agent data when enriching analytics pageviews.
+
 ## [1.4.23-test.11] - 2026-10-09
 
 - Show per-album storage totals in the admin Albums table, with originals and generated versions listed separately.

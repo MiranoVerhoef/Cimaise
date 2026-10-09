@@ -15,6 +15,14 @@ const assert = require('node:assert/strict');
     const saved = await context.request.post(form.action, { form: form.values, maxRedirects: 0 });
     assert.equal(saved.status(), 302, await saved.text());
   }
+  await page.goto('/admin/analytics-pro');
+  assert.equal(await page.locator('#sidebar a[href$="/admin/analytics-pro"]').count(), 1);
+  assert.match(await page.locator('#page-content').textContent(), /Real-time statistics from collected events/);
+  assert.match(await page.locator('#page-content').textContent(), /Active users \(5 min\)/);
+  assert.doesNotMatch(await page.locator('#page-content').textContent(), /Statistiche in tempo|Utenti attivi/);
+  await page.reload();
+  assert.equal(await page.locator('#sidebar a[href$="/admin/analytics-pro"]').count(), 1);
+  console.log('PASS: Analytics Pro renders English labels and exactly one sidebar entry on initial load and reload');
   await page.goto('/admin/albums/1/edit');
   await page.locator('#show_equipment').uncheck();
   await saveForm('#album-form');

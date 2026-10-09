@@ -1285,7 +1285,8 @@ return function (App $app, array $container) {
     // wrapped in the shared admin chrome via admin/plugin-page.twig).
     if (class_exists('CimaiseAnalyticsProPlugin') && file_exists(__DIR__ . '/../../plugins/cimaise-analytics-pro/plugin.php')) {
         $app->get('/admin/analytics-pro', function (Request $request, Response $response) use ($container) {
-            $plugin = new \CimaiseAnalyticsProPlugin();
+            // The loaded plugin already registered tracking/sidebar hooks.
+            $plugin = new \CimaiseAnalyticsProPlugin(false);
             $plugin->initialize($container['db']);
             $html = $plugin->renderDashboardPage($container['db']);
             return Twig::fromRequest($request)->render($response, 'admin/plugin-page.twig', [
