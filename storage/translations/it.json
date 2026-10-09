@@ -22,6 +22,10 @@
     "about.portrait_alt": "Ritratto"
   },
   "theme": {
+    "images.enhanced_ready": "Sono disponibili versioni migliorate delle immagini",
+    "updates.reload": "Ricarica",
+    "updates.dismiss": "Chiudi",
+    "updates.available": "Nuova versione disponibile",
     "theme.toggle_dark": "Passa al tema scuro",
     "theme.toggle_light": "Passa al tema chiaro"
   },

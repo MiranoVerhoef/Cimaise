@@ -220,6 +220,41 @@ const assert = require('node:assert/strict');
   await publicPage.close();
   console.log('PASS: incognito lightbox downloads the original and displays denied responses instead of saving HTML');
 
+  const revisionResponse = await anonymous.request.get('/api/image-generation-revision');
+  assert.equal(revisionResponse.status(), 200);
+  assert.equal(revisionResponse.headers()['cache-control'], 'no-store');
+  assert.deepEqual(Object.keys(await revisionResponse.json()), ['revision']);
+  const enhancedPage = await anonymous.newPage();
+  let firstPhotoDocument = true;
+  let testImageRevision = 'f'.repeat(32);
+  await enhancedPage.route('**/album/test', async route => {
+    const response = await route.fetch();
+    let body = await response.text();
+    if (route.request().resourceType() === 'document' && firstPhotoDocument) {
+      firstPhotoDocument = false;
+      body = body.replace(new RegExp(`${uploadData.id}_(md|lg|xl|xxl)(?=\\.)`, 'g'), `${uploadData.id}_sm`);
+    }
+    await route.fulfill({ response, body });
+  });
+  await enhancedPage.route('**/api/image-generation-revision', route => route.fulfill({ json: { revision: testImageRevision } }));
+  await enhancedPage.goto('/album/test');
+  const enhancedPill = enhancedPage.locator('#pwa-update-banner[data-kind="images"]');
+  await enhancedPill.waitFor({ state: 'visible' });
+  assert.match(await enhancedPill.innerText(), /Enhanced image versions are ready/);
+  await enhancedPill.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  assert.equal(await enhancedPill.count(), 0);
+  firstPhotoDocument = true;
+  testImageRevision = 'e'.repeat(32);
+  await enhancedPage.reload();
+  await enhancedPill.waitFor({ state: 'visible' });
+  const enhancedReload = enhancedPage.waitForNavigation();
+  await enhancedPill.getByRole('button', { name: 'Reload', exact: true }).click();
+  await enhancedReload;
+  assert.equal(await enhancedPage.locator(`a[data-image-id="${uploadData.id}"]`).first().getAttribute('href').then(url => /_(md|lg|xl|xxl)\./.test(url)), true);
+  assert.equal(await enhancedPage.locator('#pwa-update-banner[data-kind="images"]').count(), 0);
+  await enhancedPage.close();
+  console.log('PASS: enhanced-image reload pill appears for a photo gaining larger variants and reloads into the higher-resolution page; revision API exposes no job details');
+
   await page.goto('/admin/albums/1/edit');
   await page.locator('[name="allow_downloads"]').uncheck();
   await page.locator('#album-categories').selectOption([]);

@@ -139,6 +139,8 @@ final class ImageJobQueue
         if ($placeholder === null) {
             throw new RuntimeException('Image placeholder generation failed');
         }
+        (new PageCacheService(new SettingsService($this->db), $this->db))->clearAll();
+        ImageGenerationRevision::advance();
         $this->report($id, ['state' => 'complete', 'completed' => $stats['generated'] + $stats['skipped'] + 1, 'current' => '']);
     }
 

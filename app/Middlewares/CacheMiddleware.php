@@ -97,6 +97,9 @@ class CacheMiddleware implements MiddlewareInterface
 
         // API routes
         if (str_starts_with($path, '/api/')) {
+            if ($path === '/api/image-generation-revision') {
+                return $response->withHeader('Cache-Control', 'no-store');
+            }
             // Admin API: no cache
             if ($path === '/api/admin' || str_starts_with($path, '/api/admin/')) {
                 return $this->addNoCacheHeaders($response);

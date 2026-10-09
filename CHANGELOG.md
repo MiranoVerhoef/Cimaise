@@ -1,3 +1,10 @@
+## [1.4.23-test.10] - 2026-10-09
+
+- Reuse the update pill to offer Reload or Dismiss when photos on the current page gain larger generated variants.
+- Check a small opaque generation revision every 30 seconds on visible photo pages; inspect updated page HTML only after completed generation.
+- Clear cached page data after successful background generation so reloading uses newly available variants.
+- Keep failed jobs from announcing readiness, and preserve the application-update pill with shared accessible controls.
+
 ## [1.4.23-test.9] - 2026-10-09
 
 - Register the saved About permalink so renamed pages such as /contact load correctly instead of returning 404.

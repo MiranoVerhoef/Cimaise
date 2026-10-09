@@ -443,6 +443,7 @@ if (file_exists($versionFile)) {
     $appVersion = $versionData['version'] ?? '1.0.0';
 }
 $twig->getEnvironment()->addGlobal('app_version', $appVersion);
+$twig->getEnvironment()->addGlobal('image_generation_revision', \App\Services\ImageGenerationRevision::current());
 
 // Load Twig globals from cache (APCu/file) - reduces ~50 settings queries to ~1
 // Cache is invalidated when settings change via TwigGlobalsCache::invalidate()

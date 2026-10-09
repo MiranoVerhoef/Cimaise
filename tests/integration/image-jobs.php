@@ -54,7 +54,9 @@ try {
     check(is_file($job), 'asynchronous upload persists its job');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'asynchronous upload defers larger variants');
     check(array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0]['state'] === 'queued', 'queued progress is visible before processing');
+    $previousRevision = \App\Services\ImageGenerationRevision::current();
     check($queue->drain() === 0, 'queued image generates without errors');
+    check(\App\Services\ImageGenerationRevision::current() !== $previousRevision, 'completed generation advances the public opaque revision');
     check(!is_file($job), 'successful job is removed');
     $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
     check($progress['state'] === 'complete' && $progress['completed'] === 10 && $progress['total'] === 10, 'progress counts all nine variants and the placeholder');
@@ -75,7 +77,9 @@ try {
     });
     $queue->enqueue($id);
     rename($meta['path'], $meta['path'] . '.hold');
+    $previousRevision = \App\Services\ImageGenerationRevision::current();
     check($queue->drain() === 1 && is_file($job), 'failed job remains queued');
+    check(\App\Services\ImageGenerationRevision::current() === $previousRevision, 'failed generation does not announce enhanced versions');
     $state = json_decode(file_get_contents($job), true);
     check($state['attempts'] === 1 && $state['next_at'] > time(), 'failed job receives retry backoff');
     $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];

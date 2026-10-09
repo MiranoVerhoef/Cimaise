@@ -25,6 +25,10 @@ function isAppInstalled($db): bool
 }
 
 return function (App $app, array $container) {
+    $app->get('/api/image-generation-revision', function (Request $request, Response $response): Response {
+        $response->getBody()->write(json_encode(['revision' => \App\Services\ImageGenerationRevision::current()]));
+        return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
+    });
 
     // Installer routes — redirect all /install/* to standalone installer.php
     if (!$container['db'] || !isAppInstalled($container['db'])) {
