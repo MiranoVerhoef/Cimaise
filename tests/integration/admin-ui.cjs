@@ -224,7 +224,10 @@ const assert = require('node:assert/strict');
   assert.equal(revisionResponse.status(), 200);
   assert.equal(revisionResponse.headers()['cache-control'], 'no-store');
   assert.deepEqual(Object.keys(await revisionResponse.json()), ['revision']);
-  const enhancedPage = await anonymous.newPage();
+  // This fixture controls the initially available variants. A service worker
+  // can bypass Playwright routes, so isolate it from the other SW/cache tests.
+  const enhancementContext = await browser.newContext({ baseURL: 'http://localhost:8080', serviceWorkers: 'block' });
+  const enhancedPage = await enhancementContext.newPage();
   const enhancementDiagnostics = [];
   enhancedPage.on('pageerror', error => enhancementDiagnostics.push(error.message));
   enhancedPage.on('requestfailed', request => enhancementDiagnostics.push({ failed: request.url(), error: request.failure() }));
@@ -269,6 +272,7 @@ const assert = require('node:assert/strict');
   assert.equal(await enhancedPage.locator(`a[data-image-id="${uploadData.id}"]`).first().getAttribute('href').then(url => /_(md|lg|xl|xxl)\./.test(url)), true);
   assert.equal(await enhancedPage.locator('#pwa-update-banner[data-kind="images"]').count(), 0);
   await enhancedPage.close();
+  await enhancementContext.close();
   console.log('PASS: enhanced-image reload pill appears for a photo gaining larger variants and reloads into the higher-resolution page; revision API exposes no job details');
 
   await page.goto('/admin/albums/1/edit');
