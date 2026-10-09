@@ -138,7 +138,9 @@ const assert = require('node:assert/strict');
   console.log('PASS: real browser upload preserves bytes; public/admin original downloads match and report size');
 
   const publicPage = await anonymous.newPage();
+  publicPage.on('pageerror', error => errors.push(error.message));
   await publicPage.goto('/album/test');
+  await publicPage.waitForFunction(() => !!window.__pswpLightbox);
   await publicPage.locator(`.pswp-gallery a[data-image-id="${uploadData.id}"]`).first().click();
   const downloadButton = publicPage.locator('.pswp__button--download-button');
   await downloadButton.waitFor({ state: 'visible' });
