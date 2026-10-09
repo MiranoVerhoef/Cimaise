@@ -287,6 +287,8 @@
     "home_snap.view_album": "Vedi album"
   },
   "image": {
+    "image.download_failed": "Impossibile scaricare l'originale. Verifica che i download siano abilitati e sblocca l'album se necessario.",
+    "image.download_maintenance": "I download non sono disponibili durante la manutenzione.",
     "image.download": "Scarica"
   },
   "installer": {

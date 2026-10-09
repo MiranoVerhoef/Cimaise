@@ -287,6 +287,8 @@
     "home_snap.view_album": "View album"
   },
   "image": {
+    "image.download_failed": "Unable to download the original. Check that downloads are enabled and unlock the album if required.",
+    "image.download_maintenance": "Downloads are unavailable during maintenance.",
     "image.download": "Download"
   },
   "installer": {
