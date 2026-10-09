@@ -1321,6 +1321,8 @@
     "admin.maintenance.show_animation_hint": "Mostra un'animazione di caricamento per indicare lavori in corso",
     "admin.maintenance.show_logo": "Mostra Logo del Sito",
     "admin.maintenance.show_logo_hint": "Visualizza il logo del sito nella pagina di manutenzione",
+    "admin.maintenance.show_admin_login": "Mostra accesso amministratore",
+    "admin.maintenance.show_admin_login_hint": "Visualizza il link di accesso amministratore nella pagina di manutenzione",
     "admin.maintenance.title": "Modalità Manutenzione",
     "admin.media.add": "Aggiungi",
     "admin.media.add_to_album": "— Aggiungi ad album —",

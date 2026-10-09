@@ -876,6 +876,14 @@
             </label>
 
             <label class="flex items-start">
+              <input type="checkbox" name="maintenance_show_admin_login" class="rounded border-gray-300 text-black focus:ring-black mt-1" {{ (settings['maintenance.show_admin_login'] ?? true) ? 'checked' : '' }}>
+              <span class="ml-3">
+                <span class="text-sm font-medium text-gray-900 block">{{ trans('admin.maintenance.show_admin_login') }}</span>
+                <span class="text-xs text-gray-600 block mt-1">{{ trans('admin.maintenance.show_admin_login_hint') }}</span>
+              </span>
+            </label>
+
+            <label class="flex items-start">
               <input type="checkbox" name="maintenance_show_countdown" class="rounded border-gray-300 text-black focus:ring-black mt-1" {{ (settings['maintenance.show_countdown'] ?? true) ? 'checked' : '' }}>
               <span class="ml-3">
                 <span class="text-sm font-medium text-gray-900 block">{{ trans('admin.maintenance.show_animation') }}</span>

@@ -1321,6 +1321,8 @@
     "admin.maintenance.show_animation_hint": "Show a subtle loading animation to indicate work in progress",
     "admin.maintenance.show_logo": "Show Site Logo",
     "admin.maintenance.show_logo_hint": "Display your site logo on the maintenance page",
+    "admin.maintenance.show_admin_login": "Show Admin Login",
+    "admin.maintenance.show_admin_login_hint": "Display the admin login link on the maintenance page",
     "admin.maintenance.title": "Maintenance Mode",
     "admin.media.add": "Add",
     "admin.media.add_to_album": "— Add to album —",
