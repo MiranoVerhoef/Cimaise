@@ -200,6 +200,12 @@ class AlbumsController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll();
+        $stmt->closeCursor();
+        $storageUsage = (new \App\Services\AlbumStorageService($pdo))->usage(array_column($rows, 'id'));
+        foreach ($rows as &$row) {
+            $row['storage'] = $storageUsage[(int)$row['id']];
+        }
+        unset($row);
 
         $pages = (int)ceil(($total) / $perPage);
         $pagination = [

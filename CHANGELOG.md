@@ -1,3 +1,9 @@
+## [1.4.23-test.11] - 2026-10-09
+
+- Show per-album storage totals in the admin Albums table, with originals and generated versions listed separately.
+- Count existing files without double-counting shared originals within an album; include protected variants without moving media or changing volume mappings.
+- Detect Android and iOS before their Linux/Mac compatibility tokens so phones and tablets are no longer classified as desktop in new analytics sessions.
+
 ## [1.4.23-test.10] - 2026-10-09
 
 - Reuse the update pill to offer Reload or Dismiss when photos on the current page gain larger generated variants.
