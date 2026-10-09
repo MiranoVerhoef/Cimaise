@@ -330,6 +330,27 @@ const assert = require('node:assert/strict');
     await page.locator(`[name="home_template"][value="${template}"]`).check({ force: true });
     await saveForm('#home-form');
     await themedPage.goto('/');
+    if (template === 'classic') {
+      const categoryToggle = themedPage.locator('#categories-toggle');
+      const categoryMenu = themedPage.locator('#categories-mega-menu');
+      await categoryToggle.hover();
+      await categoryMenu.waitFor({ state: 'visible' });
+      const panel = await categoryMenu.boundingBox();
+      await themedPage.mouse.move(panel.x + panel.width / 2, panel.y + 20);
+      await themedPage.waitForTimeout(350);
+      assert.equal(await categoryToggle.getAttribute('aria-expanded'), 'true');
+      await themedPage.mouse.move(1430, 980);
+      // Return during the closing animation, before its delayed hide finishes.
+      await themedPage.waitForTimeout(300);
+      await categoryToggle.hover();
+      await themedPage.waitForTimeout(350);
+      assert.equal(await categoryMenu.isVisible(), true);
+      assert.equal(await categoryToggle.getAttribute('aria-expanded'), 'true');
+      await themedPage.mouse.move(1430, 980);
+      await categoryMenu.waitFor({ state: 'hidden' });
+      assert.equal(await categoryToggle.getAttribute('aria-expanded'), 'false');
+      console.log('PASS: categories stay open across the panel and cancel delayed hiding on pointer re-entry');
+    }
     await themedPage.evaluate(() => { localStorage.setItem('cimaise-theme', 'light'); });
     await themedPage.reload();
     const toggle = themedPage.locator('#theme-toggle, [data-theme-toggle]').filter({ visible: true }).first();

@@ -205,13 +205,13 @@
             <label class="block text-sm font-medium text-gray-700 mb-3 mt-6">{{ trans('admin.settings.logo_dark') }}</label>
             <input type="hidden" id="site_logo_dark" name="site_logo_dark" value="{{ settings['site.logo_dark'] ?? '' }}">
             <div class="flex flex-col md:flex-row items-start gap-6">
-              <div class="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div class="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg bg-neutral-900 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {% if settings['site.logo_dark'] %}
                   <img id="site-logo-preview-dark" src="{{ base_path ~ settings['site.logo_dark'] }}" alt="Logo" class="max-w-full max-h-full">
-                  <span id="site-logo-placeholder-dark" class="text-xs text-gray-500 hidden">{{ trans('admin.settings.no_logo') }}</span>
+                  <span id="site-logo-placeholder-dark" class="text-xs text-gray-300 hidden">{{ trans('admin.settings.no_logo') }}</span>
                 {% else %}
                   <img id="site-logo-preview-dark" src="" alt="Logo" class="max-w-full max-h-full hidden">
-                  <span id="site-logo-placeholder-dark" class="text-xs text-gray-500">{{ trans('admin.settings.no_logo') }}</span>
+                  <span id="site-logo-placeholder-dark" class="text-xs text-gray-300">{{ trans('admin.settings.no_logo') }}</span>
                 {% endif %}
               </div>
               <div class="flex-1">
@@ -228,7 +228,7 @@
                 </button>
               </div>
             </div>
-            <p class="text-xs text-gray-500 mt-2">{{ trans('admin.settings.logo_dark_hint') }}</p>
+            <p class="text-xs text-gray-300 mt-2">{{ trans('admin.settings.logo_dark_hint') }}</p>
 
             <!-- Favicon Generation -->
             <div id="favicon-section" class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">

@@ -778,17 +778,20 @@
             const icon = document.getElementById('categories-icon');
             let isOpen = false;
             let hoverTimeout;
+            let hideTimeout;
             
             if (!toggle || !menu) return;
             
             function closeMenu() {
+                clearTimeout(hoverTimeout);
                 if (!isOpen) return;
 
                 menu.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
                 menu.style.opacity = '0';
                 menu.style.transform = 'translateX(-50%) translateY(-10px)';
 
-                setTimeout(() => {
+                hideTimeout = setTimeout(() => {
+                    if (isOpen) return;
                     menu.classList.add('opacity-0', 'invisible');
                     menu.classList.remove('opacity-100', 'visible');
                 }, 200);
@@ -802,12 +805,16 @@
             }
 
             function openMenu() {
+                clearTimeout(hoverTimeout);
+                clearTimeout(hideTimeout);
                 if (isOpen) return;
+                isOpen = true;
 
                 menu.classList.remove('opacity-0', 'invisible');
                 menu.classList.add('opacity-100', 'visible');
 
                 requestAnimationFrame(() => {
+                    if (!isOpen) return;
                     menu.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                     menu.style.opacity = '1';
                     menu.style.transform = 'translateX(-50%) translateY(0)';
@@ -818,14 +825,13 @@
                 }
 
                 toggle.setAttribute('aria-expanded', 'true');
-                isOpen = true;
             }
             
             // Mouse enter/leave for smooth mega menu (keep open across whitespace)
             const dropdown = document.getElementById('categories-dropdown');
             const scheduleClose = () => {
                 clearTimeout(hoverTimeout);
-                hoverTimeout = setTimeout(closeMenu, 180);
+                hoverTimeout = setTimeout(closeMenu, 280);
             };
             const clearClose = () => clearTimeout(hoverTimeout);
             const isHoveringTarget = (target) => {
