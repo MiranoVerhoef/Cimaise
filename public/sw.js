@@ -111,6 +111,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Original downloads must always reach the server for current permissions.
+  if (url.pathname.startsWith(`${BASE_PATH}/download/`)) {
+    return;
+  }
+
   // Skip protected media (requires authentication, never cache)
   // Protected albums (password/NSFW) use /media/protected/ endpoint
   if (url.pathname.startsWith(`${BASE_PATH}/media/protected`)) {
