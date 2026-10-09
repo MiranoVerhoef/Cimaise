@@ -270,6 +270,7 @@ const assert = require('node:assert/strict');
   await enhancedPill.getByRole('button', { name: 'Reload', exact: true }).click();
   await enhancedReload;
   assert.equal(await enhancedPage.locator(`a[data-image-id="${uploadData.id}"]`).first().getAttribute('href').then(url => /_(md|lg|xl|xxl)\./.test(url)), true);
+  await enhancedPage.unrouteAll({ behavior: 'wait' });
   assert.equal(await enhancedPage.locator('#pwa-update-banner[data-kind="images"]').count(), 0);
   await enhancedPage.close();
   await enhancementContext.close();
