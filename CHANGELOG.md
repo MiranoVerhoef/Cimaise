@@ -1,3 +1,9 @@
+## [1.4.23-test.7] - 2026-10-09
+
+- Add an optional dark-mode logo that switches with the visitor's theme in frontend headers and preloaders.
+- Preserve the standard logo and favicons when uploading a dark logo; use the standard logo in both themes when no alternate is configured.
+- Add an independent About navigation name, such as Contact, across desktop, mobile and Modern menus.
+
 ## [1.4.23-test.6] - 2026-10-09
 
 - Revalidate cached HTML on each visit so page and title edits appear without a hard refresh.

@@ -168,6 +168,9 @@ class SettingsController extends BaseController
         $svc->set('gallery.default_template_id', $defaultTemplateId);
         $svc->set('site.title', $siteSettings['title']);
         $svc->set('site.logo', $siteSettings['logo']);
+        if (array_key_exists('site_logo_dark', $data)) {
+            $svc->set('site.logo_dark', trim((string)$data['site_logo_dark']) ?: null);
+        }
 
         // Logo type (text or image)
         $logoType = in_array($data['logo_type'] ?? 'text', ['text', 'image'], true) ? $data['logo_type'] : 'text';

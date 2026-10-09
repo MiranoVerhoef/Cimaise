@@ -652,6 +652,7 @@ window.AdminInit = function() {
   initTomSelects();
   initUppyAreaUpload();
   initLogoUpload();
+  initLogoUpload('dark');
   initFaviconSourceUpload();
   initSortableGrid();
   bindGridButtons();
@@ -761,12 +762,13 @@ function cleanupExistingInstances() {
 }
 
 // Logo upload in Settings page
-function initLogoUpload(){
-  const area = document.getElementById('logo-uppy');
-  const hidden = document.getElementById('site_logo');
-  const preview = document.getElementById('site-logo-preview');
-  const placeholder = document.getElementById('site-logo-placeholder');
-  const clearBtn = document.getElementById('site-logo-clear');
+function initLogoUpload(theme = 'light'){
+  const suffix = theme === 'dark' ? '-dark' : '';
+  const area = document.getElementById('logo-uppy' + suffix);
+  const hidden = document.getElementById(theme === 'dark' ? 'site_logo_dark' : 'site_logo');
+  const preview = document.getElementById('site-logo-preview' + suffix);
+  const placeholder = document.getElementById('site-logo-placeholder' + suffix);
+  const clearBtn = document.getElementById('site-logo-clear' + suffix);
   if (!area || !hidden) return;
   if (area._uppyInitialized) return; area._uppyInitialized = true;
   const endpoint = area.dataset.endpoint;

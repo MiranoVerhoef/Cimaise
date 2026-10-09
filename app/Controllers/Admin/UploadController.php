@@ -221,16 +221,19 @@ class UploadController extends BaseController
             $relUrl = '/media/' . basename($destPath);
             // Save setting
             $settings = new \App\Services\SettingsService($this->db);
-            $settings->set('site.logo', $relUrl);
+            $darkLogo = ($request->getQueryParams()['theme'] ?? '') === 'dark';
+            $settings->set($darkLogo ? 'site.logo_dark' : 'site.logo', $relUrl);
 
             // Automatically generate favicons from the uploaded logo
             $faviconResult = ['generated' => [], 'success' => false];
             try {
-                $publicPath = dirname(__DIR__, 3) . '/public';
-                $faviconService = new \App\Services\FaviconService($publicPath);
-                $faviconResult = $faviconService->generateFavicons($destPath);
-                if (!empty($faviconResult['success'])) {
-                    $settings->set('pwa.existing_icons', []);
+                if (!$darkLogo) {
+                    $publicPath = dirname(__DIR__, 3) . '/public';
+                    $faviconService = new \App\Services\FaviconService($publicPath);
+                    $faviconResult = $faviconService->generateFavicons($destPath);
+                    if (!empty($faviconResult['success'])) {
+                        $settings->set('pwa.existing_icons', []);
+                    }
                 }
             } catch (\Throwable $faviconError) {
                 $faviconResult['error'] = $faviconError->getMessage();

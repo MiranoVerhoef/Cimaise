@@ -231,6 +231,7 @@ class PagesController extends BaseController
             'about.text' => (string)($svc->get('about.text', '') ?? ''),
             'about.photo_url' => (string)($svc->get('about.photo_url', '') ?? ''),
             'about.title' => (string)($svc->get('about.title', 'About') ?? 'About'),
+            'about.menu_label' => (string)($svc->get('about.menu_label', '') ?? ''),
             'about.subtitle' => (string)($svc->get('about.subtitle', '') ?? ''),
             'about.slug' => (string)($svc->get('about.slug', 'about') ?? 'about'),
             'about.footer_text' => (string)($svc->get('about.footer_text', '') ?? ''),
@@ -262,6 +263,9 @@ class PagesController extends BaseController
         $text = \App\Support\Sanitizer::html($textRaw);
         $svc->set('about.text', $text);
         $svc->set('about.title', trim((string)($data['about_title'] ?? 'About')) ?: 'About');
+        if (array_key_exists('about_menu_label', $data)) {
+            $svc->set('about.menu_label', trim((string)$data['about_menu_label']));
+        }
         $svc->set('about.subtitle', trim((string)($data['about_subtitle'] ?? '')));
         // Slug/permalink
         $rawSlug = strtolower(trim((string)($data['about_slug'] ?? 'about')));
