@@ -269,6 +269,14 @@ async function networkFirstStrategy(request, cacheName, maxItems = 20) {
     const networkResponse = await fetch(request, { signal: controller.signal, cache: 'no-cache' });
     clearTimeout(timeoutId);
 
+    // Once maintenance is known, discard public HTML retained for offline use.
+    if (networkResponse.status === 503 && networkResponse.headers.get('X-Cimaise-Maintenance') === '1') {
+      await caches.delete(CACHE_PAGES);
+      const staticCache = await caches.open(CACHE_STATIC);
+      await staticCache.delete(`${BASE_PATH}/`);
+      return networkResponse;
+    }
+
     // 2. Cache successful responses (200 OK only)
     if (networkResponse && networkResponse.status === 200) {
       const cache = await caches.open(cacheName);

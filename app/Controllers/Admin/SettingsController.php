@@ -306,6 +306,7 @@ class SettingsController extends BaseController
         $svc->set('maintenance.title', trim((string)($data['maintenance_title'] ?? '')));
         $svc->set('maintenance.message', trim((string)($data['maintenance_message'] ?? '')));
         $svc->set('maintenance.show_logo', isset($data['maintenance_show_logo']));
+        $svc->set('maintenance.show_admin_login', isset($data['maintenance_show_admin_login']));
         $svc->set('maintenance.show_countdown', isset($data['maintenance_show_countdown']));
 
         $_SESSION['flash'][] = ['type' => 'success','message' => trans('admin.flash.settings_saved')];

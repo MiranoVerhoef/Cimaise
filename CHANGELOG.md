@@ -4,6 +4,8 @@
 - Have the service worker check the server instead of accepting a still-fresh HTTP-cache page.
 - Include the application release in HTML content IDs and hash file-backed cache contents to avoid same-size/same-time collisions.
 - Retain server-side page caching and conditional 304 responses for unchanged content.
+- Mark maintenance responses as non-cacheable and discard offline HTML after detecting maintenance.
+- Add a Show Admin Login setting for the maintenance page.
 
 ## [1.4.23-test.5] - 2026-10-09
 

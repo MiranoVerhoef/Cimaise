@@ -40,6 +40,7 @@ class MaintenanceModePlugin
         'maintenance.title',
         'maintenance.message',
         'maintenance.show_logo',
+        'maintenance.show_admin_login',
         'maintenance.show_countdown',
     ];
 
@@ -51,6 +52,7 @@ class MaintenanceModePlugin
         'maintenance.title' => '',
         'maintenance.message' => 'We are currently working on some improvements. Please check back soon!',
         'maintenance.show_logo' => true,
+        'maintenance.show_admin_login' => true,
         'maintenance.show_countdown' => true,
     ];
 
@@ -109,6 +111,12 @@ class MaintenanceModePlugin
                     'type' => 'checkbox',
                     'label' => 'Show Site Logo',
                     'description' => 'Display your site logo on the maintenance page',
+                    'default' => true
+                ],
+                'maintenance_show_admin_login' => [
+                    'type' => 'checkbox',
+                    'label' => 'Show Admin Login',
+                    'description' => 'Display the admin login link on the maintenance page',
                     'default' => true
                 ],
                 'maintenance_show_countdown' => [
@@ -250,6 +258,7 @@ class MaintenanceModePlugin
                 'has_custom_title' => $customTitle !== '',
                 'message' => $settingsService->get('maintenance.message', self::SETTINGS_DEFAULTS['maintenance.message']),
                 'show_logo' => (bool)$settingsService->get('maintenance.show_logo', self::SETTINGS_DEFAULTS['maintenance.show_logo']),
+                'show_admin_login' => \App\Services\SettingsService::boolean($settingsService->get('maintenance.show_admin_login', true), true),
                 'show_countdown' => (bool)$settingsService->get('maintenance.show_countdown', self::SETTINGS_DEFAULTS['maintenance.show_countdown']),
                 'site_title' => $siteTitle,
                 'site_language' => $siteLanguage,

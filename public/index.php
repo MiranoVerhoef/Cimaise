@@ -36,6 +36,7 @@ if (is_file($maintenanceFlagFile)) {
     if (is_file($maintenanceFlagFile) && !str_contains($maintenancePath, '/admin/updates')) {
         http_response_code(503);
         header('Retry-After: 120');
+        header('X-Cimaise-Maintenance: 1');
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store, max-age=0');
         header('X-Robots-Tag: noindex');
