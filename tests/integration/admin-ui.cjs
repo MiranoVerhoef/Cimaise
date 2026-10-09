@@ -206,11 +206,12 @@ const assert = require('node:assert/strict');
   const downloadButton = publicPage.locator('.pswp__button--download-button');
   await downloadButton.waitFor({ state: 'visible' });
   await publicPage.route('**/download/image/*', route => route.fulfill({ status: 403, contentType: 'text/html', body: 'No permission' }));
-  const deniedDialog = publicPage.waitForEvent('dialog');
+  const deniedDialog = publicPage.waitForEvent('dialog').then(async dialog => {
+    assert.match(dialog.message(), /Unable to download the original/);
+    await dialog.accept();
+  });
   await downloadButton.click();
-  const dialog = await deniedDialog;
-  assert.match(dialog.message(), /Unable to download the original/);
-  await dialog.accept();
+  await deniedDialog;
   await publicPage.unroute('**/download/image/*');
   const downloadEvent = publicPage.waitForEvent('download');
   await downloadButton.click();
