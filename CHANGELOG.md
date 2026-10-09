@@ -1,3 +1,9 @@
+## [1.4.23-test.9] - 2026-10-09
+
+- Register the saved About permalink so renamed pages such as /contact load correctly instead of returning 404.
+- Route contact submissions and validation redirects through the custom permalink, preserving CSRF checks and rate limiting.
+- Keep legacy /about URLs working and avoid overriding existing application routes.
+
 ## [1.4.23-test.8] - 2026-10-09
 
 - Cancel pending category-menu hide timers when the pointer returns, preventing the panel from disappearing after reopening.

@@ -2648,9 +2648,12 @@ class PageController extends BaseController
 
     public function aboutContact(Request $request, Response $response): Response
     {
+        $settings = new \App\Services\SettingsService($this->db);
+        $aboutSlug = trim((string)($settings->get('about.slug', 'about') ?? 'about'));
+        $aboutPath = '/' . (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $aboutSlug) ? $aboutSlug : 'about');
         // CSRF validation
         if (!$this->validateCsrf($request)) {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         $data = (array) ($request->getParsedBody() ?? []);
@@ -2659,11 +2662,10 @@ class PageController extends BaseController
         $message = trim((string) ($data['message'] ?? ''));
 
         if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $message === '') {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         // reCAPTCHA validation
-        $settings = new \App\Services\SettingsService($this->db);
         $recaptchaEnabled = (bool) ($settings->get('recaptcha.enabled', false) ?? false);
         $recaptchaSecretKey = (string) ($settings->get('recaptcha.secret_key', '') ?? '');
 
@@ -2671,7 +2673,7 @@ class PageController extends BaseController
             $recaptchaToken = trim((string) ($data['recaptcha_token'] ?? ''));
 
             if ($recaptchaToken === '') {
-                return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
             }
 
             // Verify token with Google reCAPTCHA API
@@ -2686,7 +2688,7 @@ class PageController extends BaseController
                         'errors' => $resp->getErrorCodes(),
                         'score' => $resp->getScore()
                     ], 'security');
-                    return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                    return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
                 }
 
                 // Check score (v3 returns score 0.0-1.0, higher is more likely human)
@@ -2694,13 +2696,13 @@ class PageController extends BaseController
                     \App\Support\Logger::warning('reCAPTCHA score too low', [
                         'score' => $resp->getScore()
                     ], 'security');
-                    return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                    return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
                 }
             } catch (\Throwable $e) {
                 \App\Support\Logger::error('reCAPTCHA verification error', [
                     'error' => $e->getMessage()
                 ], 'security');
-                return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
             }
         }
 
@@ -2718,7 +2720,7 @@ class PageController extends BaseController
         // Additional email validation - must match the validated email exactly
         // FILTER_VALIDATE_EMAIL already passed, but double-check for header chars
         if (preg_match('/[\x00-\x1F\x7F]/', $email)) {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         // Encode subject with =?UTF-8?B? to prevent header injection
@@ -2747,11 +2749,7 @@ class PageController extends BaseController
             'Content-Type: text/plain; charset=UTF-8';
 
         @mail($to, $subject, $body, $headers);
-        $slug = (string) ($settings->get('about.slug', 'about') ?? 'about');
-        if ($slug === '') {
-            $slug = 'about';
-        }
-        return $response->withHeader('Location', $this->redirect('/' . $slug . '?sent=1'))->withStatus(302);
+        return $response->withHeader('Location', $this->redirect($aboutPath . '?sent=1'))->withStatus(302);
     }
 
     public function license(Request $request, Response $response): Response

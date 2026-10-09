@@ -321,10 +321,26 @@ const assert = require('node:assert/strict');
   await saveForm('#settings-form');
   await page.goto('/admin/pages/about');
   await page.locator('[name="about_menu_label"]').fill('Contact');
+  await page.locator('[name="about_title"]').fill('Contact');
+  await page.locator('[name="about_slug"]').fill('contact');
   await saveForm('form[action$="/admin/pages/about"]');
   await page.reload();
   assert.equal(await page.locator('[name="about_menu_label"]').inputValue(), 'Contact');
   const themedPage = await anonymous.newPage();
+  assert.equal((await themedPage.goto('/contact')).status(), 200);
+  assert.equal(await themedPage.locator('h1').innerText(), 'Contact');
+  assert.equal(await themedPage.locator('form[action$="/contact/contact"]').count(), 1);
+  const contactCsrf = await themedPage.locator('form[action$="/contact/contact"] [name="csrf"]').inputValue();
+  const invalidContact = await anonymous.request.post('/contact/contact', {
+    form: { csrf: contactCsrf, name: 'Test', email: 'invalid', message: 'Validation only' }, maxRedirects: 0
+  });
+  assert.equal(invalidContact.status(), 302);
+  assert.equal(invalidContact.headers().location, '/contact?error=1');
+  assert.equal((await anonymous.request.get('/about')).status(), 200);
+  const legacyContact = await anonymous.request.post('/about/contact', { form: {}, maxRedirects: 0 });
+  assert.equal(legacyContact.status(), 302);
+  assert.equal(legacyContact.headers().location, '/contact?error=1');
+  console.log('PASS: renamed About permalink serves Contact, routes form validation back to Contact and retains legacy About URLs');
   for (const template of ['classic', 'modern']) {
     await page.goto('/admin/pages/home');
     await page.locator(`[name="home_template"][value="${template}"]`).check({ force: true });
@@ -357,7 +373,7 @@ const assert = require('node:assert/strict');
     const lightLogo = themedPage.locator('.cimaise-logo-light').filter({ visible: true }).first();
     await lightLogo.waitFor({ state: 'visible' });
     assert.equal(await lightLogo.getAttribute('src'), lightLogoPath);
-    assert.equal(await themedPage.locator('a[href$="/about"]').filter({ hasText: /^Contact$/ }).count() > 0, true);
+    assert.equal(await themedPage.locator('a[href$="/contact"]').filter({ hasText: /^Contact$/ }).count() > 0, true);
     await toggle.click();
     const darkLogo = themedPage.locator('.cimaise-logo-dark').filter({ visible: true }).first();
     await darkLogo.waitFor({ state: 'visible' });

@@ -2340,4 +2340,27 @@ return function (App $app, array $container) {
         return $resp;
     });
 
+    // Keep legacy About URLs working while honoring the saved permalink.
+    if ($container['db']) {
+        $aboutSettings = new \App\Services\SettingsService($container['db']);
+        $aboutSlug = trim((string)($aboutSettings->get('about.slug', 'about') ?? 'about'));
+        if ($aboutSlug !== 'about' && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $aboutSlug)) {
+            $aboutPath = '/' . $aboutSlug;
+            $registeredPaths = array_map(static fn ($route) => $route->getPattern(), $app->getRouteCollector()->getRoutes());
+            // Never replace an existing application or admin route.
+            if (!in_array($aboutPath, $registeredPaths, true)) {
+                $app->get($aboutPath, function (Request $request, Response $response) use ($container) {
+                    $controller = new \App\Controllers\Frontend\PageController($container['db'], Twig::fromRequest($request));
+                    return $controller->about($request, $response);
+                });
+                if (!in_array($aboutPath . '/contact', $registeredPaths, true)) {
+                    $app->post($aboutPath . '/contact', function (Request $request, Response $response) use ($container) {
+                        $controller = new \App\Controllers\Frontend\PageController($container['db'], Twig::fromRequest($request));
+                        return $controller->aboutContact($request, $response);
+                    })->add(new RateLimitMiddleware(5, 600));
+                }
+            }
+        }
+    }
+
 }; // End routes function
