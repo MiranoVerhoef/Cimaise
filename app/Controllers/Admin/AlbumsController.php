@@ -540,7 +540,7 @@ class AlbumsController extends BaseController
             $item['custom_template_id'] ?? null
         );
 
-        $cats = $pdo->query('SELECT id, name FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
+        $cats = $pdo->query('SELECT id, name, slug FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
         $tags = $pdo->query('SELECT id, name FROM tags ORDER BY name')->fetchAll();
 
         // Load templates if table exists (core + custom)

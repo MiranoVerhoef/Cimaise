@@ -1,4 +1,4 @@
-## [1.4.23-test.4] - 2026-10-08
+## [1.4.23-test.4] - 2026-10-09
 
 - Fix maintenance logo URLs for uploaded images, legacy filenames and subdirectory installations.
 - Allow WebP and AVIF logo requests during maintenance mode.
@@ -9,6 +9,7 @@
 - Allow albums without a selected category to use the None fallback without a schema migration.
 - Upload local WOFF2, WOFF, TTF and OTF fonts with persistent storage and refreshed typography CSS URLs.
 - Suppress mobile image callouts and context menus when downloads are disabled.
+- Show permission/maintenance errors from lightbox downloads instead of saving an HTML response as a file.
 - Include all combined image generation, progress, gallery, translation and Brotli fixes from test.3.
 
 ## [1.4.23-test.3] - 2026-10-08

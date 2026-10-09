@@ -137,6 +137,25 @@ const assert = require('node:assert/strict');
   assert.equal(denied.status(), 302);
   console.log('PASS: real browser upload preserves bytes; public/admin original downloads match and report size');
 
+  const publicPage = await anonymous.newPage();
+  await publicPage.goto('/album/test');
+  await publicPage.locator(`.pswp-gallery a[data-image-id="${uploadData.id}"]`).first().click();
+  const downloadButton = publicPage.locator('.pswp__button--download-button');
+  await downloadButton.waitFor({ state: 'visible' });
+  await publicPage.route('**/download/image/*', route => route.fulfill({ status: 403, contentType: 'text/html', body: 'No permission' }));
+  const deniedDialog = publicPage.waitForEvent('dialog');
+  await downloadButton.click();
+  const dialog = await deniedDialog;
+  assert.match(dialog.message(), /Unable to download the original/);
+  await dialog.accept();
+  await publicPage.unroute('**/download/image/*');
+  const downloadEvent = publicPage.waitForEvent('download');
+  await downloadButton.click();
+  const browserDownload = await downloadEvent;
+  assert.deepEqual(await require('node:fs/promises').readFile(await browserDownload.path()), originalBytes);
+  await publicPage.close();
+  console.log('PASS: incognito lightbox downloads the original and displays denied responses instead of saving HTML');
+
   await page.goto('/admin/albums/1/edit');
   await page.locator('[name="allow_downloads"]').uncheck();
   await page.locator('#album-categories').selectOption([]);
