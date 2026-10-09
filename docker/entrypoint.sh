@@ -141,4 +141,8 @@ else
 fi
 
 echo "[cimaise] starting Apache…"
+if [ "${1:-}" = "apache2-foreground" ]; then
+  # A separate, unprivileged worker retries durable jobs even without traffic.
+  /bin/sh "$APP_DIR/bin/image-worker.sh" &
+fi
 exec "$@"

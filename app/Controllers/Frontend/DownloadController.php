@@ -23,7 +23,7 @@ class DownloadController extends BaseController
      *
      * @param array<string,mixed> $args
      */
-    public function downloadImage(Request $request, Response $response, array $args): Response
+    public function downloadImage(Request $request, Response $response, array $args, bool $adminDownload = false): Response
     {
         $id = (int)($args['id'] ?? 0);
         if ($id <= 0) {
@@ -40,15 +40,16 @@ class DownloadController extends BaseController
             return $response->withStatus(404);
         }
         // Unpublished albums must not leak their originals via image-id enumeration.
-        if (!(int)$row['is_published']) {
+        $adminDownload = $adminDownload && $this->isAdmin();
+        if (!$adminDownload && !(int)$row['is_published']) {
             return $response->withStatus(404);
         }
-        if (!(int)$row['allow_downloads']) {
+        if (!$adminDownload && !(int)$row['allow_downloads']) {
             return $response->withStatus(403);
         }
 
         // Check album password if present
-        if (!empty($row['password_hash']) && !$this->hasAlbumPasswordAccess((int)$row['album_id'], (string)$row['password_hash'])) {
+        if (!$adminDownload && !empty($row['password_hash']) && !$this->hasAlbumPasswordAccess((int)$row['album_id'], (string)$row['password_hash'])) {
             return $response->withStatus(403);
         }
 
@@ -59,37 +60,8 @@ class DownloadController extends BaseController
             return $response->withStatus(403);
         }
 
-        $root = dirname(__DIR__, 3);
-        $originalPath = (string)$row['original_path'];
-
-        // SECURITY: Comprehensive path traversal prevention
-        // Remove all potential traversal sequences
-        $originalPath = str_replace(['../', '..\\', '/../', '\\..\\', '../', '..\\'], '', $originalPath);
-        $originalPath = preg_replace('/\.{2,}/', '.', $originalPath); // Remove multiple dots
-        $originalPath = ltrim((string) $originalPath, '/');
-
-        // Ensure path is properly normalized and starts with expected directory
-        if (!str_starts_with($originalPath, 'storage/')) {
-            $originalPath = 'storage/' . ltrim($originalPath, '/');
-        }
-
-        // Additional safety: ensure no traversal characters remain
-        if (str_contains($originalPath, '..') || str_contains($originalPath, '\\')) {
-            return $response->withStatus(403);
-        }
-
-        $fsPath = $root . '/' . $originalPath;
-        $realPath = realpath($fsPath);
-        $storageRoot = realpath($root . '/storage/');
-
-        // SECURITY: Multi-layer validation
-        // 1. Verify resolved path exists and is within storage directory
-        if (!$realPath || !$storageRoot || !str_starts_with($realPath, $storageRoot . DIRECTORY_SEPARATOR)) {
-            return $response->withStatus(403);
-        }
-
-        // 2. Verify it's actually a file (not directory or other)
-        if (!is_file($realPath)) {
+        $realPath = \App\Services\OriginalImage::resolve((string)$row['original_path']);
+        if ($realPath === null) {
             return $response->withStatus(404);
         }
 
@@ -102,7 +74,7 @@ class DownloadController extends BaseController
         // intentionally excluded: it is script-capable and would enable stored
         // XSS if ever served inline. BMP/TIFF dropped as unsupported.
         $allowedMimes = [
-            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
         ];
 
         if (!in_array($detectedMime, $allowedMimes, true)) {
@@ -163,7 +135,7 @@ class DownloadController extends BaseController
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('X-Frame-Options', 'DENY');
 
-        if (!empty($row['password_hash']) || !empty($row['is_nsfw'])) {
+        if ($adminDownload || !empty($row['password_hash']) || !empty($row['is_nsfw'])) {
             return $result
                 ->withHeader('Cache-Control', 'private, no-store, max-age=0')
                 ->withHeader('Pragma', 'no-cache')

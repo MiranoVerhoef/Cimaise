@@ -1,3 +1,89 @@
+## [1.4.23-test.12] - 2026-10-09
+
+- Prevent Analytics Pro page rendering from registering a second set of sidebar and tracking hooks.
+- Translate Analytics Pro dashboard and dashboard-widget labels using the selected admin language, with English fallbacks.
+- Preserve browser-supplied user-agent data when enriching analytics pageviews.
+
+## [1.4.23-test.11] - 2026-10-09
+
+- Show per-album storage totals in the admin Albums table, with originals and generated versions listed separately.
+- Count existing files without double-counting shared originals within an album; include protected variants without moving media or changing volume mappings.
+- Detect Android and iOS before their Linux/Mac compatibility tokens so phones and tablets are no longer classified as desktop in new analytics sessions.
+
+## [1.4.23-test.10] - 2026-10-09
+
+- Reuse the update pill to offer Reload or Dismiss when photos on the current page gain larger generated variants.
+- Check a small opaque generation revision every 30 seconds on visible photo pages; inspect updated page HTML only after completed generation.
+- Clear cached page data after successful background generation so reloading uses newly available variants.
+- Keep failed jobs from announcing readiness, and preserve the application-update pill with shared accessible controls.
+
+## [1.4.23-test.9] - 2026-10-09
+
+- Register the saved About permalink so renamed pages such as /contact load correctly instead of returning 404.
+- Route contact submissions and validation redirects through the custom permalink, preserving CSRF checks and rate limiting.
+- Keep legacy /about URLs working and avoid overriding existing application routes.
+
+## [1.4.23-test.8] - 2026-10-09
+
+- Cancel pending category-menu hide timers when the pointer returns, preventing the panel from disappearing after reopening.
+- Allow more time to move between the category trigger and panel, and prevent stale animation callbacks from reopening a closed menu.
+- Give dark-logo previews a dark background so white logos remain visible.
+
+## [1.4.23-test.7] - 2026-10-09
+
+- Add an optional dark-mode logo that switches with the visitor's theme in frontend headers and preloaders.
+- Preserve the standard logo and favicons when uploading a dark logo; use the standard logo in both themes when no alternate is configured.
+- Add an independent About navigation name, such as Contact, across desktop, mobile and Modern menus.
+
+## [1.4.23-test.6] - 2026-10-09
+
+- Revalidate cached HTML on each visit so page and title edits appear without a hard refresh.
+- Have the service worker check the server instead of accepting a still-fresh HTTP-cache page.
+- Include the application release in HTML content IDs and hash file-backed cache contents to avoid same-size/same-time collisions.
+- Retain server-side page caching and conditional 304 responses for unchanged content.
+- Mark maintenance responses as non-cacheable and discard offline HTML after detecting maintenance.
+- Add a Show Admin Login setting for the maintenance page.
+
+## [1.4.23-test.5] - 2026-10-09
+
+- Separate Original Image details and download from generated image versions.
+- Navigate media details with left/right arrow keys without interfering with form editing.
+- Filter the media library by album, original format and generation state; retain filters across pagination.
+- Show per-file server preparation and image-version progress in the upload panel, including synchronous processing and automatic retry waits.
+- Release the upload session lock after authentication and CSRF validation so status polling and parallel uploads can proceed.
+
+## [1.4.23-test.4] - 2026-10-09
+
+- Fix maintenance logo URLs for uploaded images, legacy filenames and subdirectory installations.
+- Allow WebP and AVIF logo requests during maintenance mode.
+- Verify maintenance settings save, logo visibility and visitor/admin access in Chromium.
+- Preserve uploaded originals by removing client-side recompression; show original size and an authenticated download in Gallery.
+- Add separate Classic hero title/text controls and a unique-photo limit per album across progressive batches.
+- Automatically purge frontend page caches after page, settings, social and typography edits; include settings in HTML validators.
+- Allow albums without a selected category to use the None fallback without a schema migration.
+- Upload local WOFF2, WOFF, TTF and OTF fonts with persistent storage and refreshed typography CSS URLs.
+- Suppress mobile image callouts and context menus when downloads are disabled.
+- Show permission/maintenance errors from public downloads instead of saving an HTML response as a file; bypass offline caching for download requests.
+- Include all combined image generation, progress, gallery, translation and Brotli fixes from test.3.
+
+## [1.4.23-test.3] - 2026-10-08
+
+- Enable Apache Brotli compression with gzip fallback and detect server compression in settings.
+- Show background image generation progress across admin pages, including current size/format and automatic retries.
+- Restore gallery details after SPA navigation; list configured variants with dimensions, readiness and view links.
+- Use authenticated admin previews for unpublished and protected images without publishing their albums.
+- Namespace compiled Twig templates by release so Docker upgrades refresh the translated sidebar and visibility controls.
+- Translate bundled Custom Templates and Analytics Pro sidebar subtitles as well as the core menu.
+- Retain all image generation fixes and combined PR changes from test.1.
+
+## [1.4.23-test.1] - 2026-10-08
+
+- Generate uploaded image variants automatically on Apache and PHP-FPM, honoring the async setting.
+- Persist image jobs and retry failures with backoff; Docker runs its own worker without cron.
+- Serialize processing per image, close SQLite read cursors, and safely retry standalone writes.
+- Return failure exit codes from both image generation commands; share the same encoder path.
+- Include diagnostics storage path, sidebar translation, Classic hero toggle, and album equipment PRs.
+
 # Changelog
 
 All notable changes to Cimaise are documented in this file.

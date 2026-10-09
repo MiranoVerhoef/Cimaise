@@ -1,5 +1,13 @@
 # Running Cimaise with Docker
 
+The `1.4.23-test.3` fork image adds Apache Brotli (with gzip fallback) and an
+admin progress bar for queued image variants and retries. Deploy with the same
+ports and volumes using `ghcr.io/miranoverhoef/cimaise:1.4.23-test.3`.
+Compiled Twig caches are isolated per release so upgrades also refresh the
+translated sidebar and album equipment visibility controls. Custom translations
+and application data are preserved. Compression settings report Apache support;
+Apache's compression operates independently of the PHP compression controls.
+
 Cimaise ships as a self-contained, multi-architecture image (`linux/amd64` +
 `linux/arm64`) built on **PHP 8.5 + Apache** (Debian trixie, patched at build
 time). It bundles every extension the CMS needs — GD (with AVIF/WebP), Imagick
@@ -337,3 +345,17 @@ The workflow publishes `fabiodalez/cimaise:1.4.14`, `:1.4`, and `:latest`.
 | MySQL "connection failed" in the installer | You started the bare image (Docker Desktop **Run** button, or `docker run`) — that single container has no bundled MySQL. Use `docker compose --profile mysql up -d`, or choose *SQLite*. See [Docker Desktop](#docker-desktop-gui-users). |
 | Changed MySQL creds after install         | Edit `storage/.env` in the volume, then restart the container.      |
 | UI shows raw translation keys (`admin.…`) | Update to an image ≥ 1.4.19 and restart: the entrypoint re-seeds the base language packs into the storage volume on every boot. |
+
+### Image generation worker
+
+Uploads persist jobs in `storage/image-jobs`, covered by the existing storage volume.
+The Docker image runs an unprivileged worker automatically; no cron or additional container is needed.
+Failed jobs retry with backoff (up to five minutes between attempts), and interrupted jobs resume on restart.
+Processing locks coordinate HTTP, worker and CLI generation without holding a database transaction during encoding.
+The async setting controls whether upload waits for full generation; the preview is always created immediately.
+
+PHP-FPM and Apache installations outside this image start a detached PHP CLI worker when available,
+with a post-response fallback when process execution is disabled. In that restricted fallback,
+pending retries resume on subsequent web requests. `php bin/console images:work` can also drain the queue.
+Use local storage for SQLite and the job directory; retain the existing Docker volume mappings when upgrading.
+Prerelease Docker tags are published separately and do not replace `latest` or stable version aliases.

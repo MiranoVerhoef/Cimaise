@@ -77,6 +77,7 @@ class TwigGlobalsCache
             $globals = [
                 // URL slugs
                 'about_url' => $basePath . '/' . self::getSlug($settings, 'about.slug', 'about'),
+                'about_menu_label' => trim((string) ($settings->get('about.menu_label', '') ?? '')),
                 'galleries_url' => $basePath . '/' . self::getSlug($settings, 'galleries.slug', 'galleries'),
                 'license_url' => $basePath . '/' . self::getSlug($settings, 'license.slug', 'license'),
                 'privacy_url' => $basePath . '/' . self::getSlug($settings, 'privacy.slug', 'privacy-policy'),
@@ -85,6 +86,7 @@ class TwigGlobalsCache
                 // Site identity
                 'site_title' => $siteTitle,
                 'site_logo' => $settings->get('site.logo'),
+                'site_logo_dark' => $settings->get('site.logo_dark'),
                 'logo_type' => (string) ($settings->get('site.logo_type', 'text') ?? 'text'),
                 'site_copyright' => (string) ($settings->get('site.copyright', '') ?? ''),
 

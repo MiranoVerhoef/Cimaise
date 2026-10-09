@@ -26,8 +26,11 @@ class CimaiseAnalyticsProPlugin
     private ?\CimaiseAnalyticsPro\AnalyticsPro $analytics = null;
     private ?Database $db = null;
 
-    public function __construct()
+    public function __construct(bool $registerHooks = true)
     {
+        if (!$registerHooks) {
+            return;
+        }
         // Hook principale: inizializzazione app
         Hooks::addAction('cimaise_init', [$this, 'initialize'], 10, 'cimaise-analytics-pro');
 
@@ -361,7 +364,7 @@ class CimaiseAnalyticsProPlugin
     public function enhancePageviewData(array $data): array
     {
         // Add device type detection
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $userAgent = $data['user_agent'] ?? $_SERVER['HTTP_USER_AGENT'] ?? '';
         $data['device_type'] = $this->detectDeviceType($userAgent);
 
         // Add browser detection
@@ -430,24 +433,24 @@ class CimaiseAnalyticsProPlugin
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="text-center">
                 <div class="text-3xl font-bold text-blue-600"><?= $stats['active_users'] ?? 0 ?></div>
-                <div class="text-sm text-gray-600">Utenti Attivi</div>
+                <div class="text-sm text-gray-600"><?= htmlspecialchars(trans('admin.analytics_pro.active_users', [], 'Active users (5 min)'), ENT_QUOTES, 'UTF-8') ?></div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-green-600"><?= $stats['events_today'] ?? 0 ?></div>
-                <div class="text-sm text-gray-600">Eventi Oggi</div>
+                <div class="text-sm text-gray-600"><?= htmlspecialchars(trans('admin.analytics_pro.events_today', [], 'Events today'), ENT_QUOTES, 'UTF-8') ?></div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-purple-600"><?= $stats['pageviews_today'] ?? 0 ?></div>
-                <div class="text-sm text-gray-600">Pageviews Oggi</div>
+                <div class="text-sm text-gray-600"><?= htmlspecialchars(trans('admin.analytics_pro.pageviews_today', [], 'Pageviews today'), ENT_QUOTES, 'UTF-8') ?></div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-orange-600"><?= number_format($stats['avg_session_duration'] ?? 0) ?>s</div>
-                <div class="text-sm text-gray-600">Durata Media</div>
+                <div class="text-sm text-gray-600"><?= htmlspecialchars(trans('admin.analytics_pro.avg_duration', [], 'Average session duration (s)'), ENT_QUOTES, 'UTF-8') ?></div>
             </div>
         </div>
         <div class="mt-4">
             <a href="/admin/analytics-pro" class="text-sm text-blue-600 hover:text-blue-800">
-                Vedi Report Completo →
+                <?= htmlspecialchars(trans('admin.analytics_pro.full_report', [], 'View full report'), ENT_QUOTES, 'UTF-8') ?> →
             </a>
         </div>
         <?php
@@ -506,9 +509,10 @@ class CimaiseAnalyticsProPlugin
     public function renderSidebarLink(array $context): void
     {
         $basePath = htmlspecialchars((string)($context['base_path'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $subtitle = htmlspecialchars((string)($context['translations']['admin.sidebar.analytics_pro_sub'] ?? 'Advanced statistics'), ENT_QUOTES, 'UTF-8');
         echo <<<HTML
             <a href="{$basePath}/admin/analytics-pro" class="sidebar-link" data-spa-link>
-                <i class="fas fa-chart-line"></i><span class="nav-text"><span class="nav-title">Analytics Pro</span><span class="nav-sub">Statistiche avanzate</span></span>
+                <i class="fas fa-chart-line"></i><span class="nav-text"><span class="nav-title">Analytics Pro</span><span class="nav-sub">{$subtitle}</span></span>
             </a>
 HTML;
     }
@@ -531,10 +535,10 @@ HTML;
                  . "<div class=\"text-sm text-gray-500 mt-1\">{$label}</div></div>";
         };
 
-        $cards = $kpi('Utenti attivi (5 min)', (string)(int)($stats['active_users'] ?? 0))
-               . $kpi('Eventi oggi', (string)(int)($stats['events_today'] ?? 0))
-               . $kpi('Pageview oggi', (string)(int)($stats['pageviews_today'] ?? 0))
-               . $kpi('Durata media sessione (s)', (string)(float)($stats['avg_session_duration'] ?? 0));
+        $cards = $kpi(trans('admin.analytics_pro.active_users', [], 'Active users (5 min)'), (string)(int)($stats['active_users'] ?? 0))
+               . $kpi(trans('admin.analytics_pro.events_today', [], 'Events today'), (string)(int)($stats['events_today'] ?? 0))
+               . $kpi(trans('admin.analytics_pro.pageviews_today', [], 'Pageviews today'), (string)(int)($stats['pageviews_today'] ?? 0))
+               . $kpi(trans('admin.analytics_pro.avg_duration', [], 'Average session duration (s)'), (string)(float)($stats['avg_session_duration'] ?? 0));
 
         $rows = '';
         foreach ($recent as $ev) {
@@ -544,17 +548,21 @@ HTML;
                    . "<td class=\"py-2 px-3 text-right\">{$count}</td></tr>";
         }
         if ($rows === '') {
-            $rows = '<tr><td class="py-3 px-3 text-gray-400" colspan="2">Nessun evento ancora registrato.</td></tr>';
+            $empty = htmlspecialchars(trans('admin.analytics_pro.no_events', [], 'No events recorded yet.'), ENT_QUOTES, 'UTF-8');
+            $rows = '<tr><td class="py-3 px-3 text-gray-400" colspan="2">' . $empty . '</td></tr>';
         }
+
+        $description = htmlspecialchars(trans('admin.analytics_pro.description', [], 'Real-time statistics from collected events.'), ENT_QUOTES, 'UTF-8');
+        $heading = htmlspecialchars(trans('admin.analytics_pro.top_events', [], 'Top engagement events'), ENT_QUOTES, 'UTF-8');
 
         return <<<HTML
         <div class="mb-6">
             <h1 class="text-2xl font-semibold text-gray-900">Analytics Pro</h1>
-            <p class="text-gray-500">Statistiche in tempo reale dagli eventi raccolti.</p>
+            <p class="text-gray-500">{$description}</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">{$cards}</div>
         <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div class="px-4 py-3 border-b border-gray-100 font-medium text-gray-700">Eventi engagement principali</div>
+            <div class="px-4 py-3 border-b border-gray-100 font-medium text-gray-700">{$heading}</div>
             <table class="w-full text-sm"><tbody>{$rows}</tbody></table>
         </div>
 HTML;
