@@ -3,11 +3,24 @@
 {% block content %}
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <h1 class="text-2xl font-bold text-black">{{ trans('admin.media.title') }}</h1>
-    <form method="get" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-      <input type="text" name="q" value="{{ app.request.getQueryParams.q|default('') }}" class="form-input w-full sm:w-64" placeholder="{{ trans('admin.media.search') }}">
+    <form method="get" id="media-filters" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+      <input type="text" name="q" value="{{ filters.q }}" class="form-input w-full sm:w-48" placeholder="{{ trans('admin.media.search') }}">
+      <select name="album" class="form-input w-full sm:w-40" aria-label="{{ trans('admin.media.filter_album', {}, 'Album') }}">
+        <option value="">{{ trans('admin.media.all_albums', {}, 'All albums') }}</option>
+        {% for a in albums %}<option value="{{ a.id }}" {% if filters.album == a.id %}selected{% endif %}>{{ a.title }}</option>{% endfor %}
+      </select>
+      <select name="format" class="form-input w-full sm:w-32" aria-label="{{ trans('admin.media.filter_format', {}, 'Original format') }}">
+        <option value="">{{ trans('admin.media.all_formats', {}, 'All formats') }}</option>
+        {% for format in ['jpeg', 'png', 'webp', 'heic', 'heif'] %}<option value="{{ format }}" {% if filters.format == format %}selected{% endif %}>{{ format|upper }}</option>{% endfor %}
+      </select>
+      <select name="generation" class="form-input w-full sm:w-48" aria-label="{{ trans('admin.media.filter_generation', {}, 'Image versions') }}">
+        <option value="">{{ trans('admin.media.all_versions', {}, 'All version states') }}</option>
+        {% for value, key in {active: 'generating', retrying: 'retrying', preview: 'preview_only', generated: 'has_versions'} %}<option value="{{ value }}" {% if filters.generation == value %}selected{% endif %}>{{ trans('admin.media.filter_' ~ key) }}</option>{% endfor %}
+      </select>
       <button class="btn-secondary text-sm sm:text-base">
         <i class="fas fa-search mr-2"></i>{{ trans('admin.media.search_button') }}
       </button>
+      <a href="{{ base_path }}/admin/media" class="text-sm underline">{{ trans('admin.media.clear_filters', {}, 'Clear filters') }}</a>
     </form>
   </div>
 
@@ -51,7 +64,7 @@
           {# Previous button #}
           {% if pagination.current_page > 1 %}
           <li>
-            <a href="?page={{ pagination.current_page - 1 }}{% if pagination.query %}&q={{ pagination.query|url_encode }}{% endif %}"
+            <a href="?page={{ pagination.current_page - 1 }}&{{ pagination.filters }}"
                class="flex items-center justify-center w-9 h-9 border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition-colors"
                aria-label="{{ trans('admin.pagination.previous') }}">
               <i class="fas fa-chevron-left text-xs"></i>
@@ -67,7 +80,7 @@
             </li>
             {% else %}
             <li>
-              <a href="?page={{ p }}{% if pagination.query %}&q={{ pagination.query|url_encode }}{% endif %}"
+              <a href="?page={{ p }}&{{ pagination.filters }}"
                  aria-label="{{ trans('admin.pagination.goto_page')|default('Go to page') }} {{ p }}"
                  class="flex items-center justify-center w-9 h-9 border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition-colors">{{ p }}</a>
             </li>
@@ -77,7 +90,7 @@
           {# Next button #}
           {% if pagination.current_page < pagination.total_pages %}
           <li>
-            <a href="?page={{ pagination.current_page + 1 }}{% if pagination.query %}&q={{ pagination.query|url_encode }}{% endif %}"
+            <a href="?page={{ pagination.current_page + 1 }}&{{ pagination.filters }}"
                class="flex items-center justify-center w-9 h-9 border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition-colors"
                aria-label="{{ trans('admin.pagination.next') }}">
               <i class="fas fa-chevron-right text-xs"></i>
@@ -108,6 +121,10 @@
           <div class="mt-2 text-xs text-gray-500" id="sidebar-dimensions"></div>
         </div>
 
+        <section aria-labelledby="original-image-title">
+          <h3 id="original-image-title" class="text-sm font-semibold mb-2">{{ trans('admin.media.original_image', {}, 'Original Image') }}</h3>
+          <div id="original-image-details" class="text-xs"></div>
+        </section>
         <section class="mb-4" aria-labelledby="image-versions-title">
           <h3 id="image-versions-title" class="text-sm font-semibold mb-2">{{ trans('admin.media.versions', {}, 'Image versions') }}</h3>
           <p id="image-versions-status" class="text-xs text-gray-600 mb-2" role="status"></p>
@@ -486,6 +503,8 @@
           const data = await response.json();
           if (currentImageId !== imageId || !sidebar.isConnected) return;
           list.replaceChildren();
+          const originalList = document.getElementById('original-image-details');
+          originalList.replaceChildren();
           const ready = data.variants.filter(variant => variant.ready).length;
           status.textContent = window.adminTf('admin.media.versions_ready', { ready, total: data.variants.length }, '{ready}/{total} versions ready');
           if (data.job?.pending && data.job.state === 'retrying') status.textContent += ' · ' + window.adminT('admin.media.versions_retrying', 'Waiting to retry automatically');
@@ -507,7 +526,7 @@
               if (variant.original) link.download = '';
               row.appendChild(link);
             }
-            list.appendChild(row);
+            (variant.original ? originalList : list).appendChild(row);
           }
           if (data.job?.pending) versionsTimer = setTimeout(() => loadVersions(imageId), 2000);
         } catch (_) {
@@ -582,6 +601,7 @@
       function openSidebar(imageId, cardElement) {
         currentImageId = imageId;
         document.getElementById('image-versions-list').replaceChildren();
+        document.getElementById('original-image-details').replaceChildren();
         document.getElementById('image-versions-status').textContent = '…';
         loadVersions(imageId);
         sidebar.classList.remove('hidden');
@@ -676,8 +696,18 @@
       
       // Close sidebar with Escape key
       document.addEventListener('keydown', (e) => {
+        if (!sidebar.isConnected || sidebar.classList.contains('hidden')) return;
         if (e.key === 'Escape' && sidebar && !sidebar.classList.contains('hidden')) {
           closeSidebar();
+        }
+        if (!['ArrowLeft', 'ArrowRight'].includes(e.key) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey
+            || e.target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return;
+        const cards = Array.from(grid.querySelectorAll('[data-media-id]'));
+        const index = cards.findIndex(card => Number(card.dataset.mediaId) === Number(currentImageId));
+        const next = cards[index + (e.key === 'ArrowRight' ? 1 : -1)];
+        if (index >= 0 && next) {
+          e.preventDefault();
+          window.openSidebar(Number(next.dataset.mediaId), next);
         }
       });
 

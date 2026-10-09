@@ -286,7 +286,7 @@ class UploadService
         return null;
     }
 
-    public function ingestAlbumUpload(int $albumId, array $file): array
+    public function ingestAlbumUpload(int $albumId, array $file, ?string $uploadToken = null): array
     {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             throw new RuntimeException('Upload error: ' . $this->getUploadErrorMessage($file['error'] ?? UPLOAD_ERR_NO_FILE));
@@ -421,6 +421,9 @@ class UploadService
             ':copyright' => $exif['Copyright'] ?? null,
         ]);
         $imageId = (int)$pdo->lastInsertId();
+        if ($uploadToken !== null) {
+            (new ImageJobQueue($this->db))->trackUpload($imageId, $uploadToken);
+        }
 
         // Generate preview outside the web root when the album is protected.
         $albumFlagsStmt = $pdo->prepare('SELECT is_nsfw, password_hash FROM albums WHERE id = :id');

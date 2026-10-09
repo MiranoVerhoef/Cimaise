@@ -1,3 +1,11 @@
+## [1.4.23-test.5] - 2026-10-09
+
+- Separate Original Image details and download from generated image versions.
+- Navigate media details with left/right arrow keys without interfering with form editing.
+- Filter the media library by album, original format and generation state; retain filters across pagination.
+- Show per-file server preparation and image-version progress in the upload panel, including synchronous processing and automatic retry waits.
+- Release the upload session lock after authentication and CSRF validation so status polling and parallel uploads can proceed.
+
 ## [1.4.23-test.4] - 2026-10-09
 
 - Fix maintenance logo URLs for uploaded images, legacy filenames and subdirectory installations.

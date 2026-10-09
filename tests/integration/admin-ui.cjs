@@ -42,6 +42,18 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => document.getElementById('image-versions-status').textContent.includes('9/9'));
   const links = page.locator('#image-versions-list a[href*="/variants/"]');
   assert.equal(await links.count(), 9);
+  assert.equal(await page.locator('#original-image-title').textContent(), 'Original Image');
+  assert.equal(await page.locator('#original-image-details a').count(), 1);
+  assert.equal(await page.locator('#image-versions-list a[href$="/original"]').count(), 0);
+  const firstId = await page.locator('#sidebar-image-id').inputValue();
+  await page.keyboard.press('ArrowRight');
+  assert.notEqual(await page.locator('#sidebar-image-id').inputValue(), firstId);
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await page.locator('#sidebar-image-id').inputValue(), firstId);
+  await page.locator('#sidebar-alt').focus();
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#sidebar-image-id').inputValue(), firstId);
+  await page.waitForFunction(() => document.getElementById('image-versions-status').textContent.includes('9/9'));
   const image = await context.request.get(await page.locator('#image-versions-list a[href$=".jpg"]').first().getAttribute('href'));
   assert.equal(image.status(), 200);
   assert.match(image.headers()['content-type'], /^image\//);
@@ -119,9 +131,38 @@ const assert = require('node:assert/strict');
   // JPEG metadata is deliberately large: the former client compressor stripped it.
   const comment = Buffer.alloc(8192, 65);
   const originalBytes = Buffer.concat([(await image.body()).subarray(0, 2), Buffer.from([255, 254, 32, 2]), comment, (await image.body()).subarray(2)]);
+  let releaseUpload;
+  let processingId;
+  let showProcessing = true;
+  const uploadGate = new Promise(resolve => { releaseUpload = resolve; });
+  await page.route('**/admin/albums/1/upload', async route => {
+    const response = await route.fetch();
+    processingId = (await response.json()).id;
+    await uploadGate;
+    await route.fulfill({ response });
+  });
+  await page.route('**/admin/api/image-jobs', async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (showProcessing && processingId) {
+      const job = body.jobs.find(job => job.id === processingId);
+      if (job) Object.assign(job, { pending: true, state: 'processing', completed: 4, total: 10, current: 'md.webp' });
+    }
+    await route.fulfill({ response, json: body });
+  });
   const uploadResponse = page.waitForResponse(response => response.url().endsWith('/admin/albums/1/upload') && response.request().method() === 'POST');
   await page.locator('#uppy input[type="file"]').setInputFiles({ name: 'preserved-original.jpg', mimeType: 'image/jpeg', buffer: originalBytes });
+  await page.waitForFunction(() => document.getElementById('upload-status').textContent.includes('Creating versions: 4/10'));
+  assert.equal(await page.locator('#upload-progress').isVisible(), true);
+  assert.equal(await page.locator('#upload-counter').textContent(), '0 / 1');
+  assert.match(await page.locator('#upload-file-list').textContent(), /md.webp/);
+  showProcessing = false;
+  releaseUpload();
   const uploadData = await (await uploadResponse).json();
+  await page.waitForFunction(() => document.getElementById('upload-counter').textContent === '1 / 1');
+  await page.unroute('**/admin/albums/1/upload');
+  await page.unroute('**/admin/api/image-jobs');
+  console.log('PASS: upload panel tracks correlated generation before HTTP upload completion and waits for versions');
   assert.equal(uploadData.ok, true, JSON.stringify(uploadData));
   const originalDownload = await context.request.get(`/admin/media/images/${uploadData.id}/original`);
   assert.equal(originalDownload.status(), 200);
@@ -168,6 +209,17 @@ const assert = require('node:assert/strict');
   assert.equal((await anonymous.request.get(`/download/image/${uploadData.id}`)).status(), 403);
   assert.equal((await context.request.get(`/admin/media/images/${uploadData.id}/original`)).status(), 200);
   console.log('PASS: albums without a selected category use the None fallback');
+  await page.goto('/admin/media?album=1&format=jpeg&generation=generated&q=preserved');
+  assert.equal(await page.locator('#media-filters [name="album"]').inputValue(), '1');
+  assert.equal(await page.locator('#media-filters [name="format"]').inputValue(), 'jpeg');
+  assert.equal(await page.locator('[data-media-id]').count(), 0); // Search remains combined with every filter.
+  await page.goto('/admin/media?album=1&format=jpeg&generation=generated');
+  assert.ok(await page.locator('[data-media-id]').count() > 0);
+  await page.goto('/admin/media?format=png');
+  assert.equal(await page.locator('[data-media-id]').count(), 0);
+  await page.goto('/admin/media?generation=retrying');
+  assert.equal(await page.locator('[data-media-id="999"]').count(), 1);
+  console.log('PASS: album, format, search and live retry filters combine correctly');
 
   await page.goto('/admin/pages/home');
   await page.locator('[name="hero_enabled"]').check();

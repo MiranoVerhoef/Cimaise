@@ -148,6 +148,12 @@ class MediaController extends BaseController
     {
         $pdo = $this->db->pdo();
         $q = trim((string)($request->getQueryParams()['q'] ?? ''));
+        $albumFilter = max(0, (int)($request->getQueryParams()['album'] ?? 0));
+        $formatFilter = (string)($request->getQueryParams()['format'] ?? '');
+        $generationFilter = (string)($request->getQueryParams()['generation'] ?? '');
+        $mimeFilters = ['jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'heic' => 'image/heic', 'heif' => 'image/heif'];
+        if (!isset($mimeFilters[$formatFilter])) { $formatFilter = ''; }
+        if (!in_array($generationFilter, ['active', 'retrying', 'preview', 'generated'], true)) { $generationFilter = ''; }
         $page = max(1, (int)($request->getQueryParams()['page'] ?? 1));
         $offset = ($page - 1) * self::PER_PAGE;
 
@@ -172,10 +178,23 @@ class MediaController extends BaseController
         // Count total images for pagination
         $countSql = 'SELECT COUNT(*) FROM images i';
         $params = [];
+        $conditions = [];
         if ($q !== '') {
-            $countSql .= ' WHERE i.alt_text LIKE :q OR i.caption LIKE :q OR i.original_path LIKE :q';
+            $conditions[] = '(i.alt_text LIKE :q OR i.caption LIKE :q OR i.original_path LIKE :q)';
             $params[':q'] = '%' . $q . '%';
         }
+        if ($albumFilter) { $conditions[] = 'i.album_id = :album'; $params[':album'] = $albumFilter; }
+        if ($formatFilter) { $conditions[] = 'i.mime = :mime'; $params[':mime'] = $mimeFilters[$formatFilter]; }
+        if (in_array($generationFilter, ['active', 'retrying'], true)) {
+            $jobs = (new \App\Services\ImageJobQueue($this->db))->status();
+            $ids = array_map(static fn(array $job): int => (int)$job['id'], array_filter($jobs,
+                static fn(array $job): bool => $job['pending'] && ($generationFilter !== 'retrying' || $job['state'] === 'retrying')));
+            $conditions[] = $ids ? 'i.id IN (' . implode(',', $ids) . ')' : '1 = 0';
+        } elseif (in_array($generationFilter, ['preview', 'generated'], true)) {
+            $conditions[] = ($generationFilter === 'preview' ? 'NOT ' : '') . "EXISTS (SELECT 1 FROM image_variants iv WHERE iv.image_id = i.id AND NOT (iv.variant = 'sm' AND iv.format = 'jpg'))";
+        }
+        $where = $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
+        $countSql .= $where;
         $countStmt = $pdo->prepare($countSql);
         $countStmt->execute($params);
         $totalItems = (int)$countStmt->fetchColumn();
@@ -193,14 +212,10 @@ class MediaController extends BaseController
                            LIMIT 1
                        ), i.original_path) AS preview_path
                 FROM images i';
-        if ($q !== '') {
-            $sql .= ' WHERE i.alt_text LIKE :q OR i.caption LIKE :q OR i.original_path LIKE :q';
-        }
+        $sql .= $where;
         $sql .= ' ORDER BY i.id DESC LIMIT :limit OFFSET :offset';
         $stmt = $pdo->prepare($sql);
-        if ($q !== '') {
-            $stmt->bindValue(':q', '%' . $q . '%', \PDO::PARAM_STR);
-        }
+        foreach ($params as $name => $value) { $stmt->bindValue($name, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR); }
         $stmt->bindValue(':limit', self::PER_PAGE, \PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
@@ -224,12 +239,14 @@ class MediaController extends BaseController
             'labs' => $labs,
             'locations' => $locations,
             'csrf' => $_SESSION['csrf'] ?? '',
+            'filters' => ['q' => $q, 'album' => $albumFilter, 'format' => $formatFilter, 'generation' => $generationFilter],
             'pagination' => [
                 'current_page' => $page,
                 'total_pages' => $totalPages,
                 'total_items' => $totalItems,
                 'per_page' => self::PER_PAGE,
-                'query' => $q
+                'query' => $q,
+                'filters' => http_build_query(['q' => $q, 'album' => $albumFilter ?: '', 'format' => $formatFilter, 'generation' => $generationFilter])
             ]
         ]);
     }

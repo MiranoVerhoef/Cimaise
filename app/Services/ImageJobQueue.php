@@ -31,6 +31,13 @@ final class ImageJobQueue
         }
     }
 
+    public function trackUpload(int $imageId, string $token): void
+    {
+        if (preg_match('/^[a-f0-9-]{36}$/D', $token)) {
+            $this->report($imageId, ['upload_token' => $token, 'state' => 'uploading', 'completed' => 0, 'total' => 0, 'current' => '']);
+        }
+    }
+
     public function drain(int $limit = 10): int
     {
         clearstatcache();
@@ -154,6 +161,10 @@ final class ImageJobQueue
                 continue;
             }
             $pending = is_file($this->directory . '/' . $id . '.job');
+            // Correlate an upload before its HTTP response, including synchronous generation.
+            if (($state['state'] ?? '') === 'uploading' && (int)($state['updated_at'] ?? 0) >= time() - 120) {
+                $pending = true;
+            }
             if ($pending && ($state['state'] ?? '') === 'complete') {
                 $state = ['state' => 'queued', 'completed' => 0, 'total' => 0, 'current' => ''];
             }

@@ -17,6 +17,7 @@
       if (response.status === 401 || response.redirected) { panel.hidden = true; delay = 30000; return; }
       if (!response.ok) throw new Error('Status unavailable');
       const { jobs } = await response.json();
+      window.dispatchEvent(new CustomEvent('cimaise:image-jobs', { detail: jobs }));
       const active = jobs.filter(job => job.pending && job.state !== 'complete');
       if (finishedAt && active.length) { tracked = {}; finishedAt = 0; }
       for (const job of jobs) {

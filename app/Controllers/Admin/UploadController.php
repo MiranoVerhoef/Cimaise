@@ -97,9 +97,14 @@ class UploadController extends BaseController
 
         // Prepare array compatible with UploadService
         $fArr = ['tmp_name' => $tmpPath, 'error' => $file->getError()];
+        // Authentication and CSRF have been checked; allow status polling and parallel uploads.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         try {
             $svc = new UploadService($this->db);
-            $meta = $svc->ingestAlbumUpload($albumId, $fArr);
+            $uploadToken = $request->getParsedBody()['upload_token'] ?? null;
+            $meta = $svc->ingestAlbumUpload($albumId, $fArr, is_string($uploadToken) ? $uploadToken : null);
 
             // Invalidate page caches — new image uploaded to album
             try {

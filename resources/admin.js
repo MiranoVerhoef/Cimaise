@@ -152,6 +152,9 @@ function initUppyAreaUpload() {
 
   // Track files for individual progress
   let fileProgressMap = new Map();
+  const generation = new Map();
+  let hideTimer;
+  let batchComplete = false;
 
   // Hidden file input to trigger on click while preserving UI
   let input = area.querySelector('input[type="file"].uppy-input');
@@ -242,7 +245,7 @@ function initUppyAreaUpload() {
   function updateTotalProgress() {
     const files = uppy.getFiles();
     const total = files.length;
-    const completed = files.filter(f => f.progress?.uploadComplete).length;
+    const completed = files.filter(f => generation.get(f.id)?.state === 'complete').length;
     const counterEl = document.getElementById('upload-counter');
     const barEl = document.getElementById('upload-bar-total');
     if (counterEl) counterEl.textContent = `${completed} / ${total}`;
@@ -256,6 +259,14 @@ function initUppyAreaUpload() {
       listEl.appendChild(createFileProgressEl(file));
     }
     fileProgressMap.set(file.id, 0);
+    clearTimeout(hideTimer);
+    batchComplete = false;
+    // getRandomValues also works on HTTP Unraid installations.
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+    generation.set(file.id, { state: 'uploading', token });
+    uppy.setFileMeta(file.id, { upload_token: generation.get(file.id).token });
+    const spinner = document.getElementById('upload-spinner');
+    if (spinner) { spinner.className = 'animate-spin rounded-full h-5 w-5 border-b-2 border-black'; spinner.replaceChildren(); }
     updateTotalProgress();
   });
 
@@ -268,34 +279,46 @@ function initUppyAreaUpload() {
 
   uppy.on('upload-progress', (file, progress) => {
     const percentage = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
-    updateFileEl(file.id, percentage, `${percentage}%`);
+    updateFileEl(file.id, percentage, percentage >= 100 ? t('admin.upload.server_processing') : `${percentage}%`);
     fileProgressMap.set(file.id, percentage);
 
     const statusEl = document.getElementById('upload-status');
-    if (statusEl) statusEl.textContent = tf('admin.upload.uploading_file', { name: file.name });
+    if (statusEl) statusEl.textContent = percentage >= 100 ? t('admin.upload.server_processing') : tf('admin.upload.uploading_file', { name: file.name });
   });
 
-  uppy.on('upload-success', (file) => {
-    updateFileEl(file.id, 100, t('admin.upload.completed') + ' ✓', false, true);
-    fileProgressMap.set(file.id, 100);
+  uppy.on('upload-success', (file, response) => {
+    const state = generation.get(file.id);
+    if (state) { state.id = response.body?.id; if (state.state !== 'complete') state.state = 'queued'; }
+    updateFileEl(file.id, state?.state === 'complete' ? 100 : 0, state?.state === 'complete' ? t('admin.upload.versions_ready') : t('admin.upload.versions_queued'), false, state?.state === 'complete');
     updateTotalProgress();
   });
 
   uppy.on('complete', (result) => {
+    batchComplete = true;
+    finishBatch();
+    refreshGalleryArea();
+  });
+
+  function finishBatch() {
+    if (!batchComplete || [...generation.values()].some(state => !['complete', 'error'].includes(state.state))) return;
     const statusEl = document.getElementById('upload-status');
     const spinnerEl = document.getElementById('upload-spinner');
 
-    const count = result.successful?.length || 0;
-    if (statusEl) statusEl.textContent = tf('admin.upload.completed_summary', { count });
+    const count = [...generation.values()].filter(state => state.state === 'complete').length;
+    if (statusEl) statusEl.textContent = [...generation.values()].some(state => state.state === 'error') ? t('admin.common.error') : tf('admin.upload.versions_completed_summary', { count });
     if (spinnerEl) spinnerEl.className = 'rounded-full h-5 w-5 bg-green-500 flex items-center justify-center text-white text-xs';
     if (spinnerEl) spinnerEl.innerHTML = '<i class="fas fa-check"></i>';
 
     // Hide progress after 2.5 seconds and clear file list
-    setTimeout(() => {
+    if (hideTimer) return;
+    hideTimer = setTimeout(() => {
       if (progressEl) progressEl.classList.add('hidden');
       const listEl = document.getElementById('upload-file-list');
       if (listEl) listEl.innerHTML = '';
       fileProgressMap.clear();
+      for (const file of uppy.getFiles()) uppy.removeFile(file.id);
+      generation.clear();
+      hideTimer = null;
       // Reset spinner
       if (spinnerEl) {
         spinnerEl.className = 'animate-spin rounded-full h-5 w-5 border-b-2 border-black';
@@ -303,11 +326,36 @@ function initUppyAreaUpload() {
       }
     }, UPLOAD_COMPLETION_HIDE_DELAY);
 
-    refreshGalleryArea();
-  });
+  }
+
+  const jobsHandler = event => {
+    if (!area.isConnected) return;
+    for (const [fileId, state] of generation) {
+      if (['complete', 'error'].includes(state.state)) continue;
+      const job = event.detail.find(job => job.upload_token === state.token || (state.id && Number(job.id) === Number(state.id)));
+      if (!job) continue;
+      state.state = job.state;
+      state.id = job.id;
+      let label = t('admin.upload.server_processing');
+      const percent = job.total ? Math.round(job.completed / job.total * 100) : 0;
+      if (job.state === 'complete') label = t('admin.upload.versions_ready') + ' ✓';
+      else if (job.state === 'queued') label = t('admin.upload.versions_queued');
+      else if (job.state === 'retrying') label = t('admin.media.versions_retrying');
+      else if (job.state === 'processing') label = tf('admin.upload.creating_versions', { completed: job.completed, total: job.total || '…', current: job.current || '' });
+      updateFileEl(fileId, percent, label, false, job.state === 'complete');
+      const statusEl = document.getElementById('upload-status');
+      if (statusEl) statusEl.textContent = label;
+    }
+    updateTotalProgress();
+    finishBatch();
+  };
+  window.addEventListener('cimaise:image-jobs', jobsHandler);
+  uppy._cleanupGeneration = () => { window.removeEventListener('cimaise:image-jobs', jobsHandler); clearTimeout(hideTimer); };
 
   // Surface server-side errors (400, etc.) instead of generic network error
   uppy.on('upload-error', (file, error, response) => {
+    const state = generation.get(file.id);
+    if (state) state.state = 'error';
     const msg = extractUploadErrorMessage(error, response);
 
     // Update individual file progress to show error
@@ -644,6 +692,7 @@ function cleanupExistingInstances() {
     if (window.uppyInstances) {
       window.uppyInstances.forEach(uppy => {
         try {
+          uppy?._cleanupGeneration?.();
           if (uppy && typeof uppy.close === 'function') {
             uppy.close();
           }
