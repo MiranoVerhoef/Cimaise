@@ -225,6 +225,14 @@ const assert = require('node:assert/strict');
   assert.equal(revisionResponse.headers()['cache-control'], 'no-store');
   assert.deepEqual(Object.keys(await revisionResponse.json()), ['revision']);
   const enhancedPage = await anonymous.newPage();
+  const enhancementDiagnostics = [];
+  enhancedPage.on('pageerror', error => enhancementDiagnostics.push(error.message));
+  enhancedPage.on('requestfailed', request => enhancementDiagnostics.push({ failed: request.url(), error: request.failure() }));
+  enhancedPage.on('response', response => {
+    if (/image-version-notice|image-generation-revision|\/album\/test$/.test(response.url())) {
+      enhancementDiagnostics.push({ url: response.url(), status: response.status(), type: response.headers()['content-type'], resource: response.request().resourceType() });
+    }
+  });
   let firstPhotoDocument = true;
   let testImageRevision = 'f'.repeat(32);
   await enhancedPage.route('**/album/test', async route => {
@@ -239,7 +247,15 @@ const assert = require('node:assert/strict');
   await enhancedPage.route('**/api/image-generation-revision', route => route.fulfill({ json: { revision: testImageRevision } }));
   await enhancedPage.goto('/album/test');
   const enhancedPill = enhancedPage.locator('#pwa-update-banner[data-kind="images"]');
-  await enhancedPill.waitFor({ state: 'visible' });
+  try {
+    await enhancedPill.waitFor({ state: 'visible' });
+  } catch (error) {
+    console.log('Enhancement notice diagnostics:', enhancementDiagnostics, await enhancedPage.evaluate(() => ({
+      hidden: document.hidden, online: navigator.onLine, config: window.cimaiseImageNotice, helper: typeof window.cimaiseShowUpdate,
+      photos: [...document.querySelectorAll('#main-content img, #main-content source, #main-content a[data-image-id]')].slice(0, 10).map(el => ({ src: el.getAttribute('src'), srcset: el.getAttribute('srcset'), href: el.getAttribute('href') }))
+    })));
+    throw error;
+  }
   assert.match(await enhancedPill.innerText(), /Enhanced image versions are ready/);
   await enhancedPill.getByRole('button', { name: 'Dismiss', exact: true }).click();
   assert.equal(await enhancedPill.count(), 0);
