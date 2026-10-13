@@ -6,6 +6,8 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.media.filters": "Filters",
+    "admin.media.search_albums": "Search albums",
     "admin.media.original_image": "Original Image",
     "admin.media.filter_album": "Album",
     "admin.media.all_albums": "All albums",

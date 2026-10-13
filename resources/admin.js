@@ -658,12 +658,34 @@ window.AdminInit = function() {
   bindGridButtons();
   initTinyMCE();
   initMediaModalOnEdit();
+  initMediaFilters();
   initTooltips();
   initDropdowns();
   initFormValidation();
   
   debugLog('AdminInit: All components initialized');
 };
+
+function initMediaFilters() {
+  const toggle = document.getElementById('media-filter-toggle');
+  const panel = document.getElementById('media-filter-panel');
+  const form = document.getElementById('media-filters');
+  if (!toggle || !panel || !form || toggle.dataset.bound) return;
+  toggle.dataset.bound = '1';
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+  document.getElementById('media-album-search')?.addEventListener('input', (event) => {
+    const query = event.target.value.trim().toLocaleLowerCase();
+    panel.querySelectorAll('[data-album-title]').forEach((chip) => {
+      chip.hidden = !chip.dataset.albumTitle.includes(query);
+    });
+  });
+  form.addEventListener('change', (event) => {
+    if (event.target.matches('input[type="radio"]')) form.requestSubmit();
+  });
+}
 
 // Cleanup function to remove existing instances
 function cleanupExistingInstances() {

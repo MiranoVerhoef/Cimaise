@@ -6,6 +6,8 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.media.filters": "Filtres",
+    "admin.media.search_albums": "Rechercher des albums",
     "admin.albums.add_more_images": "Ajouter plus d'images",
     "admin.version_label": "Version de l'application",
     "admin.albums.add_password": "Ajouter un mot de passe",
