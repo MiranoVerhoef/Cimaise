@@ -194,7 +194,6 @@ class AuthController extends BaseController
                     Logger::info('Post-login cache warmup complete', [
                         'home' => $warmStats['home'],
                         'galleries' => $warmStats['galleries'],
-                        'albums' => $warmStats['albums'],
                         'errors' => count($warmStats['errors'] ?? [])
                     ], 'cache');
                 }

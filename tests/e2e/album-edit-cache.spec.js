@@ -88,4 +88,46 @@ test.describe.serial('Album edits reach anonymous visitors immediately', () => {
         expect(excerpt(a)).not.toBeNull();
         expect(excerpt(b)).toBe(excerpt(a));
     });
+
+    test('ECA-03: the ETag follows the page that is actually rendered', async ({ browser }) => {
+        test.skip(!album.slug, 'album fixture unavailable');
+        // The album ETag must be derived from the same cache entry the page is
+        // rendered from. It used to come from a separate, partially built
+        // entry that a settings change never touched, so a returning visitor
+        // got 304 Not Modified for a page whose layout had changed.
+        const settingsForm = async () => {
+            await page.goto(`${BASE}/admin/settings`, { waitUntil: 'load' });
+            return page.$eval('#settings-form', (f) => {
+                const out = {};
+                for (const [k, v] of new FormData(f).entries()) if (typeof v === 'string') out[k] = v;
+                return out;
+            });
+        };
+        const saveSettings = async (form) => {
+            const r = await page.request.post(`${BASE}/admin/settings`, { form, maxRedirects: 0, failOnStatusCode: false });
+            expect(r.status(), 'POST /admin/settings').toBe(302);
+        };
+        const orig = await settingsForm();
+        const ctx = await browser.newContext();
+        try {
+            await saveSettings({ ...orig, gallery_page_template: 'classic' });
+            await saveAlbum(page, album.id, { ...form, is_published: 'on', excerpt: 'eca-etag' });
+
+            const first = await ctx.request.get(`${BASE}/album/${album.slug}`);
+            expect(first.status()).toBe(200);
+            const etag = first.headers()['etag'];
+            expect(etag, 'album page sends an ETag').toBeTruthy();
+
+            const again = await ctx.request.get(`${BASE}/album/${album.slug}`, { headers: { 'If-None-Match': etag } });
+            expect(again.status(), 'unchanged page revalidates with 304').toBe(304);
+
+            await saveSettings({ ...orig, gallery_page_template: 'hero' });
+            const changed = await ctx.request.get(`${BASE}/album/${album.slug}`, { headers: { 'If-None-Match': etag } });
+            expect(changed.status(), 'changed page must not answer 304').toBe(200);
+            expect(changed.headers()['etag']).not.toBe(etag);
+        } finally {
+            await ctx.close();
+            await saveSettings(orig);
+        }
+    });
 });
