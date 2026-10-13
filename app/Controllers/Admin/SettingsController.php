@@ -301,13 +301,18 @@ class SettingsController extends BaseController
         $htmlCacheMaxAge = max(0, (int)($data['html_cache_max_age'] ?? 3600));
         $svc->set('performance.html_cache_max_age', $htmlCacheMaxAge);
 
-        // Maintenance Mode settings (dot notation for consistency)
-        $svc->set('maintenance.enabled', isset($data['maintenance_enabled']));
-        $svc->set('maintenance.title', trim((string)($data['maintenance_title'] ?? '')));
-        $svc->set('maintenance.message', trim((string)($data['maintenance_message'] ?? '')));
-        $svc->set('maintenance.show_logo', isset($data['maintenance_show_logo']));
-        $svc->set('maintenance.show_admin_login', isset($data['maintenance_show_admin_login']));
-        $svc->set('maintenance.show_countdown', isset($data['maintenance_show_countdown']));
+        // Maintenance Mode settings (dot notation for consistency). The section
+        // is only rendered while the plugin is active: without it the form
+        // carries none of these fields, and saving anything else must not
+        // blank the stored title/message or switch the options off.
+        if (array_key_exists('maintenance_title', $data)) {
+            $svc->set('maintenance.enabled', isset($data['maintenance_enabled']));
+            $svc->set('maintenance.title', trim((string)$data['maintenance_title']));
+            $svc->set('maintenance.message', trim((string)($data['maintenance_message'] ?? '')));
+            $svc->set('maintenance.show_logo', isset($data['maintenance_show_logo']));
+            $svc->set('maintenance.show_admin_login', isset($data['maintenance_show_admin_login']));
+            $svc->set('maintenance.show_countdown', isset($data['maintenance_show_countdown']));
+        }
 
         // Page cache entries bake settings in: an album entry stores the resolved
         // page template file (gallery.page_template), the default gallery template

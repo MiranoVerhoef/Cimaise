@@ -191,6 +191,22 @@ final class ImageJobQueueTest extends TestCase
         self::assertSame([], $this->invalidations);
     }
 
+    public function testAFailingCacheRefreshDoesNotFailTheJobs(): void
+    {
+        $queue = new ImageJobQueue(
+            $this->db,
+            $this->directory,
+            static fn (int $imageId): int => 1,
+            static function (): void {
+                throw new RuntimeException('page cache unavailable');
+            }
+        );
+        $queue->enqueue(1);
+        $queue->enqueue(2);
+
+        self::assertSame(['processed' => 2, 'failed' => 0, 'remaining' => 0], $queue->drain());
+    }
+
     public function testStrayFilesAreNotTreatedAsJobs(): void
     {
         $queue = $this->queue();

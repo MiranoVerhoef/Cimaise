@@ -124,7 +124,7 @@ class ImageJobQueue
                     // One refresh for the batch, not one per image; a long
                     // batch still publishes its progress now and then.
                     if ($albums !== [] && time() - $lastInvalidation >= self::INVALIDATION_INTERVAL) {
-                        ($this->invalidator)(array_keys($albums));
+                        $this->refreshPageCaches(array_keys($albums));
                         $albums = [];
                         $lastInvalidation = time();
                     }
@@ -132,17 +132,27 @@ class ImageJobQueue
             }
         } finally {
             if ($albums !== []) {
-                try {
-                    ($this->invalidator)(array_keys($albums));
-                } catch (\Throwable $e) {
-                    Logger::warning('Image queue: page cache invalidation failed', ['error' => $e->getMessage()], 'upload');
-                }
+                $this->refreshPageCaches(array_keys($albums));
             }
             flock($lock, LOCK_UN);
             fclose($lock);
         }
         $result['remaining'] = $this->pending();
         return $result;
+    }
+
+    /**
+     * The page cache is a side effect: its failure must not stop the jobs.
+     *
+     * @param int[] $albumIds
+     */
+    private function refreshPageCaches(array $albumIds): void
+    {
+        try {
+            ($this->invalidator)($albumIds);
+        } catch (\Throwable $e) {
+            Logger::warning('Image queue: page cache invalidation failed', ['error' => $e->getMessage()], 'upload');
+        }
     }
 
     /**
