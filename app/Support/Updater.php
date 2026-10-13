@@ -2180,6 +2180,13 @@ class Updater
      */
     public function runMigrations(string $fromVersion, string $toVersion, ?string $migrationsPath = null): array
     {
+        // Prerelease images ship the schema of their numeric release. Do not
+        // silently skip migrate_1.4.24 when installing 1.4.24-test.2.
+        $schemaVersion = static fn (string $version): string =>
+            preg_match('/^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/D', $version, $parts)
+                ? $parts[1] : $version;
+        $fromVersion = $schemaVersion($fromVersion);
+        $toVersion = $schemaVersion($toVersion);
         $executed = [];
 
         $this->debugLog('INFO', 'Starting migrations', [

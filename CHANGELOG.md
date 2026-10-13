@@ -1,3 +1,9 @@
+## [1.4.24-test.2] - 2026-10-13
+
+- Preserve all tracked test.12 features on the v1.4.24 fork baseline, with retained-volume and browser verification.
+- Include prerelease schema migrations consistently in Docker startup, the updater and release-package checks; reject future schema migrations as before.
+- Preserve legacy equipment preferences and normalize restored job/font ownership.
+
 ## [1.4.24-test.1] - 2026-10-13
 
 - Update the fork baseline to upstream v1.4.24 while preserving the features verified in test.12.
