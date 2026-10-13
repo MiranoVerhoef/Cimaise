@@ -275,9 +275,12 @@
                 {{ trans('admin.pages.home.hero_section') }}
               </h3>
               <div class="space-y-4">
-                <label class="flex items-start gap-3 cursor-pointer">
+                {# Only the Classic homepage has a hero block that can be switched off;
+                   the other hero-based templates build their layout around the title.
+                   Hidden, not removed, so the saved value survives a template change. #}
+                <label id="classic-hero-toggle" class="flex items-start gap-3 cursor-pointer {{ settings['home.template']|default('classic') != 'classic' ? 'hidden' : '' }}">
                   <input type="checkbox" name="hero_enabled" value="1"
-                         {% if settings['home.hero_enabled'] is not defined or settings['home.hero_enabled'] %}checked{% endif %}
+                         {% if settings['home.hero_enabled'] ?? true %}checked{% endif %}
                          class="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black">
                   <span>
                     <span class="block text-sm font-medium text-gray-900">{{ trans('admin.pages.home.hero_enabled') }}</span>
@@ -627,6 +630,8 @@
           // Hero/title fields are shared by classic + the new hero-based templates.
           const heroBased = ['classic', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'];
           if (classicSettings) classicSettings.classList.toggle('hidden', !heroBased.includes(template));
+          const heroToggle = document.getElementById('classic-hero-toggle');
+          if (heroToggle) heroToggle.classList.toggle('hidden', template !== 'classic');
           if (masonrySettings) masonrySettings.classList.toggle('hidden', template !== 'masonry');
           if (classicInfo) classicInfo.classList.toggle('hidden', template !== 'classic');
           if (modernInfo) modernInfo.classList.toggle('hidden', template !== 'modern');

@@ -108,6 +108,7 @@ tests/
 /tests/e2e/*
 !/tests/e2e/settings-effects.spec.js
 !/tests/e2e/album-robots-default.spec.js
+!/tests/e2e/home-hero-toggle.spec.js
 
 # Cache
 .cache/
