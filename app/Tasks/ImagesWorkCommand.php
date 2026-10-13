@@ -6,53 +6,69 @@ namespace App\Tasks;
 
 use App\Services\ImageJobQueue;
 use App\Support\Database;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-final class ImagesWorkCommand extends Command
+/**
+ * Drains the image job queue: generates the variants, LQIP placeholder and
+ * blurred preview of every uploaded image that is still waiting for them.
+ *
+ * The Docker image runs it automatically. Elsewhere it is only needed when
+ * PHP does not run as PHP-FPM (which processes uploads by itself):
+ *   * * * * * cd /path/to/cimaise && php bin/console images:work --quiet-mode
+ */
+#[AsCommand(name: 'images:work')]
+class ImagesWorkCommand extends Command
 {
     public function __construct(private readonly Database $db)
     {
-        parent::__construct('images:work');
+        parent::__construct();
     }
 
     protected function configure(): void
     {
-        $this->setDescription('Process pending image jobs; failed jobs remain queued for retry')
-            ->addOption('watch', null, InputOption::VALUE_NONE, 'Retry until the queue is empty (up to five minutes)');
+        $this->setDescription('Process pending image jobs (variants, LQIP, blur); failed jobs stay queued for retry')
+             ->addOption('time-limit', null, InputOption::VALUE_REQUIRED, 'Stop starting new jobs after this many seconds (0 = no limit)', '0')
+             ->addOption('watch', null, InputOption::VALUE_NONE, 'Retry queued jobs for up to five minutes (compatibility option)')
+             ->addOption('quiet-mode', null, InputOption::VALUE_NONE, 'Suppress all output (for cron)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $queue = new ImageJobQueue($this->db);
-        if (!$input->getOption('watch')) {
-            return $queue->drain() > 0 ? Command::FAILURE : Command::SUCCESS;
-        }
-        $dir = dirname(__DIR__, 2) . '/storage/image-jobs';
-        if (!$queue->hasJobs()) {
-            return Command::SUCCESS;
-        }
-        $lock = fopen($dir . '/watch.lock', 'c');
-        if ($lock === false) {
-            return Command::FAILURE;
-        }
+        $quiet = (bool) $input->getOption('quiet-mode');
         try {
-            if (!flock($lock, LOCK_EX | LOCK_NB)) {
-                return Command::SUCCESS;
-            }
-            $deadline = time() + 300;
+            $queue = new ImageJobQueue($this->db);
+            $watch = (bool)$input->getOption('watch');
+            $timeLimit = max(0, (int)$input->getOption('time-limit'));
+            $deadline = time() + ($timeLimit > 0 ? $timeLimit : 300);
+            $result = ['processed' => 0, 'failed' => 0, 'remaining' => 0];
             do {
-                $queue->drain();
-                if (!$queue->hasJobs()) {
-                    return Command::SUCCESS;
+                $pass = $queue->drain($watch ? max(1, $deadline - time()) : $timeLimit);
+                $result['processed'] += $pass['processed'];
+                $result['failed'] += $pass['failed'];
+                $result['remaining'] = $pass['remaining'];
+                if (!$watch || !$pass['remaining'] || time() >= $deadline) {
+                    break;
                 }
                 sleep(2);
-            } while (time() < $deadline);
+            } while (true);
+        } catch (\Throwable $e) {
+            if (!$quiet) {
+                $output->writeln('<error>Image worker failed: ' . $e->getMessage() . '</error>');
+            }
             return Command::FAILURE;
-        } finally {
-            fclose($lock);
         }
+        if (!$quiet) {
+            $output->writeln(sprintf(
+                'Image jobs: %d processed, %d failed, %d still queued',
+                $result['processed'],
+                $result['failed'],
+                $result['remaining']
+            ));
+        }
+        return $result['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;
     }
 }

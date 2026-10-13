@@ -339,17 +339,8 @@ $app->add(new FlashMiddleware());
 // middleware, so that it also wraps the 404/405/500 pages (see there).
 $app->add(new EarlyHintsMiddleware($basePath));
 
-// The storage volume survives Docker upgrades, but compiled templates must not.
-// auto_reload is disabled in production; namespace caches by the shipped release.
-$templateRelease = substr((string)hash_file('sha256', __DIR__ . '/../version.json'), 0, 16);
-$twigCacheDir = __DIR__ . '/../storage/cache/twig/' . $templateRelease;
-$twigCache = false;
-if (!is_dir($twigCacheDir)) {
-    @mkdir($twigCacheDir, 0755, true);
-}
-if (is_dir($twigCacheDir) && is_writable($twigCacheDir)) {
-    $twigCache = $twigCacheDir;
-}
+// One compiled-template directory per release (see TwigCache).
+$twigCache = \App\Support\TwigCache::directory(dirname(__DIR__)) ?? false;
 
 // Twig configuration with performance optimizations
 $isProduction = !filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);

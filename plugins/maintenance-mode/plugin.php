@@ -115,7 +115,7 @@ class MaintenanceModePlugin
                 ],
                 'maintenance_show_admin_login' => [
                     'type' => 'checkbox',
-                    'label' => 'Show Admin Login',
+                    'label' => 'Show Admin Login Link',
                     'description' => 'Display the admin login link on the maintenance page',
                     'default' => true
                 ],

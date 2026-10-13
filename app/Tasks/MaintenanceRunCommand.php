@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tasks;
 
+use App\Services\ImageJobQueue;
 use App\Services\VariantMaintenanceService;
 use App\Services\SettingsService;
 use App\Support\Database;
@@ -80,6 +81,10 @@ HELP
                 $settings->clearCache();
                 $settings->set('maintenance.variants_daily_last_run', '');
             }
+
+            // Uploads still waiting for their variants go first: on hosts with
+            // neither PHP-FPM nor a worker this run is what processes them.
+            (new ImageJobQueue($this->db))->drain();
 
             $maintenanceService->runDaily();
 

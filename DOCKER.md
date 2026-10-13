@@ -137,7 +137,7 @@ when the container is recreated:
 
 | Container path                   | Holds                                              |
 |----------------------------------|----------------------------------------------------|
-| `/var/www/html/storage`          | `.env`, logs, cache, originals, protected media, rate limits |
+| `/var/www/html/storage`          | `.env`, logs, cache, originals, protected media, image job queue, rate limits |
 | `/var/www/html/database`         | the SQLite database file                           |
 | `/var/www/html/public/media`     | processed image variants served to visitors        |
 
@@ -175,10 +175,21 @@ The image runs in production mode by default. Useful variables:
 | `APP_DEBUG`       | `false`      | Keep `false` in production (debug output corrupts media bytes).|
 | `APP_TIMEZONE`    | `UTC`        | Default timezone.                                              |
 | `TRUSTED_PROXIES` | *(empty)*    | Comma-separated proxy CIDRs to honour `X-Forwarded-*` headers. |
+| `CIMAISE_IMAGE_WORKER` | `1`     | Set to `0` to not start the image worker (see below), e.g. when another container processes the queue. |
 | `CIMAISE_NOINDEX` | *(empty)*    | Set to `1` on a demo/staging copy: forces `X-Robots-Tag: noindex, nofollow` on **every** response (pages, feeds, sitemap) so the staging site never gets indexed. Leave empty in production. |
 
 > Database credentials, site URL and secrets are written to `.env` by the
 > installer — you don't pass them as environment variables.
+
+### Image worker
+
+Uploads are answered as soon as the original is stored; the responsive
+variants are generated afterwards by a small worker the entrypoint starts next
+to Apache. It runs as `www-data` and starts PHP only while jobs are queued in
+`storage/image-jobs`, so an idle site costs nothing. The queue is on the
+storage volume: jobs survive a restart or an image upgrade and are picked up
+again at the next start. To run the worker elsewhere, set
+`CIMAISE_IMAGE_WORKER=0` and call `php bin/console images:work` yourself.
 
 ---
 
@@ -360,11 +371,11 @@ The workflow publishes `fabiodalez/cimaise:1.4.14`, `:1.4`, and `:latest`.
 
 Uploads persist jobs in `storage/image-jobs`, covered by the existing storage volume.
 The Docker image runs an unprivileged worker automatically; no cron or additional container is needed.
-Failed jobs retry with backoff (up to five minutes between attempts), and interrupted jobs resume on restart.
+Failed jobs retry with backoff (up to one hour between attempts), and interrupted jobs resume on restart.
 Processing locks coordinate HTTP, worker and CLI generation without holding a database transaction during encoding.
 The async setting controls whether upload waits for full generation; the preview is always created immediately.
 
-PHP-FPM and Apache installations outside this image start a detached PHP CLI worker when available,
-with a post-response fallback when process execution is disabled. In that restricted fallback,
-pending retries resume on subsequent web requests. `php bin/console images:work` can also drain the queue.
+PHP-FPM drains the persisted queue after sending the response, without spawning CLI processes.
+A later authenticated admin request resumes pending work. Apache/CGI outside Docker can run
+`php bin/console images:work` through their scheduler.
 Use local storage for SQLite and the job directory; retain the existing Docker volume mappings when upgrading.

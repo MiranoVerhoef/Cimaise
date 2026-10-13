@@ -2337,12 +2337,6 @@ parameters:
 			path: app/Services/VariantMaintenanceService.php
 
 		-
-			message: '#^Method App\\Services\\VariantMaintenanceService\:\:resolveEnabledFormatsAndVariants\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VariantMaintenanceService.php
-
-		-
 			message: '#^Method App\\Support\\Database\:\:execute\(\) has parameter \$params with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

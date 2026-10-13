@@ -482,7 +482,11 @@ class UploadService
         if (SettingsService::boolean($settingsSvc->get('image.variants_async', true), true)) {
             $queue->enqueue($imageId);
         } else {
-            $queue->runSynchronously($imageId);
+            try {
+                $queue->runSynchronously($imageId);
+            } catch (\Throwable $e) {
+                Logger::warning('Synchronous variant generation failed, queued for retry', ['image_id' => $imageId, 'error' => $e->getMessage()], 'upload');
+            }
         }
 
         return ['id' => $imageId,'path' => $dest,'mime' => $mime,'width' => $width,'height' => $height,'preview_url' => $previewRel];

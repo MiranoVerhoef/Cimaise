@@ -111,7 +111,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Original downloads must always reach the server for current permissions.
+  // Original downloads are permission-checked per request: never serve them
+  // from a cache.
   if (url.pathname.startsWith(`${BASE_PATH}/download/`)) {
     return;
   }

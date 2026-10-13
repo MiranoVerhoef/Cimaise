@@ -1166,6 +1166,7 @@ php bin/console db:template          # Rebuild database/template.sqlite from the
 php bin/console db:template --check  # Verify the template matches the schema (CI guard)
 php bin/console user:create          # Create admin user
 php bin/console images:generate      # Generate all image variants
+php bin/console images:work          # Process uploads waiting for their variants
 php bin/console nsfw:generate-blur   # Generate blur variants for protected albums
 php bin/console images:generate-lqip # Generate LQIP (Low-Quality Image Placeholders)
 php bin/console maintenance:run      # Run daily maintenance (variants + blur)
@@ -1312,6 +1313,23 @@ Demo features:
 
 Cimaise includes two CLI commands for scheduled tasks: **cache warming** for faster page loads, and **maintenance** for image variant generation. For best performance, schedule both via cron.
 
+### Image variants after an upload
+
+An upload is answered as soon as the original and a small preview are stored. The full set of responsive variants (AVIF, WebP, JPEG), the LQIP placeholder and the blurred preview of protected albums are then produced from a durable queue (`storage/image-jobs`), so a restart or a killed process never loses them; a failed image is retried with an increasing delay.
+
+| Setup | Who processes the queue |
+|-------|-------------------------|
+| PHP-FPM | The upload request itself, after the response has been sent. Nothing to configure. |
+| Docker image | A background worker in the container. Nothing to configure. |
+| Other (Apache `mod_php`, CGI) | Add the cron line below, or rely on `maintenance:run`. |
+
+```bash
+# Only needed without PHP-FPM and outside Docker
+* * * * * cd /path/to/cimaise && php bin/console images:work --quiet-mode
+```
+
+With **Settings → Generate variants in background** switched off, an upload generates everything before it answers and the queue is only used as a fallback when that fails.
+
 ### Recommended Cron Setup
 
 Add this to your crontab (`crontab -e`):
@@ -1398,8 +1416,9 @@ Generates missing image variants and blur previews for protected albums.
 
 #### What Maintenance Does
 
-1. **Image Variant Generation** — Creates missing responsive variants (AVIF, WebP, JPEG) for all uploaded images
-2. **Blur Variant Generation** — Creates blurred preview images for:
+1. **Pending uploads** — Processes uploads still waiting in the image job queue
+2. **Image Variant Generation** — Creates missing responsive variants (AVIF, WebP, JPEG) for all uploaded images
+3. **Blur Variant Generation** — Creates blurred preview images for:
    - NSFW albums (for age-gated content)
    - Password-protected albums (for locked content previews)
 

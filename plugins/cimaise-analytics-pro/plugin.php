@@ -364,7 +364,7 @@ class CimaiseAnalyticsProPlugin
     public function enhancePageviewData(array $data): array
     {
         // Add device type detection
-        $userAgent = $data['user_agent'] ?? $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $userAgent = (string)($data['user_agent'] ?? $_SERVER['HTTP_USER_AGENT'] ?? '');
         $data['device_type'] = $this->detectDeviceType($userAgent);
 
         // Add browser detection

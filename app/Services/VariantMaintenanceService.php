@@ -261,7 +261,12 @@ class VariantMaintenanceService
         return $blurStmt->fetchColumn() !== false;
     }
 
-    private function resolveEnabledFormatsAndVariants(SettingsService $settings): array
+    /**
+     * Formats this runtime can encode and the configured breakpoints.
+     *
+     * @return array{0: string[], 1: array<int, int|string>}
+     */
+    public function resolveEnabledFormatsAndVariants(SettingsService $settings): array
     {
         $defaults = $settings->defaults();
 

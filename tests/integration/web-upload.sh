@@ -97,9 +97,9 @@ echo 'PASS: bin/console propagates generation failures to the shell'
 docker exec "$container" sh -c "rm /var/www/html/public/media/${id}_lg.jpg; touch /var/www/html/storage/image-jobs/${id}.job; chown www-data:www-data /var/www/html/storage/image-jobs/${id}.job"
 docker restart "$container"
 if [ "${3:-}" = "fpm" ]; then
-  # Non-Docker FPM deployments wake their detached CLI worker on a web request.
+  # PHP-FPM resumes jobs after a verified admin response, without spawning CLI.
   sleep 3
-  curl -fsS "$base/admin/login" > /dev/null
+  curl -fsS -b "$tmp/cookies" "$base/admin/media" > /dev/null
 fi
 for attempt in $(seq 1 60); do
   if docker exec "$container" test -s "/var/www/html/public/media/${id}_lg.jpg"; then

@@ -31,17 +31,11 @@ if (file_exists($root . '/.env')) {
 }
 
 // Setup Twig with production settings
-$twigCacheDir = $root . '/storage/cache/twig';
-if (!is_dir($twigCacheDir)) {
-    if (!mkdir($twigCacheDir, 0755, true)) {
-        echo "❌ Error: Cannot create cache directory: {$twigCacheDir}\n";
-        echo "   Please check permissions on storage/ directory.\n";
-        exit(1);
-    }
-}
-if (!is_writable($twigCacheDir)) {
-    echo "❌ Error: Cache directory is not writable: {$twigCacheDir}\n";
-    echo "   Please fix permissions: chmod 755 {$twigCacheDir}\n";
+// Same per-release directory the application reads from.
+$twigCacheDir = \App\Support\TwigCache::directory($root);
+if ($twigCacheDir === null) {
+    echo "❌ Error: Cannot create or write the cache directory under {$root}/storage/cache/twig\n";
+    echo "   Please check permissions on storage/ directory.\n";
     exit(1);
 }
 

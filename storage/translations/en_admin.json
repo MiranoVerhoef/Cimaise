@@ -1337,7 +1337,7 @@
     "admin.maintenance.show_animation_hint": "Show a subtle loading animation to indicate work in progress",
     "admin.maintenance.show_logo": "Show Site Logo",
     "admin.maintenance.show_logo_hint": "Display your site logo on the maintenance page",
-    "admin.maintenance.show_admin_login": "Show Admin Login",
+    "admin.maintenance.show_admin_login": "Show Admin Login Link",
     "admin.maintenance.show_admin_login_hint": "Display the admin login link on the maintenance page",
     "admin.maintenance.title": "Maintenance Mode",
     "admin.media.add": "Add",
@@ -1387,7 +1387,6 @@
     "admin.media.location": "Location",
     "admin.media.no_media": "No media files",
     "admin.media.no_media_hint": "Upload images through albums to populate your media library",
-    "admin.media.original": "Original",
     "admin.media.photo_metadata": "Photo Metadata",
     "admin.media.regenerate_variants": "Regenerate Variants",
     "admin.media.save": "Save",
@@ -2438,7 +2437,6 @@
     "admin.typography.context.navigation": "Navigation",
     "admin.typography.description": "Customize fonts for your portfolio",
     "admin.typography.font_family": "Font Family",
-    "admin.typography.font_weight": "Font Weight",
     "admin.typography.gdpr_note": "All fonts are served locally for GDPR compliance",
     "admin.typography.live_update": "Updates in real-time",
     "admin.typography.preview": "Live Preview",
@@ -2688,8 +2686,6 @@
     "admin.sidebar.commands_sub": "CLI operations",
     "admin.sidebar.diagnostics_sub": "System status",
     "admin.sidebar.cache_sub": "Performance and cleanup",
-    "admin.sidebar.updates_sub": "Check versions",
-    "admin.sidebar.analytics_pro_sub": "Advanced statistics",
-    "admin.sidebar.custom_templates_sub": "Custom layouts"
+    "admin.sidebar.updates_sub": "Check versions"
   }
 }

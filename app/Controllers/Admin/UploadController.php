@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Services\ImageJobQueue;
 use App\Services\UploadService;
 use App\Services\ImagesService;
 use App\Services\CacheTags;
@@ -106,6 +107,12 @@ class UploadController extends BaseController
             $uploadToken = $request->getParsedBody()['upload_token'] ?? null;
             $meta = $svc->ingestAlbumUpload($albumId, $fArr, is_string($uploadToken) ? $uploadToken : null);
 
+            // ingestAlbumUpload() only produces the small preview the admin grid
+            // needs; the variant matrix, LQIP and blur go through the queue.
+            if (!empty($meta['id'])) {
+                $this->scheduleVariantGeneration((int) $meta['id']);
+            }
+
             // Invalidate page caches — new image uploaded to album
             try {
                 // Collect all categories from pivot table (multi-category support)
@@ -143,8 +150,6 @@ class UploadController extends BaseController
             $response->getBody()->write($json);
             $response = $response->withHeader('Content-Type', 'application/json');
 
-            (new \App\Services\ImageJobQueue($this->db))->schedule();
-
             return $response;
         } catch (\Throwable $e) {
             // Don't leave the staged upload behind in storage/tmp when ingest fails.
@@ -152,6 +157,19 @@ class UploadController extends BaseController
             $response->getBody()->write(json_encode(['ok' => false, 'error' => $e->getMessage()]));
             return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
         }
+    }
+
+    /**
+     * Honour the "generate variants in background" setting.
+     *
+     * Background: the job is persisted first, so a killed process or a
+     * restart cannot lose it, then drained after the response on PHP-FPM or by
+     * the image worker elsewhere. Foreground: generated before answering; a
+     * failure falls back to the queue instead of failing the upload.
+     */
+    private function scheduleVariantGeneration(int $imageId): void
+    {
+        (new ImageJobQueue($this->db))->drainAfterResponse();
     }
 
     /**
