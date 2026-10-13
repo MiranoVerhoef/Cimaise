@@ -41,6 +41,7 @@ class CacheMiddleware implements MiddlewareInterface
         // resolve the ETag from the page_cache table BEFORE executing the controller.
         // When the client's If-None-Match matches, skip rendering entirely.
         // Only safe for anonymous, non-session-dependent GET/HEAD requests.
+        $etagBeforeRendering = null;
         if (
             $cacheEnabled
             && in_array($method, ['GET', 'HEAD'], true)
@@ -48,9 +49,10 @@ class CacheMiddleware implements MiddlewareInterface
             && !str_starts_with($path, '/admin')
             && !str_starts_with($path, '/api/')
         ) {
+            $etagBeforeRendering = $this->generateHtmlEtag($path, $request->getQueryParams());
             $ifNoneMatch = $request->getHeaderLine('If-None-Match');
             if ($ifNoneMatch !== '') {
-                $earlyEtag = $this->generateHtmlEtag($path, $request->getQueryParams());
+                $earlyEtag = $etagBeforeRendering;
                 if ($earlyEtag !== null && $this->matchesEtag($earlyEtag, $ifNoneMatch)) {
                     // Build a 304 from scratch — no handler invocation, no Twig render.
                     $emptyBody = new \Slim\Psr7\Stream(fopen('php://temp', 'r+'));
@@ -130,7 +132,7 @@ class CacheMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        return $this->addHtmlCache($response, $request, $path);
+        return $this->addHtmlCache($response, $request, $path, $etagBeforeRendering);
     }
 
     private function isStaticAsset(string $path): bool
@@ -222,7 +224,7 @@ class CacheMiddleware implements MiddlewareInterface
             ->withHeader('Pragma', 'no-cache');
     }
 
-    private function addHtmlCache(Response $response, Request $request, string $normalizedPath): Response
+    private function addHtmlCache(Response $response, Request $request, string $normalizedPath, ?string $etagBeforeRendering): Response
     {
         // PW2: a controller may mark an HTML response as not shareable — e.g. the
         // password/NSFW gate pages, which embed a session-bound CSRF token. For a
@@ -245,6 +247,17 @@ class CacheMiddleware implements MiddlewareInterface
 
         // Try to generate ETag from page cache (database or file) if available
         $etag = $this->generateHtmlEtag($normalizedPath, $request->getQueryParams());
+        // A concurrent save/rebuild may replace the cache while Twig renders
+        // the previous snapshot. Never label that body with the new validator.
+        // Stale renders opt out of HTTP caching in their controllers; on a
+        // fresh-cache race, fall back to hashing the body actually returned.
+        // The same holds when there was no valid entry before rendering and
+        // one exists now: this request may have built it, or another request
+        // may have stored a newer one while this body was rendered from older
+        // data. The two cases cannot be told apart here, so hash the body.
+        if ($isSessionDependent || $etag !== $etagBeforeRendering) {
+            $etag = null;
+        }
         if (!$etag) {
             // Only hash body for small responses to avoid O(size) CPU/memory overhead
             // For large pages without cache ETags, skip hashing entirely
@@ -341,11 +354,23 @@ class CacheMiddleware implements MiddlewareInterface
         // Get configurable galleries slug (default: /galleries)
         $galleriesPath = '/' . trim((string) $this->settings->get('galleries.slug', 'galleries'), '/');
 
+        // The validator must describe the entry the page is rendered from. A
+        // query string selects something else (home ?template= preview,
+        // filtered galleries listing, album ?template= variant) that is not
+        // rendered from these entries, so those requests hash the body.
         $cacheType = null;
         if ($path === '/' || $path === '') {
+            if ($query !== []) {
+                return null;
+            }
             $cacheType = 'home';
         } elseif ($path === $galleriesPath || $path === $galleriesPath . '/') {
-            $cacheType = 'galleries';
+            if ($query !== []) {
+                return null;
+            }
+            $cacheType = PageCacheService::galleriesPageKey(
+                (string) ($this->settings->get('galleries.template', 'classic') ?? 'classic')
+            );
         } elseif (preg_match('#^/album/([^/]+)/?$#', $path, $matches)) {
             // The ETag must come from the entry the page is rendered from
             // (PageCacheService::albumPageKey). A ?template=N request renders a
@@ -371,6 +396,9 @@ class CacheMiddleware implements MiddlewareInterface
         }
 
         // Fall back to file-based ETag
+        if ($this->pageCacheService->isExpired($cacheType)) {
+            return null;
+        }
         $cacheFile = $this->pageCacheService->getCacheFilePath($cacheType);
         if ($cacheFile && file_exists($cacheFile)) {
             $mtime = filemtime($cacheFile);
