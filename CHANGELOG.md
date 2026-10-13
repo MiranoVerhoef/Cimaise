@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
+## [1.4.24] - 2026-10-13
+### Added
+- **French.** The public site and the admin are available in French, selectable in the installer and under Settings. Thanks to @hypsug0 for the complete language packs.
+- **Classic homepage without the hero.** A "Show hero section" option under Pages → Home lets a portfolio start directly with the gallery. It is on by default, so existing sites look the same. Thanks to @MiranoVerhoef.
+- **Per-album "Show equipment".** The cameras, lenses, film, developers and labs block can be hidden on a single album while the metadata stays stored. The block itself is easier to read with several cameras and lenses or long model names, in the Classic, Hero and Magazine album pages. Thanks to @MiranoVerhoef.
+
+### Fixed
+- **Album edits reach visitors immediately.** After editing an album, a category or a tag, logged-out visitors kept seeing the old page for about a day (administrators did not, because they bypass the page cache). The page is now rebuilt on the next visit.
+- **Browsers can revalidate pages again.** Behind an Apache that compresses responses, the home, galleries and album pages never answered "304 Not Modified", so returning visitors downloaded them in full every time. Album pages also took their validator from the wrong cache entry, which could leave a returning visitor on the old layout after a settings change.
+- **The Hero album page follows the dark theme.** Its panel stayed white in the dark theme, with unreadable category, tag and date pills and album text.
+- **The admin sidebar is fully translated.** The subtitles under each menu entry were fixed Italian strings whatever the admin language. Thanks to @MiranoVerhoef.
+- The "Skip to content" link is translated in every language pack.
+
+### Changed
+- **Album pages are cached on their first visit instead of being pre-built.** `php bin/console cache:warm` still pre-builds the home and galleries pages; `--albums` is accepted for compatibility and reports that there is nothing to pre-build. The Cache page in the admin clears album entries rather than reporting a regeneration.
+- **Docker: compiled templates are discarded at container start**, so an image upgrade can never keep serving the previous version's templates from the storage volume.
+- A cache warm-up that was meant to run after admin login, and never did, is removed.
+
+### Upgrade notes
+- This release adds one column, `albums.show_equipment` (default: shown). The updater applies it automatically on SQLite and MySQL.
+
 ## [1.4.23] - 2026-10-12
 ### Security
 - **The installer stays locked when the database is unreachable.** With the install marker missing, a MySQL server that was down (or dropped mid-check) made the installer reachable again; it now answers 503 "installer locked" and keeps the reinstall path only for a reachable but genuinely incomplete database.
