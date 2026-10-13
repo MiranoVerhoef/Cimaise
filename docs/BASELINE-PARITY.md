@@ -38,6 +38,6 @@ CI seeds isolated volumes using the **published test.12 Docker image**, then boo
 
 The same check compares 17 critical implementation files against their hashes from the published test.12 image. These include the generation service/queue, original resolver, storage service, mobile detection, homepage limit, typography, upload/media/page controllers, admin JavaScript, progress/notification scripts and shared logo/download templates. Those implementations are unchanged; modified upstream/shared files are checked through the behavior tests above.
 
-Compatibility adjustments preserve legacy per-album equipment settings when migrating to the new column, keep the full prerelease image identifier separate from the stable schema version, and keep prerelease publishing away from stable Docker aliases.
+Compatibility adjustments preserve legacy per-album equipment settings when migrating to the new column, normalize ownership of retained job/font directories, keep the full prerelease image identifier separate from the stable schema version, and keep prerelease publishing away from stable Docker aliases.
 
 This proves the tracked features and isolated upgrade fixture. It does not inspect the user's live Unraid volumes; retain a normal backup before deploying any database upgrade.

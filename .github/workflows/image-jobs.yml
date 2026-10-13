@@ -82,6 +82,7 @@ jobs:
       - name: Container diagnostics
         if: always()
         run: |
+          docker logs cimaise-baseline-upgrade || true
           docker logs cimaise-apache || true
           docker logs cimaise-fpm || true
           docker logs cimaise-fpm-restricted || true

@@ -18,6 +18,8 @@ WRITABLE_DIRS="
   storage/cache
   storage/logs
   storage/originals
+  storage/image-jobs
+  storage/fonts
   storage/protected-media
   storage/rate_limits
   storage/tmp

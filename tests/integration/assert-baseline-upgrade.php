@@ -24,6 +24,9 @@ foreach ($snapshot['files'] as $file => $hash) {
     preserved(is_file($file) && hash_file('sha256', $file) === $hash, 'retained bytes: ' . basename($file));
 }
 $id = (int)$snapshot['queued_image'];
+if (is_file("$root/storage/image-jobs/$id.job")) {
+    echo 'Pending fixture job state: ' . file_get_contents("$root/storage/image-jobs/$id.job") . "\n";
+}
 preserved(!is_file("$root/storage/image-jobs/$id.job"), 'queued test.12 job completes on the new worker');
 foreach (['sm', 'md', 'lg'] as $size) {
     foreach (['jpg', 'webp', 'avif'] as $format) {
