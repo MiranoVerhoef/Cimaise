@@ -307,6 +307,7 @@
     "installer.default_content_templates": "Six modèles de galeries professionnelles",
     "installer.default_content_title": "Contenu par défaut",
     "installer.english": "Anglais",
+    "installer.french": "Français",
     "installer.indicates_required": "indique les champs obligatoires.",
     "installer.italian": "Italien",
     "installer.optional": "(facultatif)",
@@ -362,6 +363,7 @@
   },
   "navigation": {
     "nav.about": "À propos",
+    "nav.skip_to_content": "Aller au contenu",
     "nav.admin_dashboard": "Tableau de bord d'administration",
     "nav.back": "Retour",
     "nav.breadcrumb": "Fil d'Ariane",

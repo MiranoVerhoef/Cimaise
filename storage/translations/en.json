@@ -307,6 +307,7 @@
     "installer.default_content_templates": "Six professional gallery templates",
     "installer.default_content_title": "Default Content",
     "installer.english": "English",
+    "installer.french": "Français",
     "installer.indicates_required": "indicates required fields.",
     "installer.italian": "Italiano",
     "installer.optional": "(optional)",
@@ -362,6 +363,7 @@
   },
   "navigation": {
     "nav.about": "About",
+    "nav.skip_to_content": "Skip to content",
     "nav.admin_dashboard": "Admin Dashboard",
     "nav.back": "Back",
     "nav.breadcrumb": "Breadcrumb",
