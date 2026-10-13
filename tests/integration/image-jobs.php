@@ -53,7 +53,19 @@ try {
     $job = $root . '/storage/image-jobs/' . $id . '.job';
     check(is_file($job), 'asynchronous upload persists its job');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'asynchronous upload defers larger variants');
+    $cache = new App\Services\PageCacheService($settings, $db);
+    $albumCacheKey = App\Services\PageCacheService::albumPageKey(987654321);
+    $cache->setWithTags($albumCacheKey, ['preview' => 'sm'], [App\Services\CacheTags::album(987654321)]);
+    $cache->setWithTags($albumCacheKey . '_t5', ['preview' => 'sm'], [App\Services\CacheTags::album(987654321)]);
+    $cache->set('home', ['preview' => 'sm']);
+    $cache->set('galleries', ['preview' => 'sm']);
+    $cache->set('album_123', ['untouched' => true]);
     check($queue->drain() === 0, 'queued image generates without errors');
+    check($cache->get($albumCacheKey) === null && $cache->get($albumCacheKey . '_t5') === null,
+        'successful generation invalidates the album and its template variants');
+    check($cache->get('home') === null && $cache->get('galleries') === null,
+        'successful generation invalidates homepage and gallery image lists');
+    check($cache->get('album_123') === ['untouched' => true], 'unrelated album caches remain available');
     check(!is_file($job), 'successful job is removed');
     foreach (['sm', 'md', 'lg'] as $size) {
         foreach (['jpg', 'webp', 'avif'] as $format) {
@@ -72,7 +84,9 @@ try {
     });
     $queue->enqueue($id);
     rename($meta['path'], $meta['path'] . '.hold');
+    $cache->set($albumCacheKey, ['retain_until_success' => true]);
     check($queue->drain() === 1 && is_file($job), 'failed job remains queued');
+    check($cache->get($albumCacheKey) === ['retain_until_success' => true], 'failed generation does not invalidate album data');
     $state = json_decode(file_get_contents($job), true);
     check($state['attempts'] === 1 && $state['next_at'] > time(), 'failed job receives retry backoff');
     foreach ([new ImagesGenerateCommand($db), new ImagesGenerateVariantsCommand($db)] as $command) {

@@ -118,7 +118,7 @@ final class ImageJobQueue
         if ($stats['failed'] > 0) {
             throw new RuntimeException($stats['failed'] . ' image variants failed');
         }
-        $stmt = $this->db->pdo()->prepare('SELECT a.is_nsfw, a.password_hash FROM albums a JOIN images i ON i.album_id = a.id WHERE i.id = ?');
+        $stmt = $this->db->pdo()->prepare('SELECT a.slug, a.is_nsfw, a.password_hash FROM albums a JOIN images i ON i.album_id = a.id WHERE i.id = ?');
         $stmt->execute([$id]);
         $album = $stmt->fetch();
         $stmt->closeCursor();
@@ -126,6 +126,11 @@ final class ImageJobQueue
         $placeholder = $protected ? $service->generateBlurredVariant($id) : $service->generateLQIP($id);
         if ($placeholder === null) {
             throw new RuntimeException('Image placeholder generation failed');
+        }
+        // The next render must discover the newly generated files. Use upstream's
+        // album invalidation API so unrelated album pages retain their cache.
+        if ($album) {
+            (new PageCacheService(new SettingsService($this->db), $this->db))->invalidateAlbum((string)$album['slug']);
         }
     }
 
