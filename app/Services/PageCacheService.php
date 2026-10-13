@@ -151,6 +151,39 @@ class PageCacheService
     }
 
     /**
+     * Single-flight guard for the stale-while-revalidate paths.
+     *
+     * Invalidation is soft: the row is only marked expired, so the stale copy
+     * stays readable. The request that wins this lock rebuilds the page and
+     * stores it; concurrent requests keep serving the stale copy until then.
+     * Without a rebuild trigger an edited page kept its old public version
+     * until the expired row was garbage-collected a day later.
+     *
+     * Keys are hashed into a fixed number of lock files so storage/tmp does not
+     * grow with the catalogue; a collision only costs one extra stale response.
+     */
+    public function claimRegeneration(string $cacheKey): bool
+    {
+        $dir = dirname(__DIR__, 2) . '/storage/tmp';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $fh = @fopen($dir . '/page_regen_' . (crc32($cacheKey) % 64) . '.lock', 'c');
+        if ($fh === false) {
+            return true; // cannot lock: rebuild rather than serve stale indefinitely
+        }
+        if (!@flock($fh, LOCK_EX | LOCK_NB)) {
+            @fclose($fh);
+            return false; // another request is already rebuilding
+        }
+        register_shutdown_function(static function () use ($fh): void {
+            @flock($fh, LOCK_UN);
+            @fclose($fh);
+        });
+        return true;
+    }
+
+    /**
      * Cache key of an album page.
      *
      * One key per album (plus one per gallery-template variant requested via

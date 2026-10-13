@@ -97,12 +97,39 @@ final class ContainerMigrationServiceTest extends TestCase
         (new ContainerMigrationService($this->db, $this->dir . '/missing'))->migrate('1.4.24');
     }
 
-    public function testDowngradeIsRejected(): void
+    public function testSchemaDowngradeIsRejected(): void
     {
         $service = new ContainerMigrationService($this->db, $this->dir);
         $service->migrate('1.4.24');
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('newer than this image');
         $service->migrate('1.4.23');
+    }
+
+    public function testRollbackToAnImageWithTheSameSchemaIsAllowed(): void
+    {
+        // 1.4.26 ships no migration of its own: its schema is still 1.4.24's,
+        // so going back to 1.4.25 must start instead of refusing to boot.
+        $service = new ContainerMigrationService($this->db, $this->dir);
+        $service->migrate('1.4.26');
+        self::assertSame('"1.4.24"', $this->version());
+        $this->db->execute("INSERT INTO page_cache (cache_key,cache_type,data,data_hash,size_bytes,created_at,expires_at)
+            VALUES ('home','home','from-1.4.26','x',3,'2026-10-13','2026-10-14')");
+
+        self::assertSame([], $service->migrate('1.4.25'));
+        self::assertSame('"1.4.24"', $this->version());
+        self::assertSame('"1.4.25"', $this->db->query("SELECT value FROM settings WHERE key = 'docker.image_version'")->fetchColumn());
+        // Page data rendered by the other image is discarded on the switch.
+        self::assertSame(0, (int) $this->db->query('SELECT COUNT(*) FROM page_cache')->fetchColumn());
+    }
+
+    public function testImageUpgradeWithoutMigrationsStillDiscardsOldPageData(): void
+    {
+        $service = new ContainerMigrationService($this->db, $this->dir);
+        $service->migrate('1.4.24');
+        $this->db->execute("INSERT INTO page_cache (cache_key,cache_type,data,data_hash,size_bytes,created_at,expires_at)
+            VALUES ('home','home','from-1.4.24','x',3,'2026-10-13','2026-10-14')");
+        self::assertSame([], $service->migrate('1.4.25'));
+        self::assertSame(0, (int) $this->db->query('SELECT COUNT(*) FROM page_cache')->fetchColumn());
     }
 }

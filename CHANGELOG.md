@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
-## [Unreleased]
+## [1.4.25] - 2026-10-13
 ### Fixed
-- Docker image upgrades apply pending database migrations before Apache starts, using SQL from the new image instead of the persisted database volume. Failed migrations stop startup; successful upgrades keep their schema version in the database.
-- Stale pages are not stored by browsers, and a cache replacement during rendering cannot attach the new ETag to the old body. Expired file caches and disabled page caches no longer supply early 304 validators.
+- **Docker: upgrading the image now upgrades the database.** Pulling a newer image kept the old database without applying its migrations, so on an install upgraded from 1.4.23 the new "Show equipment" switch could not be saved. Pending migrations now run at container start, before Apache accepts requests, using the SQL shipped in the new image. A failed migration stops the start with the error in the container log; restarting the same image does nothing; going back to an image with the same schema is allowed, and only a real schema downgrade is refused.
+- **Browsers no longer keep an outdated page under a new validator.** When a page was being rebuilt while another visitor requested it, the old content could be sent with the new page's ETag and then be confirmed as current. Outdated copies are now sent as non-cacheable, and a validator is never attached to content it does not describe.
+- **The galleries listing follows album changes immediately.** On sites with password-protected or NSFW albums, or with a non-default galleries template, the listing kept showing the previous state for about a day after an album was added, renamed or removed.
 
 ## [1.4.24] - 2026-10-13
 ### Added

@@ -108,10 +108,13 @@ class GalleriesController extends BaseController
                 ]));
             }
 
-            // Lazy regeneration: try stale cache
+            // Stale-while-revalidate: serve the stale copy only while another
+            // request holds the regeneration lock; otherwise rebuild below. The
+            // warmer cannot do it for us: it skips this page when gated albums
+            // exist and never builds the non-classic template keys.
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
-            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])) {
-                // Serve stale, schedule background regeneration could be done here
+            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
+                && !$cacheService->claimRegeneration($cacheKey)) {
                 $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $pageTemplateFile, array_merge($staleCached['data'], $seoCtx, [
                     'nsfw_consent' => $nsfwConsent,

@@ -235,6 +235,12 @@ the new image before Apache starts. The schema version is stored in the
 database, so restarting the same image does not reapply them. A failed
 migration stops startup and reports the error in the container log.
 
+Rolling back to an older tag works as long as that image has the same database
+schema. If the newer image applied a migration, an older one (1.4.25 or later) refuses to start
+("the database schema is newer than this image") instead of running on a schema
+it does not know: restore the database volume from a backup taken before the
+upgrade, or go forward again.
+
 ---
 
 ## 7. Building the image yourself

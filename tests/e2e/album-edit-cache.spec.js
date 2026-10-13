@@ -89,6 +89,24 @@ test.describe.serial('Album edits reach anonymous visitors immediately', () => {
         expect(excerpt(b)).toBe(excerpt(a));
     });
 
+    test('ECA-04: the galleries listing follows an album rename', async ({ browser }) => {
+        test.skip(!album.slug, 'album fixture unavailable');
+        // The warmer skips the galleries page when password/NSFW albums exist
+        // (and never builds the non-classic template keys), so the live
+        // request has to rebuild a stale listing itself.
+        const first = `ECA listing ${Date.now()}`;
+        const second = `${first} renamed`;
+
+        await saveAlbum(page, album.id, { ...form, is_published: 'on', title: first });
+        let body = await anonBody(browser, '/galleries');
+        expect(body, 'album listed with its first title').toContain(first);
+        body = await anonBody(browser, '/galleries'); // served from cache
+
+        await saveAlbum(page, album.id, { ...form, is_published: 'on', title: second });
+        body = await anonBody(browser, '/galleries');
+        expect(body, 'rename visible on the very next anonymous request').toContain(second);
+    });
+
     test('ECA-03: the ETag follows the page that is actually rendered', async ({ browser }) => {
         test.skip(!album.slug, 'album fixture unavailable');
         // The album ETag must be derived from the same cache entry the page is
