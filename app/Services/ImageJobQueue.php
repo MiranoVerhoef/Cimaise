@@ -41,7 +41,8 @@ class ImageJobQueue
         private readonly Database $db,
         ?string $directory = null,
         ?\Closure $processor = null,
-        ?\Closure $invalidator = null
+        ?\Closure $invalidator = null,
+        private readonly int $invalidationInterval = self::INVALIDATION_INTERVAL
     ) {
         $this->directory = $directory ?? dirname(__DIR__, 2) . '/storage/image-jobs';
         $this->processor = $processor ?? $this->process(...);
@@ -123,9 +124,11 @@ class ImageJobQueue
                     }
                     // One refresh for the batch, not one per image; a long
                     // batch still publishes its progress now and then.
-                    if ($albums !== [] && time() - $lastInvalidation >= self::INVALIDATION_INTERVAL) {
-                        $this->refreshPageCaches(array_keys($albums));
-                        $albums = [];
+                    if ($albums !== [] && time() - $lastInvalidation >= $this->invalidationInterval) {
+                        // On failure the albums stay listed for the next refresh.
+                        if ($this->refreshPageCaches(array_keys($albums))) {
+                            $albums = [];
+                        }
                         $lastInvalidation = time();
                     }
                 }
@@ -146,12 +149,14 @@ class ImageJobQueue
      *
      * @param int[] $albumIds
      */
-    private function refreshPageCaches(array $albumIds): void
+    private function refreshPageCaches(array $albumIds): bool
     {
         try {
             ($this->invalidator)($albumIds);
+            return true;
         } catch (\Throwable $e) {
             Logger::warning('Image queue: page cache invalidation failed', ['error' => $e->getMessage()], 'upload');
+            return false;
         }
     }
 

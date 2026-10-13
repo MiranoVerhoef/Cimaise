@@ -207,6 +207,29 @@ final class ImageJobQueueTest extends TestCase
         self::assertSame(['processed' => 2, 'failed' => 0, 'remaining' => 0], $queue->drain());
     }
 
+    public function testAlbumsOfAFailedPeriodicRefreshAreRefreshedAgainLater(): void
+    {
+        $calls = [];
+        $queue = new ImageJobQueue(
+            $this->db,
+            $this->directory,
+            static fn (int $imageId): int => $imageId, // one album per image
+            static function (array $albumIds) use (&$calls): void {
+                $calls[] = $albumIds;
+                if (count($calls) === 1) {
+                    throw new RuntimeException('page cache unavailable');
+                }
+            },
+            0 // refresh after every job
+        );
+        $queue->enqueue(1);
+        $queue->enqueue(2);
+
+        self::assertSame(2, $queue->drain()['processed']);
+        self::assertSame([1], $calls[0]);
+        self::assertEqualsCanonicalizing([1, 2], $calls[1], 'album 1 must not be forgotten after its refresh failed');
+    }
+
     public function testStrayFilesAreNotTreatedAsJobs(): void
     {
         $queue = $this->queue();
