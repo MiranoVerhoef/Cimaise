@@ -47,10 +47,12 @@ class SettingsController extends BaseController
             // Plugin table doesn't exist yet
         }
 
-        // Check compression availability
+        // Check compression availability. Apache's own modules count too:
+        // CompressionMiddleware defers to them when they are loaded.
+        $apacheModules = function_exists('apache_get_modules') ? apache_get_modules() : [];
         $compressionAvailability = [
-            'brotli' => function_exists('brotli_compress'),
-            'gzip' => function_exists('gzencode'),
+            'brotli' => function_exists('brotli_compress') || in_array('mod_brotli', $apacheModules, true),
+            'gzip' => function_exists('gzencode') || in_array('mod_deflate', $apacheModules, true),
             'deflate' => function_exists('gzdeflate'),
             'zlib' => extension_loaded('zlib')
         ];
@@ -304,6 +306,7 @@ class SettingsController extends BaseController
         $svc->set('maintenance.title', trim((string)($data['maintenance_title'] ?? '')));
         $svc->set('maintenance.message', trim((string)($data['maintenance_message'] ?? '')));
         $svc->set('maintenance.show_logo', isset($data['maintenance_show_logo']));
+        $svc->set('maintenance.show_admin_login', isset($data['maintenance_show_admin_login']));
         $svc->set('maintenance.show_countdown', isset($data['maintenance_show_countdown']));
 
         // Page cache entries bake settings in: an album entry stores the resolved
