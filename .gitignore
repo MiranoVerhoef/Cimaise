@@ -52,6 +52,8 @@ storage/rate_limits/*
 !storage/rate_limits/.gitkeep
 storage/translations/*
 !storage/translations/.gitkeep
+!storage/translations/fr.json
+!storage/translations/fr_admin.json
 
 # Logs
 *.log
@@ -87,9 +89,27 @@ tests/
 !/tests/Middlewares/
 /tests/Middlewares/*
 !/tests/Middlewares/TrustedProxyMiddlewareTest.php
+!/tests/Middlewares/FileBasedRateLimitMiddlewareTest.php
+!/tests/Middlewares/RateLimitMiddlewareTest.php
+!/tests/Middlewares/SecurityHeadersMiddlewareTest.php
+!/tests/Support/
+/tests/Support/*
+!/tests/Support/ZipSafetyTest.php
 !/tests/Controllers/
 /tests/Controllers/*
 !/tests/Controllers/AlbumPasswordAccessTest.php
+!/tests/Controllers/SeoControllerSeededBooleansTest.php
+!/tests/Controllers/DiagnosticsDirectoriesTest.php
+!/tests/Views/
+/tests/Views/*
+!/tests/Views/FrontendSettingGatesTest.php
+!/tests/Views/AdminSidebarTranslationsTest.php
+!/tests/e2e/
+/tests/e2e/*
+!/tests/e2e/settings-effects.spec.js
+!/tests/e2e/album-robots-default.spec.js
+!/tests/e2e/home-hero-toggle.spec.js
+!/tests/e2e/album-equipment-visibility.spec.js
 
 # Cache
 .cache/

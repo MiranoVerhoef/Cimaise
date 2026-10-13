@@ -306,7 +306,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
-        $show_equipment = isset($d['show_equipment']);
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $password_hash = $passwordRaw !== '' ? password_hash($passwordRaw, PASSWORD_ARGON2ID) : null;
         $cameraIds = array_map(intval(...), (array)($d['cameras'] ?? []));
@@ -326,8 +326,14 @@ class AlbumsController extends BaseController
         $schemaType = trim((string)($d['schema_type'] ?? 'ImageGallery'));
         $schemaData = trim((string)($d['schema_data'] ?? '')) ?: null;
         $canonicalUrl = trim((string)($d['canonical_url'] ?? '')) ?: null;
-        $robotsIndex = isset($d['robots_index']) ? 1 : 0;
-        $robotsFollow = isset($d['robots_follow']) ? 1 : 0;
+        // Robots directives. The create form has no technical-SEO block and API
+        // callers may omit it: an ABSENT block must mean the column default
+        // (index,follow), not noindex. With a bare isset() every album created
+        // from the admin was persisted noindex,nofollow — de-indexed and dropped
+        // from the sitemap until someone re-saved it from the edit form.
+        $hasRobotsBlock = array_key_exists('robots_present', $d) || array_key_exists('seo_title', $d);
+        $robotsIndex = $hasRobotsBlock ? (isset($d['robots_index']) ? 1 : 0) : 1;
+        $robotsFollow = $hasRobotsBlock ? (isset($d['robots_follow']) ? 1 : 0) : 1;
 
         // Custom equipment fields
         $customCameras = trim((string)($d['custom_cameras'] ?? '')) ?: null;
@@ -385,9 +391,15 @@ class AlbumsController extends BaseController
         try {
             $albumId = (int)$pdo->lastInsertId();
 
-            // Per-album presentation preference. Keep equipment metadata intact;
-            // this setting controls only whether the public equipment block renders.
-            (new SettingsService($this->db))->set('album.' . $albumId . '.show_equipment', $show_equipment);
+            // Presentation flag only: the equipment metadata itself is always
+            // saved. Written on its own so an install whose schema predates the
+            // column still creates the album (the block then stays visible).
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $albumId]);
+            } catch (\Throwable) {
+                // ignore if column not present
+            }
 
             $cats = array_unique(array_filter(array_map(intval(...), array_merge([$category_id], $categoryIds))));
             if ($cats) {
@@ -542,10 +554,6 @@ class AlbumsController extends BaseController
         }
 
         $settingsService = new SettingsService($this->db);
-        $item['show_equipment'] = SettingsService::boolean(
-            $settingsService->get('album.' . $id . '.show_equipment', true),
-            true
-        );
         $defaultAlbumPageTemplate = (string)($settingsService->get('gallery.page_template', 'classic') ?? 'classic');
         $albumPageTemplates = $this->getAlbumPageTemplates();
 
@@ -777,7 +785,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
-        $show_equipment = isset($d['show_equipment']);
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $clearPassword = !empty($d['password_clear']);
         $tagIds = array_map(intval(...), (array)($d['tags'] ?? []));
@@ -798,8 +806,14 @@ class AlbumsController extends BaseController
         $schemaType = trim((string)($d['schema_type'] ?? 'ImageGallery'));
         $schemaData = trim((string)($d['schema_data'] ?? '')) ?: null;
         $canonicalUrl = trim((string)($d['canonical_url'] ?? '')) ?: null;
-        $robotsIndex = isset($d['robots_index']) ? 1 : 0;
-        $robotsFollow = isset($d['robots_follow']) ? 1 : 0;
+        // Robots directives. The create form has no technical-SEO block and API
+        // callers may omit it: an ABSENT block must mean the column default
+        // (index,follow), not noindex. With a bare isset() every album created
+        // from the admin was persisted noindex,nofollow — de-indexed and dropped
+        // from the sitemap until someone re-saved it from the edit form.
+        $hasRobotsBlock = array_key_exists('robots_present', $d) || array_key_exists('seo_title', $d);
+        $robotsIndex = $hasRobotsBlock ? (isset($d['robots_index']) ? 1 : 0) : 1;
+        $robotsFollow = $hasRobotsBlock ? (isset($d['robots_follow']) ? 1 : 0) : 1;
 
         // Custom equipment fields
         $customCameras = trim((string)($d['custom_cameras'] ?? '')) ?: null;
@@ -1015,7 +1029,13 @@ class AlbumsController extends BaseController
                 }
             }
 
-            (new SettingsService($this->db))->set('album.' . $id . '.show_equipment', $show_equipment);
+            // Presentation flag only (see store()); tolerate a pre-column schema.
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $id]);
+            } catch (\Throwable) {
+                // ignore if column not present
+            }
 
             $pdo->commit();
 
@@ -1110,15 +1130,6 @@ class AlbumsController extends BaseController
             $this->invalidatePageCaches($albumSlug, null, $id, false);
 
             $stmt->execute([':id' => $id]);
-
-            // Remove the per-album presentation preference as well.
-            try {
-                $pdo->prepare('DELETE FROM settings WHERE `key` = :key')
-                    ->execute([':key' => 'album.' . $id . '.show_equipment']);
-                (new SettingsService($this->db))->clearCache();
-            } catch (\Throwable) {
-                // Best-effort cleanup; album deletion must not fail on a stale preference.
-            }
 
             // Album gone — refresh the sitemap so its URLs disappear.
             $this->regenerateSitemap();

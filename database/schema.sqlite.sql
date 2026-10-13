@@ -205,6 +205,7 @@ CREATE TABLE IF NOT EXISTS albums (
   cover_image_id INTEGER,
   shoot_date TEXT,
   show_date INTEGER NOT NULL DEFAULT 1,
+  show_equipment INTEGER NOT NULL DEFAULT 1,
   published_at TEXT,
   is_published INTEGER DEFAULT 0,
   sort_order INTEGER DEFAULT 0,

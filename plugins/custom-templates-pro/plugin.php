@@ -110,9 +110,10 @@ class CustomTemplatesProPlugin
     public function addSidebarMenu(array $context): void
     {
         $basePath = $context['base_path'] ?? '';
+        $subtitle = htmlspecialchars(trans('admin.sidebar.custom_templates_sub', [], 'Custom templates'), ENT_QUOTES, 'UTF-8');
         echo <<<HTML
             <a href="{$basePath}/admin/custom-templates" class="sidebar-link" data-spa-link>
-                <i class="fas fa-palette"></i><span class="nav-text"><span class="nav-title">Custom Templates</span><span class="nav-sub">Template personalizzati</span></span>
+                <i class="fas fa-palette"></i><span class="nav-text"><span class="nav-title">Custom Templates</span><span class="nav-sub">{$subtitle}</span></span>
             </a>
 HTML;
     }

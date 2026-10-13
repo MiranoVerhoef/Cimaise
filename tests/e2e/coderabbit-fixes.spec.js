@@ -4,7 +4,7 @@
 // behavior of the fix, not the implementation detail.
 
 import { test, expect } from '@playwright/test';
-import { BASE, header, requireServer, tryAdminLogin } from './_helpers.js';
+import { BASE, header, requireServer, tryAdminLogin, findPublicAlbumSlug } from './_helpers.js';
 
 test.describe('CodeRabbit + adamsreview fix verification', () => {
     test.beforeEach(async ({ page }) => {
@@ -175,9 +175,11 @@ test.describe('CodeRabbit + adamsreview fix verification', () => {
         // Vary: Accept-Encoding (Cookie is only appended when isSessionDependent()
         // returns true, which requires an active PHP session that this anonymous
         // HTTP probe cannot mint from outside the browser).
-        const resp = await page.request.get(`${BASE}/api/album/nonexistent-xyz/template?template=1`, {
-            failOnStatusCode: false,
-        });
+        // A real public album: addApiCache only applies to successful responses
+        // (errors are no-store, see CACHE-05b).
+        const slug = await findPublicAlbumSlug(page.request);
+        test.skip(!slug, 'no public album available to probe');
+        const resp = await page.request.get(`${BASE}/api/album/${encodeURIComponent(slug)}/template?template=1`);
         const cc = resp.headers()['cache-control'] || '';
         expect(cc).toBeTruthy();
         expect(cc).toContain('private');

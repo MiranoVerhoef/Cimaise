@@ -574,6 +574,7 @@ class PageController extends BaseController
         $homeTemplate = $templateOverride ?? (string) ($svc->get('home.template', 'classic') ?? 'classic');
         $homeSettings = [
             'template' => $homeTemplate,
+            'hero_enabled' => \App\Services\SettingsService::boolean($svc->get('home.hero_enabled', true), true),
             'hero_title' => (string) ($svc->get('home.hero_title', 'Portfolio') ?? 'Portfolio'),
             'hero_subtitle' => (string) ($svc->get('home.hero_subtitle', 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.') ?? 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.'),
             'albums_title' => (string) ($svc->get('home.albums_title', 'Latest Albums') ?? 'Latest Albums'),
@@ -943,12 +944,6 @@ class PageController extends BaseController
                 'meta_description' => 'Album not found or unpublished'
             ]);
         }
-
-        $albumSettings = new \App\Services\SettingsService($this->db);
-        $album['show_equipment'] = \App\Services\SettingsService::boolean(
-            $albumSettings->get('album.' . (int)$album['id'] . '.show_equipment', true),
-            true
-        );
 
         // Check if user is admin (admins bypass password/NSFW protection)
         $isAdmin = $this->isAdmin();
@@ -1501,7 +1496,8 @@ class PageController extends BaseController
             'show_date' => (int) ($album['show_date'] ?? 1),
             'tags' => $tags,
             'equipment' => $equipment,
-            'show_equipment' => $album['show_equipment'],
+            // Missing on a pre-1.4.24 schema: default to visible.
+            'show_equipment' => (int) ($album['show_equipment'] ?? 1) === 1,
             'allow_downloads' => !empty($album['allow_downloads']),
             'cover' => $album['cover'] ?? null,
         ];
@@ -1778,11 +1774,23 @@ class PageController extends BaseController
             ], CacheTags::albumRelated((int) $album['id'], (int) $album['category_id']));
         }
 
-        return $this->view->render($response, $twigTemplate, array_merge($cacheableData, [
+        $rendered = $this->view->render($response, $twigTemplate, array_merge($cacheableData, [
             'is_admin' => $isAdmin,
             'nsfw_consent' => $this->hasNsfwConsent(),
             'csrf' => $_SESSION['csrf'] ?? '',
         ]));
+
+        // A password/NSFW album is only ever rendered for a visitor whose SESSION
+        // currently grants access. The generic HTML policy (`private, max-age=N`)
+        // let the browser keep serving this unlocked page from its own cache for
+        // up to N seconds after the password was changed/removed or the consent
+        // expired — the server-side revocation (PW1) never got asked. Force
+        // revalidation; CacheMiddleware honours an existing private/no-cache.
+        if (!empty($album['password_hash']) || !empty($album['is_nsfw'])) {
+            $rendered = $rendered->withHeader('Cache-Control', 'private, no-cache, must-revalidate');
+        }
+
+        return $rendered;
     }
 
     public function unlockAlbum(Request $request, Response $response, array $args): Response

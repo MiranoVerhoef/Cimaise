@@ -307,6 +307,7 @@
     "installer.default_content_templates": "Sei template galleria professionali",
     "installer.default_content_title": "Contenuti predefiniti",
     "installer.english": "English",
+    "installer.french": "Français",
     "installer.indicates_required": "indica i campi obbligatori.",
     "installer.italian": "Italiano",
     "installer.optional": "(opzionale)",
@@ -362,6 +363,7 @@
   },
   "navigation": {
     "nav.about": "Chi sono",
+    "nav.skip_to_content": "Vai al contenuto",
     "nav.admin_dashboard": "Pannello Admin",
     "nav.back": "Indietro",
     "nav.breadcrumb": "Percorso",

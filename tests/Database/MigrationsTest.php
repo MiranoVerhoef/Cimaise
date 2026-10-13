@@ -35,7 +35,15 @@ final class MigrationsTest extends TestCase
         $sql = implode("\n", $lines);
         $statements = array_filter(array_map(trim(...), explode(';', $sql)), static fn ($s) => $s !== '');
         foreach ($statements as $s) {
-            $db->exec($s);
+            try {
+                $db->exec($s);
+            } catch (PDOException $e) {
+                // Same tolerance as the production runner: a re-run may hit
+                // objects an earlier pass already created.
+                if (!preg_match('/table.*already exists|duplicate column|column.*already exists/i', $e->getMessage())) {
+                    throw $e;
+                }
+            }
         }
         return count($statements);
     }
@@ -159,6 +167,11 @@ final class MigrationsTest extends TestCase
         $db->exec("INSERT INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES (1, 'md', 'jxl', '/m/1_md.jxl', 1200, 800, 1234)");
         $jxl = $db->query("SELECT COUNT(*) FROM image_variants WHERE format='jxl'")->fetchColumn();
         self::assertSame(1, (int) $jxl, "1.4.13 must allow format='jxl' in image_variants");
+
+        // 1.4.24 — albums.show_equipment, visible by default for existing rows.
+        $db->exec("INSERT INTO albums(id, title) VALUES (1, 'Existing')");
+        $show = $db->query('SELECT show_equipment FROM albums WHERE id = 1')->fetchColumn();
+        self::assertSame(1, (int) $show, '1.4.24 must add albums.show_equipment defaulting to 1');
     }
 
     public function testMigrationsAreIdempotent(): void

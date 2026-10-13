@@ -59,34 +59,11 @@
   {% endif %}
 
   {% if (album.show_equipment is not defined or album.show_equipment) and (album.equipment.cameras|length > 0 or album.equipment.lenses|length > 0 or album.equipment.film|length > 0 or album.equipment.developers|length > 0 or album.equipment.labs|length > 0 or custom_fields_for_gallery|length > 0) %}
-  {% set equipment_items = [] %}
-  {% if album.equipment.cameras is defined and album.equipment.cameras|length > 0 %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endif %}
-  {% if album.equipment.lenses is defined and album.equipment.lenses|length > 0 %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endif %}
-  {% if album.equipment.film is defined and album.equipment.film|length > 0 %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endif %}
-  {% if album.equipment.developers is defined and album.equipment.developers|length > 0 %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endif %}
-  {% if album.equipment.labs is defined and album.equipment.labs|length > 0 %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endif %}
-  {% for cf in custom_fields_for_gallery %}
-    {% set equipment_items = equipment_items|merge([1]) %}
-  {% endfor %}
-  
-  {% set equipment_count = equipment_items|length %}
-  {% set grid_cols = equipment_count <= 3 ? equipment_count : 3 %}
-  
-  <div class="max-w-5xl mx-auto mb-10 p-4 bg-neutral-50 rounded-lg">
+  <div class="max-w-5xl mx-auto mb-10 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
     <h3 class="text-sm mb-3 text-center" style="font-family: var(--font-body), system-ui, sans-serif !important; font-weight: 500 !important">{{ trans('album.equipment') }}</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-neutral-700">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-neutral-700 dark:text-neutral-200">
       {% if album.equipment.cameras is defined and album.equipment.cameras|length > 0 %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas fa-camera mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for camera in album.equipment.cameras %}<div>{{ camera }}</div>{% endfor %}
@@ -94,7 +71,7 @@
       </div>
       {% endif %}
       {% if album.equipment.lenses is defined and album.equipment.lenses|length > 0 %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas fa-dot-circle mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for lens in album.equipment.lenses %}<div>{{ lens }}</div>{% endfor %}
@@ -102,7 +79,7 @@
       </div>
       {% endif %}
       {% if album.equipment.film is defined and album.equipment.film|length > 0 %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas fa-film mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for film in album.equipment.film %}<div>{% if film.name is defined %}{{ film.name }}{% if film.iso or film.format %} ({% if film.iso %}ISO {{ film.iso }}{% endif %}{% if film.iso and film.format %} - {% endif %}{% if film.format %}{{ film.format }}{% endif %}){% endif %}{% else %}{{ film }}{% endif %}</div>{% endfor %}
@@ -110,7 +87,7 @@
       </div>
       {% endif %}
       {% if album.equipment.developers is defined and album.equipment.developers|length > 0 %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas fa-flask mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for dev in album.equipment.developers %}<div>{{ dev }}</div>{% endfor %}
@@ -118,7 +95,7 @@
       </div>
       {% endif %}
       {% if album.equipment.labs is defined and album.equipment.labs|length > 0 %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas fa-industry mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for lab in album.equipment.labs %}<div>{{ lab }}</div>{% endfor %}
@@ -127,7 +104,7 @@
       {% endif %}
       {# Custom fields #}
       {% for field in custom_fields_for_gallery %}
-      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-3 text-left">
+      <div class="flex items-start gap-3 min-w-0 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 text-left">
         <i class="fas {{ field.icon|default('fa-tag') }} mt-0.5 text-neutral-500 shrink-0"></i>
         <div class="space-y-1 min-w-0 break-words">
           {% for valueData in field.values %}<div>{{ valueData.value|e }}</div>{% endfor %}
@@ -160,7 +137,7 @@
            alt="{{ ImgM.smart_alt(image, album, site_title)|trim|e }}"
            title="{{ seo_title|e('html_attr') }}"
            width="{{ image.width|default(1600) }}" height="{{ image.height|default(1067) }}"
-           loading="lazy" decoding="async" class="w-full h-full object-cover block">
+           loading="{{ (lazy_load_images ?? true) ? 'lazy' : 'eager' }}" decoding="async" class="w-full h-full object-cover block">
     </picture>
   {% endmacro %}
 
