@@ -230,10 +230,11 @@ jobs:
       - name: Inspect published image
         env:
           REPO: ${{ github.repository }}
+          TAGS: ${{ needs.prepare.outputs.tags }}
         run: |
           set -euo pipefail
           GHCR="ghcr.io/$(printf '%s' "$REPO" | tr '[:upper:]' '[:lower:]')"
-          docker buildx imagetools inspect "${GHCR}:latest"
+          docker buildx imagetools inspect "${GHCR}:${TAGS%% *}"
 
       # Keep the Docker Hub repository page (overview + short description) in
       # sync with the repo on every release. Needs the checkout because the
