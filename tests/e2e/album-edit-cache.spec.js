@@ -66,7 +66,7 @@ test.describe.serial('Album edits reach anonymous visitors immediately', () => {
         const second = `eca-second-${Date.now()}`;
         // The excerpt also feeds <meta description>, which is recomputed per
         // request; only the <p> in the page body comes from the cached data.
-        const inBody = (html, text) => new RegExp(`<p[^>]*>\\s*${text}\\s*</p>`).test(html);
+        const inBody = (html, text) => html.replace(/\s+/g, '').includes(`>${text}</p>`);
 
         await saveAlbum(page, album.id, { ...form, is_published: 'on', excerpt: first });
         let body = await anonBody(browser, `/album/${album.slug}`);
