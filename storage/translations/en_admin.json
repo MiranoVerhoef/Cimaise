@@ -2688,6 +2688,6 @@
     "admin.sidebar.cache_sub": "Performance and cleanup",
     "admin.sidebar.updates_sub": "Check versions",
     "admin.sidebar.analytics_pro_sub": "Advanced statistics",
-    "admin.sidebar.custom_templates_sub": "Custom templates"
+    "admin.sidebar.custom_templates_sub": "Custom layouts"
   }
 }

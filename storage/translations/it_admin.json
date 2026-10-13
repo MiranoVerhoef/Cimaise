@@ -2702,6 +2702,6 @@
     "admin.sidebar.cache_sub": "Prestazioni e pulizia",
     "admin.sidebar.updates_sub": "Verifica versioni",
     "admin.sidebar.analytics_pro_sub": "Statistiche avanzate",
-    "admin.sidebar.custom_templates_sub": "Template personalizzati"
+    "admin.sidebar.custom_templates_sub": "Layout personalizzati"
   }
 }
