@@ -790,4 +790,14 @@ if ($canonicalOverride === '') {
 }
 $app->add(new \App\Middlewares\TrustedProxyMiddleware($twig, $basePath, $canonicalOverride));
 
+// Uploads leave their variant jobs in a durable queue. On PHP-FPM a later
+// admin request finishes whatever an earlier one could not within its time
+// budget; other SAPIs rely on the image worker / `images:work`.
+if ($isAdminRoute && $container['db'] !== null && function_exists('fastcgi_finish_request')) {
+    $imageJobs = new \App\Services\ImageJobQueue($container['db']);
+    if ($imageJobs->hasJobs()) {
+        $imageJobs->drainAfterResponse();
+    }
+}
+
 $app->run();

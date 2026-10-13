@@ -1,0 +1,96 @@
+<?php
+
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+
+/** Runs the real worker loop against a stubbed `php` and an isolated tree. */
+final class ImageWorkerTest extends TestCase
+{
+    private string $root;
+    /** @var resource|null */
+    private $process = null;
+
+    protected function setUp(): void
+    {
+        $this->root = sys_get_temp_dir() . '/cimaise_worker_' . bin2hex(random_bytes(6));
+        mkdir($this->root . '/bin', 0775, true);
+        mkdir($this->root . '/storage/image-jobs', 0775, true);
+        // Stands in for `php bin/console images:work`: records the call and
+        // completes every queued job, as a successful drain would.
+        file_put_contents($this->root . '/bin/php', "#!/bin/sh\necho \"\$*\" >> '{$this->root}/calls.log'\nrm -f '{$this->root}'/storage/image-jobs/*.job\n");
+        chmod($this->root . '/bin/php', 0755);
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_resource($this->process)) {
+            proc_terminate($this->process, SIGKILL);
+            proc_close($this->process);
+        }
+        exec('rm -rf ' . escapeshellarg($this->root));
+    }
+
+    private function start(): void
+    {
+        $env = ['PATH' => $this->root . '/bin:/usr/bin:/bin', 'CIMAISE_IMAGE_WORKER_INTERVAL' => '1'];
+        $this->process = proc_open(
+            ['/bin/sh', dirname(__DIR__, 2) . '/bin/image-worker.sh', $this->root],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes,
+            $this->root,
+            $env
+        );
+        self::assertIsResource($this->process);
+    }
+
+    private function calls(): int
+    {
+        clearstatcache();
+        return is_file($this->root . '/calls.log') ? count(file($this->root . '/calls.log') ?: []) : 0;
+    }
+
+    private function waitForCalls(int $expected, float $seconds): void
+    {
+        $deadline = microtime(true) + $seconds;
+        while ($this->calls() < $expected && microtime(true) < $deadline) {
+            usleep(100000);
+        }
+    }
+
+    public function testPhpIsStartedOnlyWhileJobsAreQueued(): void
+    {
+        file_put_contents($this->root . '/.env', "DB_CONNECTION=sqlite\n");
+        $this->start();
+
+        // Idle queue: several intervals pass without booting PHP.
+        usleep(2500000);
+        self::assertSame(0, $this->calls());
+
+        file_put_contents($this->root . '/storage/image-jobs/42.job', '');
+        $this->waitForCalls(1, 5.0);
+        self::assertSame(1, $this->calls());
+        self::assertStringContainsString('images:work', (string) file_get_contents($this->root . '/calls.log'));
+
+        // Queue empty again: no further runs.
+        usleep(2500000);
+        self::assertSame(1, $this->calls());
+    }
+
+    public function testNothingRunsBeforeInstallOrDuringAnUpdate(): void
+    {
+        file_put_contents($this->root . '/storage/image-jobs/42.job', '');
+        $this->start();
+        usleep(2500000);
+        self::assertSame(0, $this->calls(), 'no .env yet: the installer has not run');
+
+        file_put_contents($this->root . '/.env', "DB_CONNECTION=sqlite\n");
+        file_put_contents($this->root . '/storage/.maintenance', '');
+        usleep(2500000);
+        self::assertSame(0, $this->calls(), 'update in progress');
+
+        unlink($this->root . '/storage/.maintenance');
+        $this->waitForCalls(1, 5.0);
+        self::assertSame(1, $this->calls());
+    }
+}
