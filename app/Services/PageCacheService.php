@@ -57,7 +57,7 @@ class PageCacheService
     /**
      * Get cached page data.
      *
-     * @param string $type Page type: 'home', 'galleries', or 'album:{slug}'
+     * @param string $type Page type: 'home', 'galleries', or a key such as albumPageKey()
      * @param bool $allowStale If true, returns stale data instead of null when expired
      * @return array|null Cached data or null on miss
      */
@@ -92,7 +92,7 @@ class PageCacheService
     /**
      * Set cached page data.
      *
-     * @param string $type Page type: 'home', 'galleries', or 'album:{slug}'
+     * @param string $type Page type: 'home', 'galleries', or a key such as albumPageKey()
      * @param array $data Page data to cache
      * @param int|null $ttl Time to live in seconds (null = use default)
      * @return bool Success
@@ -111,7 +111,7 @@ class PageCacheService
     /**
      * Invalidate cache for specific page type.
      *
-     * @param string $type Page type: 'home', 'galleries', 'album:{slug}', or 'all'
+     * @param string $type Page type: 'home', 'galleries', a key such as albumPageKey(), or 'all'
      * @return int Number of cache entries deleted
      */
     public function invalidate(string $type): int
@@ -136,13 +136,101 @@ class PageCacheService
     {
         $deleted = 0;
 
-        // Delete album-specific cache
-        $deleted += $this->invalidate("album:{$slug}");
+        // Album pages are keyed by album id (see albumPageKey()); the tag also
+        // covers the per-template variants of the same album.
+        $albumId = $this->albumIdForSlug($slug);
+        if ($albumId !== null) {
+            $deleted += $this->invalidateByTag(CacheTags::album($albumId));
+            $deleted += $this->invalidate(self::albumPageKey($albumId));
+        }
 
         // Home and galleries may show this album
         $deleted += $this->invalidate('home');
 
         return $deleted + $this->invalidate('galleries');
+    }
+
+    /**
+     * Single-flight guard for the stale-while-revalidate paths.
+     *
+     * Invalidation is soft: the row is only marked expired, so the stale copy
+     * stays readable. The request that wins this lock rebuilds the page and
+     * stores it; concurrent requests keep serving the stale copy until then.
+     * Without a rebuild trigger an edited page kept its old public version
+     * until the expired row was garbage-collected a day later.
+     *
+     * Keys are hashed into a fixed number of lock files so storage/tmp does not
+     * grow with the catalogue; a collision only costs one extra stale response.
+     */
+    public function claimRegeneration(string $cacheKey): bool
+    {
+        $dir = dirname(__DIR__, 2) . '/storage/tmp';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $fh = @fopen($dir . '/page_regen_' . (crc32($cacheKey) % 64) . '.lock', 'c');
+        if ($fh === false) {
+            return true; // cannot lock: rebuild rather than serve stale indefinitely
+        }
+        if (!@flock($fh, LOCK_EX | LOCK_NB)) {
+            @fclose($fh);
+            return false; // another request is already rebuilding
+        }
+        register_shutdown_function(static function () use ($fh): void {
+            @flock($fh, LOCK_UN);
+            @fclose($fh);
+        });
+        return true;
+    }
+
+    /**
+     * Cache key of an album page.
+     *
+     * One key per album (plus one per gallery-template variant requested via
+     * ?template=N). It is keyed by id, not slug, so a rename never strands an
+     * entry. PageController writes it, CacheMiddleware derives the ETag from
+     * it, and invalidation targets it: all three must agree on this format.
+     */
+    public static function albumPageKey(int $albumId, int $templateId = 0): string
+    {
+        return 'album_' . $albumId . ($templateId > 0 ? '_t' . $templateId : '');
+    }
+
+    /**
+     * Cache key of the galleries listing for the admin-selected template.
+     *
+     * The key embeds the template so a template switch can never serve a page
+     * cached for another one. GalleriesController writes it and
+     * CacheMiddleware derives the ETag from it: both must use this method.
+     */
+    public static function galleriesPageKey(string $templateSlug): string
+    {
+        return $templateSlug === 'classic' || $templateSlug === '' ? 'galleries' : 'galleries_' . $templateSlug;
+    }
+
+    /**
+     * Resolve the album page cache key from the public slug (null if unknown).
+     */
+    public function albumPageKeyForSlug(string $slug): ?string
+    {
+        $albumId = $this->albumIdForSlug($slug);
+        return $albumId !== null ? self::albumPageKey($albumId) : null;
+    }
+
+    private function albumIdForSlug(string $slug): ?int
+    {
+        if ($slug === '' || !$this->db instanceof \App\Support\Database) {
+            return null;
+        }
+
+        try {
+            $stmt = $this->db->query('SELECT id FROM albums WHERE slug = ? LIMIT 1', [$slug]);
+            $row = $stmt->fetch();
+            $stmt->closeCursor();
+            return $row ? (int) $row['id'] : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -197,64 +285,6 @@ class PageCacheService
     }
 
     /**
-     * Warm cache by pre-generating specified pages.
-     *
-     * @param callable $homeBuilder Callback that returns home page data
-     * @param callable $galleriesBuilder Callback that returns galleries page data
-     * @param callable|null $albumBuilder Callback(slug) that returns album page data
-     * @param array $albumSlugs List of album slugs to warm
-     * @return array Stats: ['home' => bool, 'galleries' => bool, 'albums' => int]
-     */
-    public function warm(
-        callable $homeBuilder,
-        callable $galleriesBuilder,
-        ?callable $albumBuilder = null,
-        array $albumSlugs = []
-    ): array {
-        $stats = [
-            'home' => false,
-            'galleries' => false,
-            'albums' => 0,
-        ];
-
-        // Warm home
-        try {
-            $homeData = $homeBuilder();
-            if ($this->set('home', $homeData)) {
-                $stats['home'] = true;
-            }
-        } catch (\Throwable $e) {
-            Logger::warning("Cache warm failed for home: " . $e->getMessage());
-        }
-
-        // Warm galleries
-        try {
-            $galleriesData = $galleriesBuilder();
-            if ($this->set('galleries', $galleriesData)) {
-                $stats['galleries'] = true;
-            }
-        } catch (\Throwable $e) {
-            Logger::warning("Cache warm failed for galleries: " . $e->getMessage());
-        }
-
-        // Warm albums
-        if ($albumBuilder !== null) {
-            foreach ($albumSlugs as $slug) {
-                try {
-                    $albumData = $albumBuilder($slug);
-                    if ($albumData !== null && $this->set("album:{$slug}", $albumData)) {
-                        $stats['albums']++;
-                    }
-                } catch (\Throwable $e) {
-                    Logger::warning("Cache warm failed for album {$slug}: " . $e->getMessage());
-                }
-            }
-        }
-
-        return $stats;
-    }
-
-    /**
      * Get cache statistics.
      *
      * @return array Stats: entries, total_size, oldest, newest
@@ -286,22 +316,9 @@ class PageCacheService
      * Get cache file path for a page type.
      * Public for ETag generation in CacheMiddleware.
      */
-    public function getCacheFilePath(string $type, ?string $slug = null): string
+    public function getCacheFilePath(string $type): string
     {
-        // Handle album type with separate slug parameter
-        if ($type === 'album' && $slug !== null) {
-            $safeSlug = preg_replace('/[^a-z0-9_-]/i', '_', $slug);
-            return $this->cacheDir . '/albums/' . $safeSlug . '.json';
-        }
-
-        // Handle album type with inline slug (album:slug-name)
-        if (str_starts_with($type, 'album:')) {
-            $slug = substr($type, 6);
-            $safeSlug = preg_replace('/[^a-z0-9_-]/i', '_', $slug);
-            return $this->cacheDir . '/albums/' . $safeSlug . '.json';
-        }
-
-        return $this->cacheDir . '/' . $type . '.json';
+        return $this->cacheDir . '/' . preg_replace('/[^a-z0-9_-]/i', '_', $type) . '.json';
     }
 
     /**
@@ -309,7 +326,7 @@ class PageCacheService
      */
     public function getHash(string $type): ?string
     {
-        if ($this->backend !== 'database' || !$this->db instanceof \App\Support\Database) {
+        if (!$this->enabled || $this->backend !== 'database' || !$this->db instanceof \App\Support\Database) {
             return null;
         }
 
@@ -714,23 +731,16 @@ class PageCacheService
     {
         $deleted = 0;
 
-        // Clear main cache files
-        foreach (['home.json', 'galleries.json'] as $file) {
-            $path = $this->cacheDir . '/' . $file;
-            if (file_exists($path) && @unlink($path)) {
-                $deleted++;
+        // Every page entry is one JSON file in the cache dir (home, galleries,
+        // album_<id>, category_<slug>, tag_<slug>). albums/ is the layout of
+        // releases up to 1.4.23 and is only swept so old files do not linger.
+        foreach ([$this->cacheDir, $this->cacheDir . '/albums'] as $dir) {
+            if (!is_dir($dir)) {
+                continue;
             }
-        }
-
-        // Clear album caches
-        $albumsDir = $this->cacheDir . '/albums';
-        if (is_dir($albumsDir)) {
-            $files = glob($albumsDir . '/*.json');
-            if ($files !== false) {
-                foreach ($files as $file) {
-                    if (@unlink($file)) {
-                        $deleted++;
-                    }
+            foreach (glob($dir . '/*.json') ?: [] as $file) {
+                if (@unlink($file)) {
+                    $deleted++;
                 }
             }
         }
@@ -752,49 +762,23 @@ class PageCacheService
             return $stats;
         }
 
-        // Main cache files
-        foreach (['home', 'galleries'] as $type) {
-            $file = $this->cacheDir . '/' . $type . '.json';
-            if (file_exists($file)) {
-                $stat = @stat($file);
-                $content = @file_get_contents($file);
-                $cached = $content ? json_decode($content, true) : null;
+        // One JSON file per page entry; the file name is the cache key.
+        $files = glob($this->cacheDir . '/*.json') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            $stat = @stat($file);
+            $content = @file_get_contents($file);
+            $cached = $content ? json_decode($content, true) : null;
 
-                $stats['entries']++;
-                $stats['total_size'] += $stat ? $stat['size'] : 0;
-                $stats['items'][] = [
-                    'type' => $type,
-                    'size' => $stat ? $stat['size'] : 0,
-                    'generated_at' => $cached['generated_at'] ?? null,
-                    'expires_at' => $cached['expires_at'] ?? null,
-                    'expired' => isset($cached['expires_at']) && strtotime((string) $cached['expires_at']) < time(),
-                ];
-            }
-        }
-
-        // Album cache files
-        $albumsDir = $this->cacheDir . '/albums';
-        if (is_dir($albumsDir)) {
-            $files = glob($albumsDir . '/*.json');
-            if ($files !== false) {
-                foreach ($files as $file) {
-                    $slug = basename($file, '.json');
-                    $stat = @stat($file);
-                    $content = @file_get_contents($file);
-                    $cached = $content ? json_decode($content, true) : null;
-
-                    $stats['entries']++;
-                    $stats['total_size'] += $stat ? $stat['size'] : 0;
-                    $stats['items'][] = [
-                        'type' => 'album:' . $slug,
-                        'slug' => $slug,
-                        'size' => $stat ? $stat['size'] : 0,
-                        'generated_at' => $cached['generated_at'] ?? null,
-                        'expires_at' => $cached['expires_at'] ?? null,
-                        'expired' => isset($cached['expires_at']) && strtotime((string) $cached['expires_at']) < time(),
-                    ];
-                }
-            }
+            $stats['entries']++;
+            $stats['total_size'] += $stat ? $stat['size'] : 0;
+            $stats['items'][] = [
+                'type' => basename($file, '.json'),
+                'size' => $stat ? $stat['size'] : 0,
+                'generated_at' => $cached['generated_at'] ?? null,
+                'expires_at' => $cached['expires_at'] ?? null,
+                'expired' => isset($cached['expires_at']) && strtotime((string) $cached['expires_at']) < time(),
+            ];
         }
 
         return $stats;
@@ -848,44 +832,16 @@ class PageCacheService
      */
     private function getCacheType(string $type): string
     {
-        if (str_starts_with($type, 'album:')) {
-            return 'album';
-        }
-        return $type;
+        return preg_match('/^(album|category|tag)_/', $type, $m) ? $m[1] : $type;
     }
 
     /**
-     * Extract related ID (album_id) from type string.
-     * Looks up album.id by slug for album:* cache types.
-     * Returns null for non-album types or if album not found.
+     * Extract the related album id from an album page key (album_<id>[_t<n>]).
+     * Returns null for every other cache type.
      */
     private function getRelatedId(string $type): ?int
     {
-        // Only album types have related IDs
-        if (!str_starts_with($type, 'album:')) {
-            return null;
-        }
-
-        // Extract slug from type (album:slug-name -> slug-name)
-        $slug = substr($type, 6);
-        if (empty($slug) || !$this->db instanceof \App\Support\Database) {
-            return null;
-        }
-
-        try {
-            $stmt = $this->db->query(
-                'SELECT id FROM albums WHERE slug = ? LIMIT 1',
-                [$slug]
-            );
-            $row = $stmt->fetch();
-            $stmt->closeCursor();
-
-            return $row ? (int) $row['id'] : null;
-        } catch (\Throwable $e) {
-            // Non-critical - cache will still work without related_id
-            Logger::warning("Failed to lookup album id for cache related_id: {$slug} - " . $e->getMessage());
-            return null;
-        }
+        return preg_match('/^album_(\d+)/', $type, $m) ? (int) $m[1] : null;
     }
 
     /**
@@ -978,7 +934,7 @@ class PageCacheService
      * Tags enable efficient invalidation of related cache entries.
      * Example: When an album is updated, invalidate all caches tagged with that album.
      *
-     * @param string $type Page type: 'home', 'galleries', or 'album:{slug}'
+     * @param string $type Page type: 'home', 'galleries', or a key such as albumPageKey()
      * @param array $data Page data to cache
      * @param array $tags List of tags to associate with this cache entry
      * @param int|null $ttl Time to live in seconds (null = use default)

@@ -33,6 +33,11 @@ class CacheMiddleware implements MiddlewareInterface
         // (e.g. /foo must not match /foobar).
         $path = $request->getUri()->getPath();
         $basePath = rtrim((string) $this->settings->get('site.base_path', ''), '/');
+        if ($basePath === '') {
+            $scriptDirectory = dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+            if (str_ends_with($scriptDirectory, '/public')) { $scriptDirectory = substr($scriptDirectory, 0, -7); }
+            $basePath = in_array($scriptDirectory, ['/', '.', '\\'], true) ? '' : $scriptDirectory;
+        }
         if ($basePath !== '' && str_starts_with($path, $basePath) && (strlen($path) === strlen($basePath) || $path[strlen($basePath)] === '/')) {
             $path = substr($path, strlen($basePath)) ?: '/';
         }
@@ -41,6 +46,7 @@ class CacheMiddleware implements MiddlewareInterface
         // resolve the ETag from the page_cache table BEFORE executing the controller.
         // When the client's If-None-Match matches, skip rendering entirely.
         // Only safe for anonymous, non-session-dependent GET/HEAD requests.
+        $etagBeforeRendering = null;
         if (
             $cacheEnabled
             && in_array($method, ['GET', 'HEAD'], true)
@@ -48,9 +54,10 @@ class CacheMiddleware implements MiddlewareInterface
             && !str_starts_with($path, '/admin')
             && !str_starts_with($path, '/api/')
         ) {
+            $etagBeforeRendering = $this->generateHtmlEtag($path, $request->getQueryParams());
             $ifNoneMatch = $request->getHeaderLine('If-None-Match');
             if ($ifNoneMatch !== '') {
-                $earlyEtag = $this->generateHtmlEtag($path);
+                $earlyEtag = $etagBeforeRendering;
                 if ($earlyEtag !== null && $this->matchesEtag($earlyEtag, $ifNoneMatch)) {
                     // Build a 304 from scratch — no handler invocation, no Twig render.
                     $emptyBody = new \Slim\Psr7\Stream(fopen('php://temp', 'r+'));
@@ -59,7 +66,7 @@ class CacheMiddleware implements MiddlewareInterface
                         ->withStatus(304)
                         ->withBody($emptyBody)
                         ->withHeader('ETag', $earlyEtag)
-                        ->withHeader('Cache-Control', "public, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60")
+                        ->withHeader('Cache-Control', "public, no-cache, max-age={$maxAge}, must-revalidate")
                         ->withHeader('Vary', 'Accept-Encoding');
                 }
             }
@@ -67,8 +74,28 @@ class CacheMiddleware implements MiddlewareInterface
 
         $response = $handler->handle($request);
 
+        // These editors change shared layout or page content. Hard-purge after
+        // the final write so the next visitor cannot receive a stale page.
+        if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+            && !empty($_SESSION['admin_id']) && $response->getStatusCode() < 400
+            && preg_match('#^/admin/(settings|pages|social|typography)(/|$)#', $path)) {
+            $this->pageCacheService?->clearAll();
+            \App\Services\TwigGlobalsCache::invalidate();
+        }
+
         if (!$cacheEnabled) {
             return $response;
+        }
+
+        // Error responses are never shareable, whatever the path looks like.
+        // A 403 from a gated download stamped 'public, max-age=3600' would be
+        // stored by a shared cache/CDN and replayed to the visitor who has
+        // since unlocked the album (together with the session-bound
+        // X-CSRF-Token header of whoever triggered it); a 404 for a .jpg path
+        // would otherwise fall into the static branch and get 'public,
+        // immutable' for a year. Decide this BEFORE any strategy branch.
+        if ($response->getStatusCode() >= 400) {
+            return $this->addNoCacheHeaders($response);
         }
 
         // Only cache GET and HEAD requests
@@ -83,6 +110,9 @@ class CacheMiddleware implements MiddlewareInterface
 
         // API routes
         if (str_starts_with($path, '/api/')) {
+            if ($path === '/api/image-generation-revision') {
+                return $response->withHeader('Cache-Control', 'no-store');
+            }
             // Admin API: no cache
             if ($path === '/api/admin' || str_starts_with($path, '/api/admin/')) {
                 return $this->addNoCacheHeaders($response);
@@ -119,7 +149,7 @@ class CacheMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        return $this->addHtmlCache($response, $request, $path);
+        return $this->addHtmlCache($response, $request, $path, $etagBeforeRendering);
     }
 
     private function isStaticAsset(string $path): bool
@@ -211,7 +241,7 @@ class CacheMiddleware implements MiddlewareInterface
             ->withHeader('Pragma', 'no-cache');
     }
 
-    private function addHtmlCache(Response $response, Request $request, string $normalizedPath): Response
+    private function addHtmlCache(Response $response, Request $request, string $normalizedPath, ?string $etagBeforeRendering): Response
     {
         // PW2: a controller may mark an HTML response as not shareable — e.g. the
         // password/NSFW gate pages, which embed a session-bound CSRF token. For a
@@ -233,7 +263,18 @@ class CacheMiddleware implements MiddlewareInterface
         $visibility = $isSessionDependent ? 'private' : 'public';
 
         // Try to generate ETag from page cache (database or file) if available
-        $etag = $this->generateHtmlEtag($normalizedPath);
+        $etag = $this->generateHtmlEtag($normalizedPath, $request->getQueryParams());
+        // A concurrent save/rebuild may replace the cache while Twig renders
+        // the previous snapshot. Never label that body with the new validator.
+        // Stale renders opt out of HTTP caching in their controllers; on a
+        // fresh-cache race, fall back to hashing the body actually returned.
+        // The same holds when there was no valid entry before rendering and
+        // one exists now: this request may have built it, or another request
+        // may have stored a newer one while this body was rendered from older
+        // data. The two cases cannot be told apart here, so hash the body.
+        if ($isSessionDependent || $etag !== $etagBeforeRendering) {
+            $etag = null;
+        }
         if (!$etag) {
             // Only hash body for small responses to avoid O(size) CPU/memory overhead
             // For large pages without cache ETags, skip hashing entirely
@@ -287,7 +328,7 @@ class CacheMiddleware implements MiddlewareInterface
                     ->withStatus(304)
                     ->withBody($emptyBody)
                     ->withHeader('ETag', $etag)
-                    ->withHeader('Cache-Control', "{$visibility}, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60");
+                    ->withHeader('Cache-Control', "{$visibility}, no-cache, max-age={$maxAge}, must-revalidate");
                 $vary304 = 'Accept-Encoding';
                 if ($isSessionDependent) {
                     $vary304 .= ', Cookie';
@@ -296,9 +337,9 @@ class CacheMiddleware implements MiddlewareInterface
             }
         }
 
-        // For HTML, use shorter cache with must-revalidate
+        // Keep stored HTML, but validate its content ID before every reuse.
         $result = $response
-            ->withHeader('Cache-Control', "{$visibility}, max-age={$maxAge}, must-revalidate, stale-while-revalidate=60")
+            ->withHeader('Cache-Control', "{$visibility}, no-cache, max-age={$maxAge}, must-revalidate")
             ->withHeader('Expires', gmdate('D, d M Y H:i:s', time() + $maxAge) . ' GMT');
 
         if ($etag) {
@@ -316,8 +357,10 @@ class CacheMiddleware implements MiddlewareInterface
 
     /**
      * Generate ETag for HTML pages based on cache (database or file).
+     *
+     * @param array<string, mixed> $query Query parameters of the request
      */
-    private function generateHtmlEtag(string $path): ?string
+    private function generateHtmlEtag(string $path, array $query = []): ?string
     {
         if (!$this->pageCacheService) {
             return null;
@@ -328,13 +371,31 @@ class CacheMiddleware implements MiddlewareInterface
         // Get configurable galleries slug (default: /galleries)
         $galleriesPath = '/' . trim((string) $this->settings->get('galleries.slug', 'galleries'), '/');
 
+        // The validator must describe the entry the page is rendered from. A
+        // query string selects something else (home ?template= preview,
+        // filtered galleries listing, album ?template= variant) that is not
+        // rendered from these entries, so those requests hash the body.
         $cacheType = null;
         if ($path === '/' || $path === '') {
+            if ($query !== []) {
+                return null;
+            }
             $cacheType = 'home';
         } elseif ($path === $galleriesPath || $path === $galleriesPath . '/') {
-            $cacheType = 'galleries';
+            if ($query !== []) {
+                return null;
+            }
+            $cacheType = PageCacheService::galleriesPageKey(
+                (string) ($this->settings->get('galleries.template', 'classic') ?? 'classic')
+            );
         } elseif (preg_match('#^/album/([^/]+)/?$#', $path, $matches)) {
-            $cacheType = 'album:' . $matches[1];
+            // The ETag must come from the entry the page is rendered from
+            // (PageCacheService::albumPageKey). A ?template=N request renders a
+            // different variant, so it falls back to hashing the body.
+            if (isset($query['template'])) {
+                return null;
+            }
+            $cacheType = $this->pageCacheService->albumPageKeyForSlug(rawurldecode($matches[1]));
         }
 
         if (!$cacheType) {
@@ -346,23 +407,28 @@ class CacheMiddleware implements MiddlewareInterface
         if ($backend === 'database') {
             $hash = $this->pageCacheService->getHash($cacheType);
             if ($hash) {
-                return '"' . $hash . '"';
+                return $this->htmlContentId($hash);
             }
             return null;
         }
 
         // Fall back to file-based ETag
+        if ($this->pageCacheService->isExpired($cacheType)) {
+            return null;
+        }
         $cacheFile = $this->pageCacheService->getCacheFilePath($cacheType);
         if ($cacheFile && file_exists($cacheFile)) {
-            $mtime = filemtime($cacheFile);
-            $size = filesize($cacheFile);
-            if ($mtime === false || $size === false) {
-                return null;
-            }
-            return '"' . md5($mtime . '-' . $size) . '"';
+            $hash = hash_file('sha256', $cacheFile);
+            return $hash === false ? null : $this->htmlContentId($hash);
         }
 
         return null;
+    }
+
+    private function htmlContentId(string $hash): string
+    {
+        $release = hash_file('sha256', dirname(__DIR__, 2) . '/version.json');
+        return '"' . hash('sha256', $hash . json_encode($this->settings->all()) . $release) . '"';
     }
 
     /**
@@ -402,7 +468,8 @@ class CacheMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Normalize an ETag by stripping W/ prefix and surrounding quotes.
+     * Normalize an ETag by stripping W/ prefix, surrounding quotes and the
+     * content-coding suffix a compressing web server may have appended.
      */
     private function normalizeEtag(string $etag): string
     {
@@ -414,7 +481,11 @@ class CacheMiddleware implements MiddlewareInterface
         // Strip surrounding quotes
         $etag = trim($etag, '"');
 
-        return $etag;
+        // Apache appends the content coding to the validator when it compresses
+        // the response (mod_deflate / mod_brotli, DeflateAlterETag AddSuffix):
+        // the browser then sends back "<etag>-gzip" or "<etag>-br". Compare the
+        // validator itself, or a compressed page could never revalidate to 304.
+        return preg_replace('/-(gzip|br|zstd|deflate)$/', '', $etag) ?? $etag;
     }
 
     private function addNoCacheHeaders(Response $response): Response

@@ -20,6 +20,15 @@ use Slim\Views\Twig;
 
 class AlbumsController extends BaseController
 {
+    private function fallbackCategory(): int
+    {
+        $this->db->execute($this->db->insertIgnoreKeyword() . " INTO categories(name, slug) VALUES('None', 'none')");
+        $stmt = $this->db->pdo()->prepare("SELECT id FROM categories WHERE slug = 'none'");
+        $stmt->execute();
+        $id = (int)$stmt->fetchColumn();
+        $stmt->closeCursor();
+        return $id;
+    }
     private ?CustomFieldService $customFieldService = null;
     private ?PageCacheService $pageCacheService = null;
 
@@ -37,13 +46,14 @@ class AlbumsController extends BaseController
      * Invalidate page caches when album content changes.
      * Called after album create/update/delete to ensure fresh data.
      * Uses tag-based invalidation for efficient bulk cache clearing.
-     * If auto_warm is enabled, regenerates cache immediately after invalidation.
+     * Home and galleries are then re-warmed (synchronously with auto_warm,
+     * otherwise after the response). The album page itself is keyed by id and
+     * rebuilt on its next anonymous visit, so a rename needs no extra handling.
      *
      * @param string|null $albumSlug Current album slug to invalidate
-     * @param string|null $oldAlbumSlug Previous slug (for rename cases) to also invalidate
      * @param int|null $albumId Album ID for tag-based invalidation
      */
-    private function invalidatePageCaches(?string $albumSlug = null, ?string $oldAlbumSlug = null, ?int $albumId = null, bool $warmAlbum = true): void
+    private function invalidatePageCaches(?string $albumSlug = null, ?int $albumId = null): void
     {
         try {
             $settings = new SettingsService($this->db);
@@ -89,11 +99,6 @@ class AlbumsController extends BaseController
                 $this->pageCacheService->invalidateAlbum($albumSlug);
             }
 
-            // Invalidate old slug cache when album is renamed (prevents orphaned cache)
-            if ($oldAlbumSlug !== null && $oldAlbumSlug !== $albumSlug) {
-                $this->pageCacheService->invalidate("album:{$oldAlbumSlug}");
-            }
-
             // Drop the galleries filter-options cache — same file used by
             // GalleriesController::getFilterOptions() (storage/cache/filter_options.cache)
             @unlink(dirname(__DIR__, 3) . '/storage/cache/filter_options.cache');
@@ -108,15 +113,8 @@ class AlbumsController extends BaseController
                 $warmService = new CacheWarmService($this->db);
                 $warmService->warmHome();
                 $warmService->warmGalleries();
-                if ($warmAlbum && $albumSlug !== null) {
-                    $warmService->warmAlbum($albumSlug);
-                }
             } else {
-                $targets = ['home', 'galleries'];
-                if ($warmAlbum && $albumSlug !== null) {
-                    $targets[] = 'album:' . $albumSlug;
-                }
-                CacheWarmService::scheduleWarm($this->db, $targets);
+                CacheWarmService::scheduleWarm($this->db, ['home', 'galleries']);
             }
         } catch (\Throwable) {
             // Cache invalidation/warming failure should not break admin operations
@@ -191,6 +189,12 @@ class AlbumsController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll();
+        $stmt->closeCursor();
+        $storageUsage = (new \App\Services\AlbumStorageService($pdo))->usage(array_column($rows, 'id'));
+        foreach ($rows as &$row) {
+            $row['storage'] = $storageUsage[(int)$row['id']];
+        }
+        unset($row);
 
         $pages = (int)ceil(($total) / $perPage);
         $pagination = [
@@ -289,8 +293,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;
@@ -306,6 +311,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $password_hash = $passwordRaw !== '' ? password_hash($passwordRaw, PASSWORD_ARGON2ID) : null;
         $cameraIds = array_map(intval(...), (array)($d['cameras'] ?? []));
@@ -325,8 +331,14 @@ class AlbumsController extends BaseController
         $schemaType = trim((string)($d['schema_type'] ?? 'ImageGallery'));
         $schemaData = trim((string)($d['schema_data'] ?? '')) ?: null;
         $canonicalUrl = trim((string)($d['canonical_url'] ?? '')) ?: null;
-        $robotsIndex = isset($d['robots_index']) ? 1 : 0;
-        $robotsFollow = isset($d['robots_follow']) ? 1 : 0;
+        // Robots directives. The create form has no technical-SEO block and API
+        // callers may omit it: an ABSENT block must mean the column default
+        // (index,follow), not noindex. With a bare isset() every album created
+        // from the admin was persisted noindex,nofollow — de-indexed and dropped
+        // from the sitemap until someone re-saved it from the edit form.
+        $hasRobotsBlock = array_key_exists('robots_present', $d) || array_key_exists('seo_title', $d);
+        $robotsIndex = $hasRobotsBlock ? (isset($d['robots_index']) ? 1 : 0) : 1;
+        $robotsFollow = $hasRobotsBlock ? (isset($d['robots_follow']) ? 1 : 0) : 1;
 
         // Custom equipment fields
         $customCameras = trim((string)($d['custom_cameras'] ?? '')) ?: null;
@@ -383,6 +395,18 @@ class AlbumsController extends BaseController
         }
         try {
             $albumId = (int)$pdo->lastInsertId();
+
+            // Presentation flag only: the equipment metadata itself is always
+            // saved. Written on its own so an install whose schema predates the
+            // column still creates the album (the block then stays visible).
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $albumId]);
+                (new SettingsService($this->db))->set('album.' . $albumId . '.show_equipment', (bool)$show_equipment);
+            } catch (\Throwable) {
+                // ignore if column not present
+            }
+
             $cats = array_unique(array_filter(array_map(intval(...), array_merge([$category_id], $categoryIds))));
             if ($cats) {
                 $sql = $this->db->insertIgnoreKeyword() . ' INTO album_category(album_id, category_id) VALUES(:a,:c)';
@@ -471,7 +495,7 @@ class AlbumsController extends BaseController
             $pdo->commit();
 
             // Invalidate page caches
-            $this->invalidatePageCaches($slug, null, $albumId);
+            $this->invalidatePageCaches($slug, $albumId);
 
             // A new album (possibly created already-published) may change what
             // the sitemap lists — refresh it.
@@ -524,7 +548,7 @@ class AlbumsController extends BaseController
             $item['custom_template_id'] ?? null
         );
 
-        $cats = $pdo->query('SELECT id, name FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
+        $cats = $pdo->query('SELECT id, name, slug FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
         $tags = $pdo->query('SELECT id, name FROM tags ORDER BY name')->fetchAll();
 
         // Load templates if table exists (core + custom)
@@ -714,7 +738,7 @@ class AlbumsController extends BaseController
         $params[':album'] = $albumId;
         $sql = 'UPDATE images SET ' . implode(', ', $setParts) . ' WHERE id = :id AND album_id = :album';
         $pdo->prepare($sql)->execute($params);
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
 
         $accept = $request->getHeaderLine('Accept');
         if (str_contains($accept, 'application/json')) {
@@ -743,7 +767,6 @@ class AlbumsController extends BaseController
         $oldAlbum = $pdo->prepare('SELECT slug, is_nsfw, password_hash, published_at FROM albums WHERE id = ?');
         $oldAlbum->execute([$id]);
         $oldAlbumData = $oldAlbum->fetch(\PDO::FETCH_ASSOC) ?: [];
-        $oldAlbumSlug = $oldAlbumData['slug'] ?? null;
         $oldNsfw = (int)($oldAlbumData['is_nsfw'] ?? 0);
         $oldHasPassword = !empty($oldAlbumData['password_hash']);
         $wasProtected = $oldNsfw === 1 || $oldHasPassword;
@@ -751,8 +774,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;
@@ -767,6 +791,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $clearPassword = !empty($d['password_clear']);
         $tagIds = array_map(intval(...), (array)($d['tags'] ?? []));
@@ -787,8 +812,14 @@ class AlbumsController extends BaseController
         $schemaType = trim((string)($d['schema_type'] ?? 'ImageGallery'));
         $schemaData = trim((string)($d['schema_data'] ?? '')) ?: null;
         $canonicalUrl = trim((string)($d['canonical_url'] ?? '')) ?: null;
-        $robotsIndex = isset($d['robots_index']) ? 1 : 0;
-        $robotsFollow = isset($d['robots_follow']) ? 1 : 0;
+        // Robots directives. The create form has no technical-SEO block and API
+        // callers may omit it: an ABSENT block must mean the column default
+        // (index,follow), not noindex. With a bare isset() every album created
+        // from the admin was persisted noindex,nofollow — de-indexed and dropped
+        // from the sitemap until someone re-saved it from the edit form.
+        $hasRobotsBlock = array_key_exists('robots_present', $d) || array_key_exists('seo_title', $d);
+        $robotsIndex = $hasRobotsBlock ? (isset($d['robots_index']) ? 1 : 0) : 1;
+        $robotsFollow = $hasRobotsBlock ? (isset($d['robots_follow']) ? 1 : 0) : 1;
 
         // Custom equipment fields
         $customCameras = trim((string)($d['custom_cameras'] ?? '')) ?: null;
@@ -1004,6 +1035,15 @@ class AlbumsController extends BaseController
                 }
             }
 
+            // Presentation flag only (see store()); tolerate a pre-column schema.
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $id]);
+                (new SettingsService($this->db))->set('album.' . $id . '.show_equipment', (bool)$show_equipment);
+            } catch (\Throwable) {
+                // ignore if column not present
+            }
+
             $pdo->commit();
 
             // Handle blur variant generation when protection status changes (NSFW or password)
@@ -1035,7 +1075,7 @@ class AlbumsController extends BaseController
             }
 
             // Invalidate page caches (pass old slug if renamed to prevent orphaned cache)
-            $this->invalidatePageCaches($slug, $oldAlbumSlug, $id);
+            $this->invalidatePageCaches($slug, $id);
 
             // Publish state / slug / content may have changed — refresh the sitemap.
             $this->regenerateSitemap();
@@ -1094,7 +1134,7 @@ class AlbumsController extends BaseController
         $stmt = $pdo->prepare('DELETE FROM albums WHERE id=:id');
         try {
             // Invalidate before DELETE so category pivot data is still readable
-            $this->invalidatePageCaches($albumSlug, null, $id, false);
+            $this->invalidatePageCaches($albumSlug, $id);
 
             $stmt->execute([':id' => $id]);
 
@@ -1163,7 +1203,7 @@ class AlbumsController extends BaseController
         $stmt->execute([':id' => $id]);
 
         // Invalidate page caches
-        $this->invalidatePageCaches($albumSlug, null, $id);
+        $this->invalidatePageCaches($albumSlug, $id);
 
         // The album just became publicly listable — refresh the sitemap.
         $this->regenerateSitemap();
@@ -1194,7 +1234,7 @@ class AlbumsController extends BaseController
         $stmt->execute([':id' => $id]);
 
         // Invalidate page caches (no warm — album is unpublished)
-        $this->invalidatePageCaches($albumSlug, null, $id, false);
+        $this->invalidatePageCaches($albumSlug, $id);
 
         // The album is no longer public — drop it from the sitemap.
         $this->regenerateSitemap();
@@ -1226,7 +1266,7 @@ class AlbumsController extends BaseController
         }
         $stmt = $this->db->pdo()->prepare('UPDATE albums SET cover_image_id=:img WHERE id=:id');
         $stmt->execute([':img' => $imageId, ':id' => $albumId]);
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         $accept = $request->getHeaderLine('Accept');
         if (str_contains($accept, 'application/json')) {
             $response->getBody()->write(json_encode(['ok' => true]));
@@ -1255,7 +1295,7 @@ class AlbumsController extends BaseController
                 $stmt->execute([':s' => $sort++, ':id' => (int)$imageId, ':a' => $albumId]);
             }
             $pdo->commit();
-            $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+            $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
             $payload = json_encode(['ok' => true]);
             $response->getBody()->write($payload);
             return $response->withHeader('Content-Type', 'application/json');
@@ -1352,7 +1392,7 @@ class AlbumsController extends BaseController
                 }
             }
             $pdo->commit();
-            $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+            $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
             $response->getBody()->write(json_encode(['ok' => true]));
             return $response->withHeader('Content-Type', 'application/json');
         } catch (\Throwable $e) {
@@ -1393,7 +1433,7 @@ class AlbumsController extends BaseController
             $pdo->rollBack();
             return $response->withStatus(500);
         }
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
         // try unlink files (best-effort). Originals can be shared (sha1 dedup /
@@ -1452,7 +1492,7 @@ class AlbumsController extends BaseController
             $pdo->rollBack();
             return $response->withStatus(500);
         }
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
         $protectedStorage = new \App\Services\ProtectedMediaStorage($this->db);
@@ -1580,7 +1620,7 @@ class AlbumsController extends BaseController
         }
 
         // Invalidate page caches — new image added to album
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
 

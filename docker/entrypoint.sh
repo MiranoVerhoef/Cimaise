@@ -18,6 +18,8 @@ WRITABLE_DIRS="
   storage/cache
   storage/logs
   storage/originals
+  storage/image-jobs
+  storage/fonts
   storage/protected-media
   storage/rate_limits
   storage/tmp
@@ -42,6 +44,15 @@ chown "$WEB_USER":"$WEB_USER" "$APP_DIR" 2>/dev/null || true
 for d in $WRITABLE_DIRS; do
   chown -R "$WEB_USER":"$WEB_USER" "$APP_DIR/$d" 2>/dev/null || true
 done
+
+# Twig does not revalidate compiled templates in production. The storage
+# volume survives image upgrades, so discard compiled templates before Apache
+# starts to ensure they are rebuilt from the current image's views.
+TWIG_CACHE_DIR="$APP_DIR/storage/cache/twig"
+if [ -d "$TWIG_CACHE_DIR" ]; then
+  echo "[cimaise] clearing compiled Twig templates…"
+  find "$TWIG_CACHE_DIR" -type f -name '*.php' -delete
+fi
 
 # ── base translation packs ──────────────────────────────────────────────────
 # The base language packs (en/it *.json) are application code, but the storage
@@ -115,6 +126,18 @@ chown -h "$WEB_USER":"$WEB_USER" "$ENV_LINK" 2>/dev/null || true
 
 if [ -f "$ENV_STORE" ]; then
   echo "[cimaise] .env present — application already configured."
+  echo "[cimaise] applying pending database migrations…"
+  # Use the image's SQL, not the old files hidden under the database volume.
+  # Run as the web user so SQLite sidecars remain writable by Apache. set -e
+  # prevents starting an incompatible application if a migration fails.
+  su -s /bin/sh -c "php '$APP_DIR/docker/migrate.php' /usr/share/cimaise/migrations" "$WEB_USER"
+  # The volume also holds page data and cached settings from the previous
+  # image. Discard them before accepting requests with the new code.
+  for cache_dir in "$APP_DIR/storage/cache/pages" "$APP_DIR/storage/tmp/query_cache"; do
+    if [ -d "$cache_dir" ]; then
+      find "$cache_dir" -type f -delete
+    fi
+  done
 else
   # First-boot banner: everything a user needs to reach the installer. When
   # CIMAISE_DB_* is set (compose does this) the installer form comes already
@@ -141,4 +164,8 @@ else
 fi
 
 echo "[cimaise] starting Apache…"
+if [ "${1:-}" = "apache2-foreground" ]; then
+  # A separate, unprivileged worker retries durable jobs even without traffic.
+  /bin/sh "$APP_DIR/bin/image-worker.sh" &
+fi
 exec "$@"

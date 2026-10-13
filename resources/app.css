@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Switch uploaded logos with the same class used by the theme toggle. */
+.cimaise-logo-dark { display: none !important; }
+.dark .cimaise-logo-light { display: none !important; }
+.dark .cimaise-logo-dark { display: block !important; }
+
 /* Never allow horizontal page scroll on the frontend. Several home templates
    (masonry, modern, parallax, gallery) render LQIP placeholders with
    `transform: scale(1.1)` to hide their blurred edges; while still blurred the
@@ -105,6 +110,20 @@ body {
   select:focus {
     --tw-ring-color: var(--color-accent);
     border-color: var(--color-accent);
+  }
+
+  /* Keyboard focus: one brand ring for every link/button/control, instead of
+     the browser's stock blue outline (which reads as foreign on a monochrome
+     photo site). Form fields keep their own accent ring from the block above;
+     mouse clicks never show a ring (:focus-visible only). */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
@@ -463,26 +482,6 @@ html.dark .text-neutral-500 { color: #d4d4d4 !important; }
 html.dark .text-neutral-400 { color: #a3a3a3 !important; }
 html.dark .text-neutral-700 { color: #d4d4d4 !important; }
 html.dark .text-neutral-800 { color: #e5e5e5 !important; }
-
-/* Preserve dark text on explicitly light backgrounds (hero overlays, etc.)
- * Use .preserve-light-text on containers with light backgrounds in dark mode */
-html.dark .preserve-light-text,
-html.dark .preserve-light-text .text-black,
-html.dark .preserve-light-text h1,
-html.dark .preserve-light-text h2,
-html.dark .preserve-light-text h3 {
-  color: #0a0a0a !important;
-}
-
-html.dark .preserve-light-text .text-neutral-700,
-html.dark .preserve-light-text .text-neutral-800 {
-  color: #404040 !important;
-}
-
-html.dark .preserve-light-text .text-neutral-600,
-html.dark .preserve-light-text .text-neutral-500 {
-  color: #525252 !important;
-}
 
 /* Dark mode for prose content (Tailwind Typography plugin) */
 html.dark .prose-neutral {

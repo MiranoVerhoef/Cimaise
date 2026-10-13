@@ -111,31 +111,25 @@ class CacheController extends BaseController
                 $regenerated = $cacheService->buildGalleriesCache();
                 break;
             case 'albums':
-                // Clear all album caches
+                // Album pages are keyed album_<id>[_t<template>]. They are not
+                // pre-built: each one is cached again on its next visit.
                 $stats = $this->pageCacheService->getStats();
                 foreach ($stats['items'] as $item) {
-                    if (str_starts_with((string) $item['type'], 'album:')) {
+                    if (preg_match('/^album_\d+(_t\d+)?$/', (string) $item['type'])) {
                         $cleared += $this->pageCacheService->invalidate($item['type']);
                     }
                 }
-                // Regenerate all album caches
-                $albumsRegenerated = $cacheService->buildAlbumCaches();
-                $regenerated = $albumsRegenerated > 0;
                 break;
             case 'query':
                 QueryCache::getInstance()->flush();
                 $cleared = 1;
                 break;
             default:
-                // Handle individual album cache keys (album:slug-name)
-                if (str_starts_with($type, 'album:')) {
-                    // Validate slug format to prevent path traversal
-                    $slug = substr($type, 6); // Remove 'album:' prefix
-                    if (preg_match('/^[a-z0-9\-]+$/', $slug)) {
-                        $cleared = $this->pageCacheService->invalidate($type);
-                        $regenerated = $cacheService->buildAlbumCache($slug);
-                        break;
-                    }
+                // Individual album page keys (strict format: also rules out
+                // path traversal on the file backend).
+                if (preg_match('/^album_\d+(_t\d+)?$/', $type)) {
+                    $cleared = $this->pageCacheService->invalidate($type);
+                    break;
                 }
 
                 // Reject unknown types to prevent path traversal
@@ -195,7 +189,7 @@ class CacheController extends BaseController
         $stats = $cacheService->warmAll();
 
         // Build summary message
-        $cached = ($stats['home'] ? 1 : 0) + ($stats['galleries'] ? 1 : 0) + $stats['albums'];
+        $cached = ($stats['home'] ? 1 : 0) + ($stats['galleries'] ? 1 : 0);
         $message = "Cache warmed: {$cached} pages cached";
 
         // Build details list to avoid unbalanced parentheses
@@ -205,9 +199,6 @@ class CacheController extends BaseController
         }
         if ($stats['galleries']) {
             $details[] = 'galleries';
-        }
-        if ($stats['albums'] > 0) {
-            $details[] = "{$stats['albums']} albums";
         }
 
         if ($details !== []) {

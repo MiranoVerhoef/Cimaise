@@ -94,6 +94,7 @@ class AuthMiddleware implements MiddlewareInterface
             $stmt = $this->db->pdo()->prepare('SELECT id, email, role, is_active, first_name, last_name FROM users WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => $_SESSION['admin_id']]);
             $user = $stmt->fetch();
+            $stmt->closeCursor();
 
             if (!$user || !$user['is_active'] || $user['role'] !== 'admin') {
                 // User no longer exists, is inactive, or no longer admin - force logout

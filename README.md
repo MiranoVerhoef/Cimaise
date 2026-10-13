@@ -986,7 +986,6 @@ Full-page caching for instant responses:
 - **Tag-based Invalidation** — Smart cache clearing when specific content changes
 - **Lazy Regeneration** — Stale-while-revalidate pattern serves fast responses while refreshing in background
 - **Auto-Warm on Save** — Optional automatic cache refresh after content updates
-- **Post-Login Warmup** — Pre-warms critical caches after admin login
 
 Cached pages include:
 - Home page (all templates)
@@ -1332,14 +1331,14 @@ Add this to your crontab (`crontab -e`):
 
 ### Cache Warming (`cache:warm`)
 
-Pre-generates JSON caches for all public pages, dramatically reducing load times for visitors.
+Pre-generates JSON caches for the home and galleries pages, dramatically reducing load times for visitors.
 
 #### What Gets Cached
 
 - **Home page** — All images with srcsets, categories, and settings
 - **Galleries page** — Album listings with filters and metadata
-- **Individual albums** — Full album data with images, equipment info, and srcsets
-  - Excludes NSFW and password-protected albums (served dynamically for security)
+- **Individual albums** — not pre-built: each public album page is cached on its first anonymous visit and rebuilt automatically after an edit
+  - NSFW and password-protected albums are never cached (served dynamically for security)
 
 #### Cache Warming Options
 
@@ -1353,7 +1352,6 @@ php bin/console cache:warm --clear
 # Warm only specific caches
 php bin/console cache:warm --home
 php bin/console cache:warm --galleries
-php bin/console cache:warm --albums
 
 # Quiet mode for cron (no output)
 php bin/console cache:warm --quiet-mode

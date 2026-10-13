@@ -49,6 +49,12 @@ class PageController extends BaseController
         return $this->pageCacheService;
     }
 
+    /** @see PageCacheService::claimRegeneration() */
+    private function claimPageRegeneration(string $cacheKey): bool
+    {
+        return $this->getPageCacheService()->claimRegeneration($cacheKey);
+    }
+
     /**
      * Get valid template IDs from database (cached for performance).
      * SECURITY: Prevents cache poisoning via arbitrary template IDs in URL.
@@ -552,6 +558,9 @@ class PageController extends BaseController
                 // Schedule regeneration after response is sent
                 $this->scheduleHomeRegeneration();
 
+                // A stale body must not receive the validator of a concurrent
+                // rebuild or remain fresh in the browser for another hour.
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $staleCached['template_file'], array_merge($staleCached['data'], [
                     'page_title' => $seo['page_title'],
                     'meta_description' => $seo['meta_description'],
@@ -574,6 +583,9 @@ class PageController extends BaseController
         $homeTemplate = $templateOverride ?? (string) ($svc->get('home.template', 'classic') ?? 'classic');
         $homeSettings = [
             'template' => $homeTemplate,
+            'hero_enabled' => \App\Services\SettingsService::boolean($svc->get('home.hero_enabled', true), true),
+            'hero_show_title' => \App\Services\SettingsService::boolean($svc->get('home.hero_show_title', true), true),
+            'hero_show_text' => \App\Services\SettingsService::boolean($svc->get('home.hero_show_text', true), true),
             'hero_title' => (string) ($svc->get('home.hero_title', 'Portfolio') ?? 'Portfolio'),
             'hero_subtitle' => (string) ($svc->get('home.hero_subtitle', 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.') ?? 'A collection of analog and digital photography exploring light, form, and the beauty of everyday moments.'),
             'albums_title' => (string) ($svc->get('home.albums_title', 'Latest Albums') ?? 'Latest Albums'),
@@ -1020,10 +1032,7 @@ class PageController extends BaseController
 
         // Try cache first for public albums
         if ($canUseCache) {
-            $cacheKey = 'album_' . (int) $album['id'];
-            if ($templateIdFromUrl > 0) {
-                $cacheKey .= '_t' . $templateIdFromUrl;
-            }
+            $cacheKey = PageCacheService::albumPageKey((int) $album['id'], $templateIdFromUrl);
             $cacheService = $this->getPageCacheService();
             $cached = $cacheService->get($cacheKey);
 
@@ -1040,9 +1049,13 @@ class PageController extends BaseController
                 ));
             }
 
-            // Lazy regeneration: try stale cache
+            // Stale-while-revalidate: serve the stale copy only while another
+            // request holds the regeneration lock; otherwise fall through and
+            // rebuild the page now.
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
-            if ($staleCached !== null && isset($staleCached['template_file'], $staleCached['data']) && is_array($staleCached['data'])) {
+            if ($staleCached !== null && isset($staleCached['template_file'], $staleCached['data']) && is_array($staleCached['data'])
+                && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $staleCached['template_file'], array_merge(
                     $staleCached['data'],
                     $this->albumRequestSeo($request, (array) $album, $staleCached['data']),
@@ -1495,6 +1508,8 @@ class PageController extends BaseController
             'show_date' => (int) ($album['show_date'] ?? 1),
             'tags' => $tags,
             'equipment' => $equipment,
+            // Missing on a pre-1.4.24 schema: default to visible.
+            'show_equipment' => (int) ($album['show_equipment'] ?? 1) === 1,
             'allow_downloads' => !empty($album['allow_downloads']),
             'cover' => $album['cover'] ?? null,
         ];
@@ -1761,21 +1776,30 @@ class PageController extends BaseController
 
         // Save to cache for future public requests
         if ($canUseCache) {
-            $cacheKey = 'album_' . (int) $album['id'];
-            if ($templateIdFromUrl > 0) {
-                $cacheKey .= '_t' . $templateIdFromUrl;
-            }
+            $cacheKey = PageCacheService::albumPageKey((int) $album['id'], $templateIdFromUrl);
             $this->getPageCacheService()->setWithTags($cacheKey, [
                 'template_file' => $twigTemplate,
                 'data' => $cacheableData,
             ], CacheTags::albumRelated((int) $album['id'], (int) $album['category_id']));
         }
 
-        return $this->view->render($response, $twigTemplate, array_merge($cacheableData, [
+        $rendered = $this->view->render($response, $twigTemplate, array_merge($cacheableData, [
             'is_admin' => $isAdmin,
             'nsfw_consent' => $this->hasNsfwConsent(),
             'csrf' => $_SESSION['csrf'] ?? '',
         ]));
+
+        // A password/NSFW album is only ever rendered for a visitor whose SESSION
+        // currently grants access. The generic HTML policy (`private, max-age=N`)
+        // let the browser keep serving this unlocked page from its own cache for
+        // up to N seconds after the password was changed/removed or the consent
+        // expired — the server-side revocation (PW1) never got asked. Force
+        // revalidation; CacheMiddleware honours an existing private/no-cache.
+        if (!empty($album['password_hash']) || !empty($album['is_nsfw'])) {
+            $rendered = $rendered->withHeader('Cache-Control', 'private, no-cache, must-revalidate');
+        }
+
+        return $rendered;
     }
 
     public function unlockAlbum(Request $request, Response $response, array $args): Response
@@ -2332,10 +2356,12 @@ class PageController extends BaseController
                 ));
             }
 
-            // Stale-while-revalidate: try expired cache if fresh not available
+            // Stale-while-revalidate: serve the stale copy only while another
+            // request holds the regeneration lock; otherwise rebuild below.
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
-            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])) {
-                // Serve stale cache (background regeneration not implemented)
+            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
+                && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, 'frontend/category.twig', array_merge(
                     $staleCached['data'],
                     $this->taxonomyRequestSeo($request, (array) $category, 'category'),
@@ -2474,10 +2500,12 @@ class PageController extends BaseController
                 ));
             }
 
-            // Stale-while-revalidate: try expired cache if fresh not available
+            // Stale-while-revalidate: serve the stale copy only while another
+            // request holds the regeneration lock; otherwise rebuild below.
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
-            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])) {
-                // Serve stale cache (background regeneration not implemented)
+            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
+                && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, 'frontend/tag.twig', array_merge(
                     $staleCached['data'],
                     $this->taxonomyRequestSeo($request, (array) $tag, 'tag'),
@@ -2638,9 +2666,12 @@ class PageController extends BaseController
 
     public function aboutContact(Request $request, Response $response): Response
     {
+        $settings = new \App\Services\SettingsService($this->db);
+        $aboutSlug = trim((string)($settings->get('about.slug', 'about') ?? 'about'));
+        $aboutPath = '/' . (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $aboutSlug) ? $aboutSlug : 'about');
         // CSRF validation
         if (!$this->validateCsrf($request)) {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         $data = (array) ($request->getParsedBody() ?? []);
@@ -2649,11 +2680,10 @@ class PageController extends BaseController
         $message = trim((string) ($data['message'] ?? ''));
 
         if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $message === '') {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         // reCAPTCHA validation
-        $settings = new \App\Services\SettingsService($this->db);
         $recaptchaEnabled = (bool) ($settings->get('recaptcha.enabled', false) ?? false);
         $recaptchaSecretKey = (string) ($settings->get('recaptcha.secret_key', '') ?? '');
 
@@ -2661,7 +2691,7 @@ class PageController extends BaseController
             $recaptchaToken = trim((string) ($data['recaptcha_token'] ?? ''));
 
             if ($recaptchaToken === '') {
-                return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
             }
 
             // Verify token with Google reCAPTCHA API
@@ -2676,7 +2706,7 @@ class PageController extends BaseController
                         'errors' => $resp->getErrorCodes(),
                         'score' => $resp->getScore()
                     ], 'security');
-                    return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                    return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
                 }
 
                 // Check score (v3 returns score 0.0-1.0, higher is more likely human)
@@ -2684,13 +2714,13 @@ class PageController extends BaseController
                     \App\Support\Logger::warning('reCAPTCHA score too low', [
                         'score' => $resp->getScore()
                     ], 'security');
-                    return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                    return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
                 }
             } catch (\Throwable $e) {
                 \App\Support\Logger::error('reCAPTCHA verification error', [
                     'error' => $e->getMessage()
                 ], 'security');
-                return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+                return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
             }
         }
 
@@ -2708,7 +2738,7 @@ class PageController extends BaseController
         // Additional email validation - must match the validated email exactly
         // FILTER_VALIDATE_EMAIL already passed, but double-check for header chars
         if (preg_match('/[\x00-\x1F\x7F]/', $email)) {
-            return $response->withHeader('Location', $this->redirect('/about?error=1'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($aboutPath . '?error=1'))->withStatus(302);
         }
 
         // Encode subject with =?UTF-8?B? to prevent header injection
@@ -2737,11 +2767,7 @@ class PageController extends BaseController
             'Content-Type: text/plain; charset=UTF-8';
 
         @mail($to, $subject, $body, $headers);
-        $slug = (string) ($settings->get('about.slug', 'about') ?? 'about');
-        if ($slug === '') {
-            $slug = 'about';
-        }
-        return $response->withHeader('Location', $this->redirect('/' . $slug . '?sent=1'))->withStatus(302);
+        return $response->withHeader('Location', $this->redirect($aboutPath . '?sent=1'))->withStatus(302);
     }
 
     public function license(Request $request, Response $response): Response

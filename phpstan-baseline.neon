@@ -2022,17 +2022,7 @@ parameters:
 			count: 1
 			path: app/Services/PageCacheService.php
 
-		-
-			message: '#^Method App\\Services\\PageCacheService\:\:warm\(\) has parameter \$albumSlugs with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/PageCacheService.php
 
-		-
-			message: '#^Method App\\Services\\PageCacheService\:\:warm\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/PageCacheService.php
 
 		-
 			message: '#^Method App\\Services\\PerformanceService\:\:getPerformanceConfig\(\) return type has no value type specified in iterable type array\.$#'

@@ -104,7 +104,7 @@ RUN apt-get purge -y --auto-remove \
 # Apache: rewrite + headers for the project's .htaccess contract. The global
 # ServerName silences the AH00558 "could not reliably determine the server's
 # fully qualified domain name" startup warning inside containers.
-RUN a2enmod rewrite headers \
+RUN a2enmod rewrite headers brotli deflate \
  && rm -f /etc/apache2/sites-enabled/000-default.conf \
  && printf 'ServerName localhost\n' > /etc/apache2/conf-available/zz-servername.conf \
  && a2enconf zz-servername
@@ -125,6 +125,9 @@ COPY --from=assets   --chown=www-data:www-data /app/public/assets ./public/asset
 # the volume on every boot (an existing volume would otherwise never receive
 # them — the UI would render raw translation keys).
 COPY --chown=www-data:www-data storage/translations/ /usr/share/cimaise/translations/
+
+# database/ is persisted too: its migration files belong to the old image.
+COPY --chown=www-data:www-data database/migrations/ /usr/share/cimaise/migrations/
 
 # Entrypoint prepares the writable runtime tree (volumes) and starts Apache.
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/cimaise-entrypoint

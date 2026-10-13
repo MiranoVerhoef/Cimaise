@@ -8,7 +8,7 @@
   <!-- Header -->
   <div class="bg-white border-b border-gray-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 class="text-3xl font-bold text-black">{{ trans('admin.albums.edit_album') }}</h1>
           <p class="text-gray-600 mt-1">{{ trans('admin.albums.edit_description') }}</p>
@@ -69,11 +69,16 @@
 
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <label class="block text-sm font-medium text-black mb-2">{{ trans('admin.albums.categories') }} <span class="text-red-500">*</span></label>
-                  <select name="categories[]" id="album-categories" class="form-input" multiple required>
+                  <label class="block text-sm font-medium text-black mb-2">{{ trans('admin.albums.categories') }}</label>
+                  <select name="categories[]" id="album-categories" class="form-input" multiple>
                     {% set selectedCats = categoryIds|default([item.category_id ? item.category_id : 0]) %}
+                    {% set noneSelected = false %}
+                    {% for c in categories %}{% if c.slug == 'none' and c.id in selectedCats %}{% set noneSelected = true %}{% endif %}{% endfor %}
+                    <option value="0" {{ noneSelected ? 'selected' : '' }}>{{ trans('admin.albums.none_category', {}, 'None') }}</option>
                     {% for c in categories %}
+                      {% if c.slug != 'none' %}
                       <option value="{{ c.id }}" {% if c.id in selectedCats %}selected{% endif %}>{{ c.name }}</option>
+                      {% endif %}
                     {% endfor %}
                   </select>
                   <p class="text-xs text-gray-500 mt-1">{{ trans('admin.albums.categories_help') }}</p>
@@ -355,6 +360,9 @@
               <!-- Technical SEO -->
               <div class="space-y-4">
                 <h3 class="text-md font-medium text-gray-900 border-b border-gray-200 pb-2">{{ trans('admin.albums.technical_seo') }}</h3>
+                {# Marker: this form carries the robots checkboxes, so an unchecked box
+                   really means "no". Forms/requests without it keep the index,follow default. #}
+                <input type="hidden" name="robots_present" value="1">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div class="space-y-3">
                     <label class="flex items-center gap-3">
@@ -477,6 +485,14 @@
                          {% if item.show_date %}checked{% endif %}>
                   <span class="text-sm font-medium text-gray-700">{{ trans('admin.albums.show_date') }}</span>
                 </label>
+
+                <label class="flex items-center gap-3">
+                  <input class="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+                         type="checkbox" name="show_equipment" id="show_equipment"
+                         {% if item.show_equipment is not defined or item.show_equipment %}checked{% endif %}>
+                  <span class="text-sm font-medium text-gray-700">{{ trans('admin.albums.show_equipment') }}</span>
+                </label>
+                <p class="text-xs text-gray-500 ml-7">{{ trans('admin.albums.show_equipment_help') }}</p>
 
                 <label class="flex items-center gap-3">
                   <input class="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"

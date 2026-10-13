@@ -4,7 +4,7 @@
 // fallback in CacheMiddleware.
 
 import { test, expect } from '@playwright/test';
-import { BASE, header, requireServer } from './_helpers.js';
+import { BASE, header, requireServer, findPublicAlbumSlug } from './_helpers.js';
 
 test.describe('HTTP cache headers', () => {
     test.beforeEach(async ({ page }) => {
@@ -54,14 +54,23 @@ test.describe('HTTP cache headers', () => {
     });
 
     test('CACHE-05: /api/album/<slug>/template applies addApiCache (F009 site)', async ({ page }) => {
-        // Use a definitely-nonexistent slug so we don't pollute test data, but
-        // the middleware still runs. Expect Cache-Control: private with addApiCache.
-        const resp = await page.request.get(`${BASE}/api/album/__nonexistent_xyz__/template?template=1`, {
-            failOnStatusCode: false,
-        });
+        // A real public album: addApiCache only applies to successful responses.
+        const slug = await findPublicAlbumSlug(page.request);
+        test.skip(!slug, 'no public album available to probe');
+        const resp = await page.request.get(`${BASE}/api/album/${encodeURIComponent(slug)}/template?template=1`);
         const cc = header(resp, 'Cache-Control');
         expect(cc).toBeTruthy();
         // addApiCache emits 'private' (per the existing semantics)
         expect(cc).toContain('private');
+    });
+
+    test('CACHE-05b: an API 404 is never cacheable', async ({ page }) => {
+        // Error responses get no-store before any cache strategy runs, so a
+        // shared cache cannot keep serving a 404 after the album appears.
+        const resp = await page.request.get(`${BASE}/api/album/__nonexistent_xyz__/template?template=1`, {
+            failOnStatusCode: false,
+        });
+        expect(resp.status()).toBeGreaterThanOrEqual(400);
+        expect(header(resp, 'Cache-Control')).toContain('no-store');
     });
 });

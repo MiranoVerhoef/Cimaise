@@ -1,3 +1,16 @@
+## [1.4.24-test.1] - 2026-10-13
+
+- Update the fork baseline to upstream v1.4.24 while preserving the features verified in test.12.
+- Run retained-volume migrations before Apache starts, preserve legacy equipment preferences, and support prerelease image versions.
+- Generate image variants automatically with durable jobs, retries, SQLite contention handling and coordinated CLI/background processing on Apache and PHP-FPM.
+- Show upload/variant progress, original image details, gallery keyboard navigation, media filters and per-album storage usage.
+- Notify visitors when larger versions of displayed images are ready, without forcing a reload.
+- Preserve original upload bytes and improve original-download handling across admin, gallery and offline-worker controls.
+- Add independent Classic hero title/text controls, a per-album homepage photo limit, an uncategorized fallback and local font uploads.
+- Add dark-theme logos, a configurable About navigation name and working custom About/contact routes.
+- Correct category dropdown hover timing, maintenance logo/login controls and stale maintenance-page handling.
+- Enable Apache Brotli compression, fix mobile analytics detection and prevent duplicate Analytics Pro registration with translated labels.
+
 # Changelog
 
 All notable changes to Cimaise are documented in this file.
@@ -7,6 +20,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
+
+## [1.4.25] - 2026-10-13
+### Fixed
+- **Docker: upgrading the image now upgrades the database.** Pulling a newer image kept the old database without applying its migrations, so on an install upgraded from 1.4.23 the new "Show equipment" switch could not be saved. Pending migrations now run at container start, before Apache accepts requests, using the SQL shipped in the new image. A failed migration stops the start with the error in the container log; restarting the same image does nothing; going back to an image with the same schema is allowed, and only a real schema downgrade is refused.
+- **Browsers no longer keep an outdated page under a new validator.** When a page was being rebuilt while another visitor requested it, the old content could be sent with the new page's ETag and then be confirmed as current. Outdated copies are now sent as non-cacheable, and a validator is never attached to content it does not describe.
+- **The galleries listing follows album changes immediately.** On sites with password-protected or NSFW albums, or with a non-default galleries template, the listing kept showing the previous state for about a day after an album was added, renamed or removed.
+
+## [1.4.24] - 2026-10-13
+### Added
+- **French.** The public site and the admin are available in French, selectable in the installer and under Settings. Thanks to @hypsug0 for the complete language packs.
+- **Classic homepage without the hero.** A "Show hero section" option under Pages → Home lets a portfolio start directly with the gallery. It is on by default, so existing sites look the same. Thanks to @MiranoVerhoef.
+- **Per-album "Show equipment".** The cameras, lenses, film, developers and labs block can be hidden on a single album while the metadata stays stored. The block itself is easier to read with several cameras and lenses or long model names, in the Classic, Hero and Magazine album pages. Thanks to @MiranoVerhoef.
+
+### Fixed
+- **Album edits reach visitors immediately.** After editing an album, a category or a tag, logged-out visitors kept seeing the old page for about a day (administrators did not, because they bypass the page cache). The page is now rebuilt on the next visit.
+- **Browsers can revalidate pages again.** Behind an Apache that compresses responses, the home, galleries and album pages never answered "304 Not Modified", so returning visitors downloaded them in full every time. Album pages also took their validator from the wrong cache entry, which could leave a returning visitor on the old layout after a settings change.
+- **The Hero album page follows the dark theme.** Its panel stayed white in the dark theme, with unreadable category, tag and date pills and album text.
+- **The admin sidebar is fully translated.** The subtitles under each menu entry were fixed Italian strings whatever the admin language. Thanks to @MiranoVerhoef.
+- The "Skip to content" link is translated in every language pack.
+
+### Changed
+- **Album pages are cached on their first visit instead of being pre-built.** `php bin/console cache:warm` still pre-builds the home and galleries pages; `--albums` is accepted for compatibility and reports that there is nothing to pre-build. The Cache page in the admin clears album entries rather than reporting a regeneration.
+- **Docker: compiled templates are discarded at container start**, so an image upgrade can never keep serving the previous version's templates from the storage volume.
+- A cache warm-up that was meant to run after admin login, and never did, is removed.
+
+### Upgrade notes
+- This release adds one column, `albums.show_equipment` (default: shown). The updater applies it automatically on SQLite and MySQL.
+
+## [1.4.23] - 2026-10-12
+### Security
+- **The installer stays locked when the database is unreachable.** With the install marker missing, a MySQL server that was down (or dropped mid-check) made the installer reachable again; it now answers 503 "installer locked" and keeps the reinstall path only for a reachable but genuinely incomplete database.
+- **Public rate limits actually limit.** The contact form, on-site search, the NSFW consent endpoints and the analytics beacon were throttled only on recognised failures, so their limits never triggered. Every request now counts on those routes, each route has its own counter, buckets follow the matched route (base path and slugs cannot reset them) and the check-and-record step is atomic.
+- **Error pages carry the security headers and are never cached.** 404/405/500 responses now get CSP, X-Frame-Options, nosniff, Referrer-Policy and HSTS plus `no-store`; 4xx/5xx responses can no longer be marked publicly cacheable, including on asset-looking paths.
+- **The service worker no longer keeps private photos.** Responses marked `private`, `no-cache` or `no-store` (unlocked password/NSFW media) are not cached, and copies cached by older versions are evicted on read.
+- **Plugin archives with symlink or traversal entries are rejected** before extraction, including archives created on macOS.
+- **Developer files are blocked on root-DocumentRoot installs** (`scripts/`, `resources/`, `docs/`, `tests/`, `docker-compose.yml`, `php.ini`, tool configs).
+
+### Fixed
+- **New albums are indexable again.** Albums created from the admin were saved as `noindex,nofollow` and left out of the sitemap. New albums now default to indexable. Albums created before this release keep their stored value: review them under each album's SEO settings if they should appear in search engines.
+- **Settings toggles can be switched off.** "Disable right click", the cookie-banner/analytics consent gate and image structured data ignored an explicit OFF; every JSON-LD block now follows the structured-data setting.
+- **The SEO settings page no longer turns everything off on fresh installs** (seeded toggles were shown unchecked and saved as OFF on the first save).
+- **Saving settings or social sharing refreshes the public pages** instead of leaving them cached for up to 24 hours.
+- **An unlocked password/NSFW album is never kept in the browser cache**, so a password change takes effect immediately for visitors.
+- **SEO settings that were saved but never used now work**: site keywords, photographer area served, lazy-loading of gallery images, preloading of the main image and automatic alt text.
+- **Diagnostics checks the real storage and media folders** instead of reporting them missing.
+- A value with invalid UTF-8 no longer empties a setting silently; the logger no longer fails outside the web bootstrap; a 405 under `/media/*` no longer turns into a 500.
+
+### Changed
+- **Calmer password and age-verification screens** with clearer layout, larger fields and a way back to the galleries.
+- **Accessibility on the public site**: one visible focus ring for keyboard users, 44px tap targets on phones (header buttons, lightbox arrows, share buttons, breadcrumbs, footer links), keyboard-operable menu on the "modern" home in dark mode, and unified 404 pages.
+- **Admin polish**: colours consistently follow the admin palette, many dark-mode contrast fixes (primary buttons, stat cards, table rows, checkboxes, notes, login button), headers that fit on phones, a compact single-list Diagnostics page, reduced-motion support, and a 44px hit area for bulk-selection checkboxes in the media library.
 
 ## [1.4.22] - 2026-09-01
 ### Security

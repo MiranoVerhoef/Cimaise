@@ -48,9 +48,11 @@ class SettingsController extends BaseController
         }
 
         // Check compression availability
+        $apacheModules = function_exists('apache_get_modules') ? apache_get_modules() : [];
         $compressionAvailability = [
-            'brotli' => function_exists('brotli_compress'),
-            'gzip' => function_exists('gzencode'),
+            'brotli' => function_exists('brotli_compress') || in_array('mod_brotli', $apacheModules, true),
+            'gzip' => function_exists('gzencode') || in_array('mod_deflate', $apacheModules, true),
+            'server' => in_array('mod_brotli', $apacheModules, true) || in_array('mod_deflate', $apacheModules, true),
             'deflate' => function_exists('gzdeflate'),
             'zlib' => extension_loaded('zlib')
         ];
@@ -166,6 +168,9 @@ class SettingsController extends BaseController
         $svc->set('gallery.default_template_id', $defaultTemplateId);
         $svc->set('site.title', $siteSettings['title']);
         $svc->set('site.logo', $siteSettings['logo']);
+        if (array_key_exists('site_logo_dark', $data)) {
+            $svc->set('site.logo_dark', trim((string)$data['site_logo_dark']) ?: null);
+        }
 
         // Logo type (text or image)
         $logoType = in_array($data['logo_type'] ?? 'text', ['text', 'image'], true) ? $data['logo_type'] : 'text';
@@ -304,7 +309,15 @@ class SettingsController extends BaseController
         $svc->set('maintenance.title', trim((string)($data['maintenance_title'] ?? '')));
         $svc->set('maintenance.message', trim((string)($data['maintenance_message'] ?? '')));
         $svc->set('maintenance.show_logo', isset($data['maintenance_show_logo']));
+        $svc->set('maintenance.show_admin_login', isset($data['maintenance_show_admin_login']));
         $svc->set('maintenance.show_countdown', isset($data['maintenance_show_countdown']));
+
+        // Page cache entries bake settings in: an album entry stores the resolved
+        // page template file (gallery.page_template), the default gallery template
+        // settings (gallery.default_template_id) and the share-button list; the
+        // home entry stores the album list sized by pagination.limit. Without this
+        // a saved setting only showed up after the 24h cache TTL.
+        $this->clearPageCache($svc);
 
         $_SESSION['flash'][] = ['type' => 'success','message' => trans('admin.flash.settings_saved')];
         return $response->withHeader('Location', $this->redirect('/admin/settings') . '?saved=1')->withStatus(302);
@@ -804,6 +817,19 @@ class SettingsController extends BaseController
         }
 
         return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+    }
+
+    /**
+     * Invalidate every page_cache entry (home, galleries, albums, taxonomies).
+     * Never blocks the save: a cache failure is logged, not surfaced.
+     */
+    private function clearPageCache(SettingsService $svc): void
+    {
+        try {
+            (new \App\Services\PageCacheService($svc, $this->db))->clearAll();
+        } catch (\Throwable $e) {
+            Logger::warning('SettingsController: page cache invalidation failed', ['error' => $e->getMessage()], 'cache');
+        }
     }
 
     /**

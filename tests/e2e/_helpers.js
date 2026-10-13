@@ -266,3 +266,18 @@ export async function publishAlbum(page, albumId) {
     }).catch(() => null);
     return !!(r && r.ok());
 }
+
+/** Slug of a public (no password, no NSFW) published album, taken from the
+ *  RSS feed, which never lists gated albums. Returns null when the install
+ *  has no public album. Each candidate is confirmed with a 200 from the album
+ *  template API so the caller probes a real success response. */
+export async function findPublicAlbumSlug(request) {
+    const feed = await request.get(`${BASE}/feed.xml`, { failOnStatusCode: false });
+    if (!feed.ok()) return null;
+    const slugs = [...new Set([...(await feed.text()).matchAll(/\/album\/([^<"\/?#]+)/g)].map(m => decodeURIComponent(m[1])))];
+    for (const slug of slugs.slice(0, 5)) {
+        const r = await request.get(`${BASE}/api/album/${encodeURIComponent(slug)}/template?template=1`, { failOnStatusCode: false });
+        if (r.status() === 200) return slug;
+    }
+    return null;
+}

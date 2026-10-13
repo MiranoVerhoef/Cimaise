@@ -98,10 +98,10 @@
             <dd class="col-sm-9">{{ settings_config.site_email ?: 'Not set' }}</dd>
 
             <dt class="col-sm-3">{{ trans('installer.site_language') }}</dt>
-            <dd class="col-sm-9">{{ settings_config.site_language == 'it' ? trans('installer.italian') : trans('installer.english') }}</dd>
+            <dd class="col-sm-9">{{ settings_config.site_language == 'it' ? trans('installer.italian') : (settings_config.site_language == 'fr' ? trans('installer.french') : trans('installer.english')) }}</dd>
 
             <dt class="col-sm-3">{{ trans('installer.admin_language') }}</dt>
-            <dd class="col-sm-9">{{ settings_config.admin_language == 'it' ? trans('installer.italian') : trans('installer.english') }}</dd>
+            <dd class="col-sm-9">{{ settings_config.admin_language == 'it' ? trans('installer.italian') : (settings_config.admin_language == 'fr' ? trans('installer.french') : trans('installer.english')) }}</dd>
         </dl>
     </div>
 </div>

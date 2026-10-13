@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS `albums` (
   `cover_image_id` INT UNSIGNED NULL,
   `shoot_date` DATE NULL,
   `show_date` TINYINT(1) NOT NULL DEFAULT 1,
+  `show_equipment` TINYINT(1) NOT NULL DEFAULT 1,
   `published_at` DATETIME NULL,
   `is_published` TINYINT(1) DEFAULT 0,
   `sort_order` INT DEFAULT 0,

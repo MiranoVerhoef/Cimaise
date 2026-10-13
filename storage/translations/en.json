@@ -22,6 +22,10 @@
     "about.portrait_alt": "Portrait"
   },
   "theme": {
+    "images.enhanced_ready": "Enhanced image versions are ready",
+    "updates.reload": "Reload",
+    "updates.dismiss": "Dismiss",
+    "updates.available": "New version available",
     "theme.toggle_dark": "Switch to dark theme",
     "theme.toggle_light": "Switch to light theme"
   },
@@ -287,6 +291,8 @@
     "home_snap.view_album": "View album"
   },
   "image": {
+    "image.download_failed": "Unable to download the original. Check that downloads are enabled and unlock the album if required.",
+    "image.download_maintenance": "Downloads are unavailable during maintenance.",
     "image.download": "Download"
   },
   "installer": {
@@ -307,6 +313,7 @@
     "installer.default_content_templates": "Six professional gallery templates",
     "installer.default_content_title": "Default Content",
     "installer.english": "English",
+    "installer.french": "Français",
     "installer.indicates_required": "indicates required fields.",
     "installer.italian": "Italiano",
     "installer.optional": "(optional)",
@@ -362,6 +369,7 @@
   },
   "navigation": {
     "nav.about": "About",
+    "nav.skip_to_content": "Skip to content",
     "nav.admin_dashboard": "Admin Dashboard",
     "nav.back": "Back",
     "nav.breadcrumb": "Breadcrumb",
