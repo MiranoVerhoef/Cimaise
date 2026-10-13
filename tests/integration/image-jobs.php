@@ -10,6 +10,7 @@ use App\Services\SettingsService;
 use App\Services\UploadService;
 use App\Support\Database;
 use App\Support\ImageProcessingLock;
+use App\Tasks\ImagesWorkCommand;
 use App\Tasks\ImagesGenerateCommand;
 use App\Tasks\ImagesGenerateVariantsCommand;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -88,6 +89,10 @@ try {
         $tester = new CommandTester($command);
         check($tester->execute(['--image' => $id]) === 1, 'CLI generation reports failure for missing original');
     }
+    $state['next_at'] = 0;
+    file_put_contents($job, json_encode($state));
+    $workerTester = new CommandTester(new ImagesWorkCommand($db));
+    check($workerTester->execute(['--quiet-mode' => true]) === 1, 'queue CLI reports encoding errors as failure');
     rename($meta['path'] . '.hold', $meta['path']);
     $state['next_at'] = 0;
     file_put_contents($job, json_encode($state));

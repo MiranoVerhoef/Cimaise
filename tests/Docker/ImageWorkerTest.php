@@ -27,7 +27,8 @@ final class ImageWorkerTest extends TestCase
     protected function tearDown(): void
     {
         if (is_resource($this->process)) {
-            proc_terminate($this->process, SIGKILL);
+            // Signal 9 works without requiring the optional pcntl extension.
+            proc_terminate($this->process, 9);
             proc_close($this->process);
         }
         TestFilesystem::remove($this->root);
