@@ -230,6 +230,11 @@ Because the install state lives in volumes, upgrades are non-destructive. The
 in-app updater is **not** needed (and should not be used) for the Docker image —
 upgrade by pulling a newer tag instead.
 
+On startup, configured installations apply pending database migrations from
+the new image before Apache starts. The schema version is stored in the
+database, so restarting the same image does not reapply them. A failed
+migration stops startup and reports the error in the container log.
+
 ---
 
 ## 7. Building the image yourself

@@ -112,6 +112,7 @@ class GalleriesController extends BaseController
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
             if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])) {
                 // Serve stale, schedule background regeneration could be done here
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $pageTemplateFile, array_merge($staleCached['data'], $seoCtx, [
                     'nsfw_consent' => $nsfwConsent,
                     'is_admin' => $isAdmin,

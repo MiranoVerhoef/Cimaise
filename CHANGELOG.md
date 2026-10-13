@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
+## [Unreleased]
+### Fixed
+- Docker image upgrades apply pending database migrations before Apache starts, using SQL from the new image instead of the persisted database volume. Failed migrations stop startup; successful upgrades keep their schema version in the database.
+- Stale pages are not stored by browsers, and a cache replacement during rendering cannot attach the new ETag to the old body. Expired file caches and disabled page caches no longer supply early 304 validators.
+
 ## [1.4.24] - 2026-10-13
 ### Added
 - **French.** The public site and the admin are available in French, selectable in the installer and under Settings. Thanks to @hypsug0 for the complete language packs.

@@ -585,6 +585,9 @@ class PageController extends BaseController
                 // Schedule regeneration after response is sent
                 $this->scheduleHomeRegeneration();
 
+                // A stale body must not receive the validator of a concurrent
+                // rebuild or remain fresh in the browser for another hour.
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $staleCached['template_file'], array_merge($staleCached['data'], [
                     'page_title' => $seo['page_title'],
                     'meta_description' => $seo['meta_description'],
@@ -1077,6 +1080,7 @@ class PageController extends BaseController
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
             if ($staleCached !== null && isset($staleCached['template_file'], $staleCached['data']) && is_array($staleCached['data'])
                 && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $staleCached['template_file'], array_merge(
                     $staleCached['data'],
                     $this->albumRequestSeo($request, (array) $album, $staleCached['data']),
@@ -2382,6 +2386,7 @@ class PageController extends BaseController
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
             if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
                 && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, 'frontend/category.twig', array_merge(
                     $staleCached['data'],
                     $this->taxonomyRequestSeo($request, (array) $category, 'category'),
@@ -2525,6 +2530,7 @@ class PageController extends BaseController
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
             if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
                 && !$this->claimPageRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, 'frontend/tag.twig', array_merge(
                     $staleCached['data'],
                     $this->taxonomyRequestSeo($request, (array) $tag, 'tag'),

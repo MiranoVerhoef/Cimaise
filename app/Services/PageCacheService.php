@@ -281,7 +281,7 @@ class PageCacheService
      */
     public function getHash(string $type): ?string
     {
-        if ($this->backend !== 'database' || !$this->db instanceof \App\Support\Database) {
+        if (!$this->enabled || $this->backend !== 'database' || !$this->db instanceof \App\Support\Database) {
             return null;
         }
 

@@ -41,6 +41,7 @@ class CacheMiddleware implements MiddlewareInterface
         // resolve the ETag from the page_cache table BEFORE executing the controller.
         // When the client's If-None-Match matches, skip rendering entirely.
         // Only safe for anonymous, non-session-dependent GET/HEAD requests.
+        $etagBeforeRendering = null;
         if (
             $cacheEnabled
             && in_array($method, ['GET', 'HEAD'], true)
@@ -48,9 +49,10 @@ class CacheMiddleware implements MiddlewareInterface
             && !str_starts_with($path, '/admin')
             && !str_starts_with($path, '/api/')
         ) {
+            $etagBeforeRendering = $this->generateHtmlEtag($path, $request->getQueryParams());
             $ifNoneMatch = $request->getHeaderLine('If-None-Match');
             if ($ifNoneMatch !== '') {
-                $earlyEtag = $this->generateHtmlEtag($path, $request->getQueryParams());
+                $earlyEtag = $etagBeforeRendering;
                 if ($earlyEtag !== null && $this->matchesEtag($earlyEtag, $ifNoneMatch)) {
                     // Build a 304 from scratch — no handler invocation, no Twig render.
                     $emptyBody = new \Slim\Psr7\Stream(fopen('php://temp', 'r+'));
@@ -130,7 +132,7 @@ class CacheMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        return $this->addHtmlCache($response, $request, $path);
+        return $this->addHtmlCache($response, $request, $path, $etagBeforeRendering);
     }
 
     private function isStaticAsset(string $path): bool
@@ -222,7 +224,7 @@ class CacheMiddleware implements MiddlewareInterface
             ->withHeader('Pragma', 'no-cache');
     }
 
-    private function addHtmlCache(Response $response, Request $request, string $normalizedPath): Response
+    private function addHtmlCache(Response $response, Request $request, string $normalizedPath, ?string $etagBeforeRendering): Response
     {
         // PW2: a controller may mark an HTML response as not shareable — e.g. the
         // password/NSFW gate pages, which embed a session-bound CSRF token. For a
@@ -245,6 +247,13 @@ class CacheMiddleware implements MiddlewareInterface
 
         // Try to generate ETag from page cache (database or file) if available
         $etag = $this->generateHtmlEtag($normalizedPath, $request->getQueryParams());
+        // A concurrent save/rebuild may replace the cache while Twig renders
+        // the previous snapshot. Never label that body with the new validator.
+        // Stale renders opt out of HTTP caching in their controllers; on a
+        // fresh-cache race, fall back to hashing the body actually returned.
+        if ($isSessionDependent || ($etagBeforeRendering !== null && $etag !== $etagBeforeRendering)) {
+            $etag = null;
+        }
         if (!$etag) {
             // Only hash body for small responses to avoid O(size) CPU/memory overhead
             // For large pages without cache ETags, skip hashing entirely
@@ -371,6 +380,9 @@ class CacheMiddleware implements MiddlewareInterface
         }
 
         // Fall back to file-based ETag
+        if ($this->pageCacheService->isExpired($cacheType)) {
+            return null;
+        }
         $cacheFile = $this->pageCacheService->getCacheFilePath($cacheType);
         if ($cacheFile && file_exists($cacheFile)) {
             $mtime = filemtime($cacheFile);
