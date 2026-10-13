@@ -9,7 +9,13 @@
   {# Hook: frontend_home_hero_before - Before hero section #}
   {{ do_action('frontend_home_hero_before', {base_path: base_path}) }}
 
-  {% include 'frontend/home/_hero.twig' %}
+  {# The hero can be switched off (Pages → Home). The hooks around it keep
+     firing so plugins attached there still render, and the page keeps an h1. #}
+  {% if home_settings.hero_enabled ?? true %}
+    {% include 'frontend/home/_hero.twig' %}
+  {% else %}
+    <h1 class="sr-only">{{ home_settings.hero_title|default(site_title|default('Portfolio'))|e }}</h1>
+  {% endif %}
 
   {# Hook: frontend_home_hero_after - After hero section #}
   {{ do_action('frontend_home_hero_after', {base_path: base_path}) }}

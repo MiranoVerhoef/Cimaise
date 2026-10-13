@@ -1466,6 +1466,8 @@
     "admin.pages.home.hero_desc": "Title and subtitle introducing your portfolio",
     "admin.pages.home.hero_label": "Hero",
     "admin.pages.home.hero_section": "Hero Section",
+    "admin.pages.home.hero_enabled": "Show hero section",
+    "admin.pages.home.hero_enabled_hint": "Classic homepage only. Turn this off to start directly with the gallery.",
     "admin.pages.home.hero_subtitle_placeholder": "A collection of analog and digital photography...",
     "admin.pages.home.hero_title_default": "Portfolio",
     "admin.pages.home.hero_title_placeholder": "Portfolio",

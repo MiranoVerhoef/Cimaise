@@ -1480,6 +1480,8 @@
     "admin.pages.home.hero_desc": "Titolo e sottotitolo che introducono il portfolio",
     "admin.pages.home.hero_label": "Hero",
     "admin.pages.home.hero_section": "Sezione Hero",
+    "admin.pages.home.hero_enabled": "Mostra sezione Hero",
+    "admin.pages.home.hero_enabled_hint": "Solo homepage Classica. Disattiva per iniziare direttamente dalla galleria.",
     "admin.pages.home.hero_subtitle_placeholder": "Una raccolta di fotografia analogica e digitale...",
     "admin.pages.home.hero_title_default": "Portfolio",
     "admin.pages.home.hero_title_placeholder": "Portfolio",
