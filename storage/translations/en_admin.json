@@ -1938,6 +1938,7 @@
     "admin.settings.jxl_desc": "next-gen format; generated only when the server's libvips is built with libjxl. Browser support is still limited, so it is opt-in.",
     "admin.settings.jxl_quality": "JPEG-XL Quality",
     "admin.settings.language_en": "English",
+    "admin.settings.language_fr": "Français",
     "admin.settings.language_it": "Italiano",
     "admin.settings.lazy_loading": "Lazy Loading",
     "admin.settings.lenses": "lenses",

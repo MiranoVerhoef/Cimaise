@@ -73,6 +73,7 @@
                 <label for="site-language" class="form-label">{{ trans('installer.site_language') }}</label>
                 <select id="site-language" class="form-control" name="site_language">
                     <option value="en" {{ site_language|default('en') == 'en' ? 'selected' }}>{{ trans('installer.english') }}</option>
+                    <option value="fr" {{ site_language == 'fr' ? 'selected' }}>{{ trans('installer.french') }}</option>
                     <option value="it" {{ site_language == 'it' ? 'selected' }}>{{ trans('installer.italian') }}</option>
                 </select>
                 <div class="form-text">{{ trans('installer.site_language_help') }}</div>
@@ -83,6 +84,7 @@
                 <label for="admin-language" class="form-label">{{ trans('installer.admin_language') }}</label>
                 <select id="admin-language" class="form-control" name="admin_language">
                     <option value="en" {{ admin_language|default('en') == 'en' ? 'selected' }}>{{ trans('installer.english') }}</option>
+                    <option value="fr" {{ admin_language == 'fr' ? 'selected' }}>{{ trans('installer.french') }}</option>
                     <option value="it" {{ admin_language == 'it' ? 'selected' }}>{{ trans('installer.italian') }}</option>
                 </select>
                 <div class="form-text">{{ trans('installer.admin_language_help') }}</div>
