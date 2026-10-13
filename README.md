@@ -986,7 +986,6 @@ Full-page caching for instant responses:
 - **Tag-based Invalidation** — Smart cache clearing when specific content changes
 - **Lazy Regeneration** — Stale-while-revalidate pattern serves fast responses while refreshing in background
 - **Auto-Warm on Save** — Optional automatic cache refresh after content updates
-- **Post-Login Warmup** — Pre-warms critical caches after admin login
 
 Cached pages include:
 - Home page (all templates)
