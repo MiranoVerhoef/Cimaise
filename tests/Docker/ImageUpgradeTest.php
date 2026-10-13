@@ -149,6 +149,26 @@ PHP);
         $logs = $this->docker(['logs', $this->name])[1];
         self::assertStringContainsString('migrations applied', $logs);
         self::assertStringContainsString('starting image worker', $logs);
+        // The log line is printed even when nothing was applied: the schema
+        // recorded in the database must be the newest one this image ships.
+        $this->docker(['exec', '-i', '-u', 'www-data', $this->name, 'sh', '-c', 'cat > /tmp/schema-check.php'], <<<'PHP'
+<?php
+$image = json_decode((string) file_get_contents('/var/www/html/version.json'), true)['version'];
+$newest = '0';
+foreach (glob('/usr/share/cimaise/migrations/migrate_*_sqlite.sql') ?: [] as $file) {
+    $version = preg_replace('/^migrate_(.+)_sqlite\.sql$/', '$1', basename($file));
+    if (version_compare($version, $image, '<=') && version_compare($version, $newest, '>')) {
+        $newest = $version;
+    }
+}
+$pdo = new PDO('sqlite:/var/www/html/database/database.sqlite');
+$stored = json_decode((string) $pdo->query("SELECT value FROM settings WHERE key = 'docker.schema_version'")->fetchColumn(), true);
+$columns = array_column($pdo->query('PRAGMA table_info(albums)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+echo json_encode(['newest' => $newest, 'stored' => $stored, 'show_equipment' => in_array('show_equipment', $columns, true)]);
+PHP);
+        $schema = json_decode($this->exec('php /tmp/schema-check.php'), true);
+        self::assertSame($schema['newest'], $schema['stored'], 'database schema version after the upgrade');
+        self::assertTrue($schema['show_equipment'], 'albums.show_equipment exists after the upgrade');
         self::assertSame(200, $this->http('/album/suite-album')['status'], 'content created by the older image is still served');
 
         // A real upload, as the admin UI sends it.

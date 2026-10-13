@@ -163,6 +163,11 @@ PHP);
         }
         $deadline = microtime(true) + 10;
         while (microtime(true) < $deadline) {
+            // The port was only reserved for an instant: if something else took
+            // it, php -S exits and the probe below would reach a stranger.
+            if (!proc_get_status($this->server)['running']) {
+                throw new RuntimeException('The sandbox server exited: ' . @file_get_contents($this->root . '/storage/logs/server.out'));
+            }
             $probe = @fsockopen('127.0.0.1', $this->port, $errno, $error, 0.2);
             if ($probe !== false) {
                 fclose($probe);

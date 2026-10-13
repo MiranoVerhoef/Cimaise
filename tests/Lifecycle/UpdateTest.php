@@ -119,6 +119,7 @@ PHP);
         self::assertIsResource($this->github);
         $deadline = microtime(true) + 10;
         do {
+            self::assertTrue(proc_get_status($this->github)['running'], 'fake GitHub API exited (port taken?)');
             $probe = @fsockopen('127.0.0.1', $port, $errno, $error, 0.2);
             usleep(50000);
         } while ($probe === false && microtime(true) < $deadline);
