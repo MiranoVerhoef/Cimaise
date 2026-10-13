@@ -134,6 +134,65 @@ final class CacheRevalidationTest extends TestCase
         self::assertSame('<p>NEW</p>', (string) $next->getBody());
     }
 
+    public function testEntryStoredDuringRenderingDoesNotLabelABodyRenderedWithoutIt(): void
+    {
+        // No valid entry when the request starts; another request stores a
+        // newer one while this body is rendered from older data.
+        $key = PageCacheService::albumPageKey(99999);
+        $middleware = new CacheMiddleware($this->settings, $this->db);
+        $request = (new ServerRequestFactory())->createServerRequest('GET', 'http://review.test/album/review');
+        $response = $middleware->process($request, $this->handler(function () use ($key) {
+            $this->cache->set($key, $this->entry('NEW'));
+            $response = new Response();
+            $response->getBody()->write('<p>OLD</p>');
+            return $response;
+        }));
+        self::assertNotSame('"' . $this->cache->getHash($key) . '"', $response->getHeaderLine('ETag'));
+        self::assertSame('"' . sha1('<p>OLD</p>') . '"', $response->getHeaderLine('ETag'));
+    }
+
+    public function testGalleriesValidatorComesFromTheActiveTemplateEntry(): void
+    {
+        // A non-classic listing template renders from its own entry; a leftover
+        // classic entry must not validate that page.
+        $property = new ReflectionProperty(SettingsService::class, 'cache');
+        $property->setValue(null, ['galleries.template' => 'mosaic'] + $property->getValue());
+        $this->cache->set('galleries', ['data' => ['albums' => ['classic']]]);
+        $classicEtag = '"' . $this->cache->getHash('galleries') . '"';
+        $middleware = new CacheMiddleware($this->settings, $this->db);
+        $request = (new ServerRequestFactory())->createServerRequest('GET', 'http://review.test/galleries')
+            ->withHeader('If-None-Match', $classicEtag);
+        $rendered = false;
+        $response = $middleware->process($request, $this->handler(static function () use (&$rendered) {
+            $rendered = true;
+            $response = new Response();
+            $response->getBody()->write('<p>MOSAIC</p>');
+            return $response;
+        }));
+        self::assertTrue($rendered, 'the classic entry must not answer 304 for another template');
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('galleries_mosaic', PageCacheService::galleriesPageKey('mosaic'));
+        self::assertSame('galleries', PageCacheService::galleriesPageKey('classic'));
+    }
+
+    public function testQueryStringRequestsDoNotBorrowTheListingValidator(): void
+    {
+        // A filtered listing is not rendered from the cached entry.
+        $this->cache->set('galleries', ['data' => ['albums' => ['all']]]);
+        $etag = '"' . $this->cache->getHash('galleries') . '"';
+        $middleware = new CacheMiddleware($this->settings, $this->db);
+        $request = (new ServerRequestFactory())->createServerRequest('GET', 'http://review.test/galleries?category=1')
+            ->withQueryParams(['category' => '1'])
+            ->withHeader('If-None-Match', $etag);
+        $response = $middleware->process($request, $this->handler(static function () {
+            $response = new Response();
+            $response->getBody()->write('<p>FILTERED</p>');
+            return $response;
+        }));
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('"' . sha1('<p>FILTERED</p>') . '"', $response->getHeaderLine('ETag'));
+    }
+
     public function testExpiredFileCacheCannotBypassTheHandlerWith304(): void
     {
         $settings = $this->createMock(SettingsService::class);

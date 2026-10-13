@@ -131,6 +131,9 @@ test.describe.serial('Album edits reach anonymous visitors immediately', () => {
             await saveSettings({ ...orig, gallery_page_template: 'classic' });
             await saveAlbum(page, album.id, { ...form, is_published: 'on', excerpt: 'eca-etag' });
 
+            // The request that rebuilds the page hashes its own body; the
+            // validator of the cached entry is served from the next hit on.
+            await ctx.request.get(`${BASE}/album/${album.slug}`);
             const first = await ctx.request.get(`${BASE}/album/${album.slug}`);
             expect(first.status()).toBe(200);
             const etag = first.headers()['etag'];

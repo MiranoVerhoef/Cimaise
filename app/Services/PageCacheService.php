@@ -197,6 +197,18 @@ class PageCacheService
     }
 
     /**
+     * Cache key of the galleries listing for the admin-selected template.
+     *
+     * The key embeds the template so a template switch can never serve a page
+     * cached for another one. GalleriesController writes it and
+     * CacheMiddleware derives the ETag from it: both must use this method.
+     */
+    public static function galleriesPageKey(string $templateSlug): string
+    {
+        return $templateSlug === 'classic' || $templateSlug === '' ? 'galleries' : 'galleries_' . $templateSlug;
+    }
+
+    /**
      * Resolve the album page cache key from the public slug (null if unknown).
      */
     public function albumPageKeyForSlug(string $slug): ?string

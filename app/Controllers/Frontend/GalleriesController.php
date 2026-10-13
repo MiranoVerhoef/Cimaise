@@ -83,7 +83,7 @@ class GalleriesController extends BaseController
         // Admin-selected listing template; the cache key embeds the slug so a
         // template switch can never serve a page cached for another template.
         [$pageTemplateSlug, $pageTemplateFile] = $this->resolvePageTemplate();
-        $cacheKey = $pageTemplateSlug === 'classic' ? 'galleries' : 'galleries_' . $pageTemplateSlug;
+        $cacheKey = PageCacheService::galleriesPageKey($pageTemplateSlug);
 
         // Cache is only used for unfiltered public view.
         // SECURITY (N1): a visitor who has unlocked a password-protected album

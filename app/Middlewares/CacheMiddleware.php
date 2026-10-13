@@ -251,7 +251,11 @@ class CacheMiddleware implements MiddlewareInterface
         // the previous snapshot. Never label that body with the new validator.
         // Stale renders opt out of HTTP caching in their controllers; on a
         // fresh-cache race, fall back to hashing the body actually returned.
-        if ($isSessionDependent || ($etagBeforeRendering !== null && $etag !== $etagBeforeRendering)) {
+        // The same holds when there was no valid entry before rendering and
+        // one exists now: this request may have built it, or another request
+        // may have stored a newer one while this body was rendered from older
+        // data. The two cases cannot be told apart here, so hash the body.
+        if ($isSessionDependent || $etag !== $etagBeforeRendering) {
             $etag = null;
         }
         if (!$etag) {
@@ -350,11 +354,23 @@ class CacheMiddleware implements MiddlewareInterface
         // Get configurable galleries slug (default: /galleries)
         $galleriesPath = '/' . trim((string) $this->settings->get('galleries.slug', 'galleries'), '/');
 
+        // The validator must describe the entry the page is rendered from. A
+        // query string selects something else (home ?template= preview,
+        // filtered galleries listing, album ?template= variant) that is not
+        // rendered from these entries, so those requests hash the body.
         $cacheType = null;
         if ($path === '/' || $path === '') {
+            if ($query !== []) {
+                return null;
+            }
             $cacheType = 'home';
         } elseif ($path === $galleriesPath || $path === $galleriesPath . '/') {
-            $cacheType = 'galleries';
+            if ($query !== []) {
+                return null;
+            }
+            $cacheType = PageCacheService::galleriesPageKey(
+                (string) ($this->settings->get('galleries.template', 'classic') ?? 'classic')
+            );
         } elseif (preg_match('#^/album/([^/]+)/?$#', $path, $matches)) {
             // The ETag must come from the entry the page is rendered from
             // (PageCacheService::albumPageKey). A ?template=N request renders a
