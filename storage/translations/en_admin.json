@@ -191,6 +191,8 @@
     "admin.albums.short_description": "Short Description",
     "admin.albums.shot_settings": "Shot Settings",
     "admin.albums.show_date": "Show shoot date",
+    "admin.albums.show_equipment": "Show equipment",
+    "admin.albums.show_equipment_help": "Display equipment details on the public album page. Metadata is kept when hidden.",
     "admin.albums.showing_results": "Showing {from} to {to} of {total} results",
     "admin.albums.shutter": "Shutter",
     "admin.albums.slug": "Slug",

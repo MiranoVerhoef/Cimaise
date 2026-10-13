@@ -191,6 +191,8 @@
     "admin.albums.short_description": "Descrizione Breve",
     "admin.albums.shot_settings": "Impostazioni Scatto",
     "admin.albums.show_date": "Mostra data scatto",
+    "admin.albums.show_equipment": "Mostra attrezzatura",
+    "admin.albums.show_equipment_help": "Mostra i dettagli dell'attrezzatura nella pagina pubblica dell'album. I metadati restano salvati quando sono nascosti.",
     "admin.albums.showing_results": "Mostrando da {from} a {to} di {total} risultati",
     "admin.albums.shutter": "Otturatore",
     "admin.albums.slug": "Slug",

@@ -191,6 +191,8 @@
     "admin.albums.short_description": "Brève description",
     "admin.albums.shot_settings": "Paramètres de prise de vue",
     "admin.albums.show_date": "Afficher la date de prise de vue",
+    "admin.albums.show_equipment": "Afficher le matériel",
+    "admin.albums.show_equipment_help": "Affiche le détail du matériel sur la page publique de l’album. Les métadonnées sont conservées lorsqu’il est masqué.",
     "admin.albums.showing_results": "Affichage de {from} à {to} sur {total} résultats",
     "admin.albums.shutter": "Volet",
     "admin.albums.slug": "Slug",

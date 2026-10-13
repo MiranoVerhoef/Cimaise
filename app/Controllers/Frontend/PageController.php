@@ -1532,6 +1532,8 @@ class PageController extends BaseController
             'show_date' => (int) ($album['show_date'] ?? 1),
             'tags' => $tags,
             'equipment' => $equipment,
+            // Missing on a pre-1.4.24 schema: default to visible.
+            'show_equipment' => (int) ($album['show_equipment'] ?? 1) === 1,
             'allow_downloads' => !empty($album['allow_downloads']),
             'cover' => $album['cover'] ?? null,
         ];

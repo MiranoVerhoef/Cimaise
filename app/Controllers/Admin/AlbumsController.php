@@ -306,6 +306,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $password_hash = $passwordRaw !== '' ? password_hash($passwordRaw, PASSWORD_ARGON2ID) : null;
         $cameraIds = array_map(intval(...), (array)($d['cameras'] ?? []));
@@ -389,6 +390,17 @@ class AlbumsController extends BaseController
         }
         try {
             $albumId = (int)$pdo->lastInsertId();
+
+            // Presentation flag only: the equipment metadata itself is always
+            // saved. Written on its own so an install whose schema predates the
+            // column still creates the album (the block then stays visible).
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $albumId]);
+            } catch (\Throwable) {
+                // ignore if column not present
+            }
+
             $cats = array_unique(array_filter(array_map(intval(...), array_merge([$category_id], $categoryIds))));
             if ($cats) {
                 $sql = $this->db->insertIgnoreKeyword() . ' INTO album_category(album_id, category_id) VALUES(:a,:c)';
@@ -773,6 +785,7 @@ class AlbumsController extends BaseController
         $allow_downloads = isset($d['allow_downloads']) ? 1 : 0;
         $is_nsfw = isset($d['is_nsfw']) ? 1 : 0;
         $allow_template_switch = isset($d['allow_template_switch']) ? 1 : 0;
+        $show_equipment = isset($d['show_equipment']) ? 1 : 0;
         $passwordRaw = (string)($d['password'] ?? '');
         $clearPassword = !empty($d['password_clear']);
         $tagIds = array_map(intval(...), (array)($d['tags'] ?? []));
@@ -1014,6 +1027,14 @@ class AlbumsController extends BaseController
                 } catch (\Throwable) {
                     // Custom fields table may not exist yet
                 }
+            }
+
+            // Presentation flag only (see store()); tolerate a pre-column schema.
+            try {
+                $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
+                    ->execute([':se' => $show_equipment, ':id' => $id]);
+            } catch (\Throwable) {
+                // ignore if column not present
             }
 
             $pdo->commit();
