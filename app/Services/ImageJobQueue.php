@@ -269,7 +269,7 @@ class ImageJobQueue
         clearstatcache();
         return array_values(array_filter(
             glob($this->directory . '/*.job') ?: [],
-            static fn (string $path): bool => ctype_digit(basename($path, '.job'))
+            static fn (string $path): bool => ctype_digit(basename($path, '.job')) && !is_link($path)
         ));
     }
 
@@ -286,7 +286,7 @@ class ImageJobQueue
     private function complete(int $imageId): void
     {
         $path = $this->jobPath($imageId);
-        if (is_file($path) && !@unlink($path)) {
+        if (is_file($path) && !UploadService::safeUnlink($path)) {
             throw new RuntimeException('Cannot remove completed image job ' . $imageId);
         }
     }
@@ -297,7 +297,7 @@ class ImageJobQueue
         $attempts = $state['attempts'] + 1;
         $path = $this->jobPath($imageId);
         if ($attempts >= self::MAX_ATTEMPTS) {
-            @unlink($path);
+            UploadService::safeUnlink($path);
             Logger::error('Image queue: giving up on image', [
                 'image_id' => $imageId,
                 'attempts' => $attempts,
@@ -311,7 +311,7 @@ class ImageJobQueue
         $temporary = $path . '.tmp';
         if (@file_put_contents($temporary, json_encode(['attempts' => $attempts, 'next_at' => $nextAt])) === false
             || !@rename($temporary, $path)) {
-            @unlink($temporary);
+            UploadService::safeUnlink($temporary);
         }
         Logger::warning('Image queue: job will be retried', [
             'image_id' => $imageId,

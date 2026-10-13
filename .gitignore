@@ -106,6 +106,7 @@ tests/
 /tests/Support/*
 !/tests/Support/ZipSafetyTest.php
 !/tests/Support/TwigCacheTest.php
+!/tests/Support/TestFilesystem.php
 !/tests/Controllers/
 /tests/Controllers/*
 !/tests/Controllers/AlbumPasswordAccessTest.php

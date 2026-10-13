@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../Support/TestFilesystem.php';
+
 /** Runs the real worker loop against a stubbed `php` and an isolated tree. */
 final class ImageWorkerTest extends TestCase
 {
@@ -28,12 +30,13 @@ final class ImageWorkerTest extends TestCase
             proc_terminate($this->process, SIGKILL);
             proc_close($this->process);
         }
-        exec('rm -rf ' . escapeshellarg($this->root));
+        TestFilesystem::remove($this->root);
     }
 
     private function start(): void
     {
         $env = ['PATH' => $this->root . '/bin:/usr/bin:/bin', 'CIMAISE_IMAGE_WORKER_INTERVAL' => '1'];
+        // nosemgrep: php.lang.security.exec-use.exec-use -- fixed argv (no shell): the worker script under test and this fixture's own temp directory.
         $this->process = proc_open(
             ['/bin/sh', dirname(__DIR__, 2) . '/bin/image-worker.sh', $this->root],
             [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
@@ -89,7 +92,7 @@ final class ImageWorkerTest extends TestCase
         usleep(2500000);
         self::assertSame(0, $this->calls(), 'update in progress');
 
-        unlink($this->root . '/storage/.maintenance');
+        TestFilesystem::remove($this->root . '/storage/.maintenance');
         $this->waitForCalls(1, 5.0);
         self::assertSame(1, $this->calls());
     }

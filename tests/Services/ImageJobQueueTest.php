@@ -6,6 +6,8 @@ use App\Services\ImageJobQueue;
 use App\Support\Database;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../Support/TestFilesystem.php';
+
 final class ImageJobQueueTest extends TestCase
 {
     private string $directory;
@@ -23,12 +25,7 @@ final class ImageJobQueueTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->directory . '/*') ?: [] as $file) {
-            unlink($file);
-        }
-        if (is_dir($this->directory)) {
-            rmdir($this->directory);
-        }
+        TestFilesystem::remove($this->directory);
     }
 
     /** @param (\Closure(int): ?int)|null $processor */

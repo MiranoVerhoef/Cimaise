@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Support\TwigCache;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/TestFilesystem.php';
+
 final class TwigCacheTest extends TestCase
 {
     private string $root;
@@ -18,7 +20,7 @@ final class TwigCacheTest extends TestCase
 
     protected function tearDown(): void
     {
-        exec('rm -rf ' . escapeshellarg($this->root));
+        TestFilesystem::remove($this->root);
     }
 
     public function testEachReleaseCompilesIntoItsOwnDirectoryAndDropsOlderOnes(): void

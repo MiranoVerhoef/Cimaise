@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Services\OriginalImage;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../Support/TestFilesystem.php';
+
 final class OriginalImageTest extends TestCase
 {
     private string $root;
@@ -23,14 +25,7 @@ final class OriginalImageTest extends TestCase
 
     protected function tearDown(): void
     {
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($files as $file) {
-            $file->isLink() || $file->isFile() ? unlink($file->getPathname()) : rmdir($file->getPathname());
-        }
-        rmdir($this->root);
+        TestFilesystem::remove($this->root);
     }
 
     public function testResolvesCurrentAndLegacyLocations(): void
