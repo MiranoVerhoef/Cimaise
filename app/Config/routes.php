@@ -2362,7 +2362,7 @@ return function (App $app, array $container) {
                     $app->post($aboutPath . '/contact', function (Request $request, Response $response) use ($container) {
                         $controller = new \App\Controllers\Frontend\PageController($container['db'], Twig::fromRequest($request));
                         return $controller->aboutContact($request, $response);
-                    })->add(new RateLimitMiddleware(5, 600));
+                    })->add(new RateLimitMiddleware(5, 600, true));
                 }
             }
         }

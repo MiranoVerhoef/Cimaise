@@ -402,6 +402,7 @@ class AlbumsController extends BaseController
             try {
                 $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
                     ->execute([':se' => $show_equipment, ':id' => $albumId]);
+                (new SettingsService($this->db))->set('album.' . $albumId . '.show_equipment', (bool)$show_equipment);
             } catch (\Throwable) {
                 // ignore if column not present
             }
@@ -1038,6 +1039,7 @@ class AlbumsController extends BaseController
             try {
                 $pdo->prepare('UPDATE albums SET show_equipment = :se WHERE id = :id')
                     ->execute([':se' => $show_equipment, ':id' => $id]);
+                (new SettingsService($this->db))->set('album.' . $id . '.show_equipment', (bool)$show_equipment);
             } catch (\Throwable) {
                 // ignore if column not present
             }

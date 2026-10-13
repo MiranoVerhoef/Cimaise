@@ -1,5 +1,7 @@
-## [Unreleased]
+## [1.4.24-test.1] - 2026-10-13
 
+- Update the fork baseline to upstream v1.4.24 while preserving the features verified in test.12.
+- Run retained-volume migrations before Apache starts, preserve legacy equipment preferences, and support prerelease image versions.
 - Generate image variants automatically with durable jobs, retries, SQLite contention handling and coordinated CLI/background processing on Apache and PHP-FPM.
 - Show upload/variant progress, original image details, gallery keyboard navigation, media filters and per-album storage usage.
 - Notify visitors when larger versions of displayed images are ready, without forcing a reload.

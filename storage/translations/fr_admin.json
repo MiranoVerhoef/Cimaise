@@ -2161,6 +2161,7 @@
     "admin.sidebar.updates_sub": "Vérifier les versions",
     "admin.sidebar.analytics_pro_sub": "Statistiques avancées",
     "admin.sidebar.custom_templates_sub": "Modèles personnalisés",
+    "admin.sidebar.custom_templates": "Modèles personnalisés",
     "admin.sidebar.users": "Utilisateurs",
     "admin.sidebar.users_sub": "Comptes et rôles",
     "admin.social.add_profile": "Ajouter un profil",

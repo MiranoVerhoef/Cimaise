@@ -329,8 +329,10 @@
     {% block scripts %}{% endblock %}
 
     {# Block right-click on images for non-admin users #}
-    {% if (disable_right_click ?? true) and not is_admin %}
+    {% if not is_admin and ((disable_right_click ?? true) or not (allow_downloads ?? false)) %}
     <style nonce="{{ csp_nonce() }}">img, picture { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } img { -webkit-user-drag: none; }</style>
+    {% endif %}
+    {% if (disable_right_click ?? true) and not is_admin %}
     <script nonce="{{ csp_nonce() }}">
     document.addEventListener('contextmenu', function(e) {
       const target = e.target;

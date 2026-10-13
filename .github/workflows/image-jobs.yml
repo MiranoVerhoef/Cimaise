@@ -2,7 +2,7 @@ name: Verify image jobs
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'fix/**', 'feat/**']
+    branches: ['main', 'fix/**', 'feat/**', 'release/**']
   pull_request:
     paths: ['app/**', 'plugins/**', 'resources/**', 'public/**', 'docker/**', 'Dockerfile', 'tests/integration/**']
 permissions:
@@ -24,6 +24,22 @@ jobs:
           tags: cimaise:test
           cache-from: type=gha,scope=image-jobs
           cache-to: type=gha,mode=max,scope=image-jobs
+      - name: Verify PHP regressions and real Docker startup migrations
+        run: |
+          curl -fsSL https://phar.phpunit.de/phpunit-10.phar -o /tmp/cimaise-phpunit.phar
+          docker run --rm --entrypoint php -v /tmp/cimaise-phpunit.phar:/tmp/phpunit.phar:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test /tmp/phpunit.phar -c phpunit.xml
+      - name: Verify upgrade from the published fork baseline
+        run: |
+          docker volume create cimaise-baseline-db
+          docker volume create cimaise-baseline-storage
+          docker volume create cimaise-baseline-media
+          docker run --rm --entrypoint php -v cimaise-baseline-db:/var/www/html/database -v cimaise-baseline-storage:/var/www/html/storage -v cimaise-baseline-media:/var/www/html/public/media -v "$PWD/tests/integration:/tests:ro" ghcr.io/miranoverhoef/cimaise:1.4.23-test.12 /tests/seed-baseline-upgrade.php
+          docker run -d --name cimaise-baseline-upgrade -v cimaise-baseline-db:/var/www/html/database -v cimaise-baseline-storage:/var/www/html/storage -v cimaise-baseline-media:/var/www/html/public/media -v "$PWD/tests/integration:/tests:ro" cimaise:test
+          for attempt in $(seq 1 60); do
+            if docker exec cimaise-baseline-upgrade php -r 'exit(is_file("/var/www/html/public/media/" . json_decode(file_get_contents("/var/www/html/storage/tmp/baseline-snapshot.json"), true)["queued_image"] . "_lg.avif") ? 0 : 1);'; then break; fi
+            sleep 2
+          done
+          docker exec -u www-data cimaise-baseline-upgrade php /tests/assert-baseline-upgrade.php
       - name: Verify queue, SQLite contention and CLI failures
         run: |
           docker run --rm --entrypoint php -v "$PWD/tests/integration:/var/www/html/tests/integration:ro" cimaise:test /var/www/html/tests/integration/image-jobs.php
