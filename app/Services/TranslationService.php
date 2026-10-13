@@ -706,6 +706,7 @@ class TranslationService
             ['installer.date_format_iso', 'ISO', 'installer', 'ISO date format option'],
             ['installer.date_format_eu', 'European', 'installer', 'European date format option'],
             ['installer.english', 'English', 'installer', 'English language option'],
+            ['installer.french', 'Français', 'installer', 'French language option'],
             ['installer.italian', 'Italiano', 'installer', 'Italian language option'],
 
             // Settings
@@ -715,6 +716,7 @@ class TranslationService
             ['settings.date_format_help', 'Format used for displaying dates throughout the site', 'settings', 'Date format help text'],
             ['settings.site_language', 'Site Language', 'settings', 'Settings site language label'],
             ['settings.language_en', 'English', 'settings', 'English language option'],
+            ['settings.language_fr', 'Français', 'settings', 'French language option'],
             ['settings.language_it', 'Italiano', 'settings', 'Italian language option'],
             ['settings.site_language_help', 'Language used for frontend UI elements', 'settings', 'Site language help text'],
 

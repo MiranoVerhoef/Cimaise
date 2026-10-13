@@ -310,6 +310,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.frontend_language') }}</label>
             <select name="site_language" class="form-input">
               <option value="en" {{ settings['site.language']|default('en') == 'en' ? 'selected' }}>{{ trans('admin.settings.language_en') }}</option>
+              <option value="fr" {{ settings['site.language'] == 'fr' ? 'selected' }}>{{ trans('admin.settings.language_fr') }}</option>
               <option value="it" {{ settings['site.language'] == 'it' ? 'selected' }}>{{ trans('admin.settings.language_it') }}</option>
             </select>
             <p class="text-xs text-gray-500 mt-1">{{ trans('admin.settings.frontend_language_hint') }}</p>
