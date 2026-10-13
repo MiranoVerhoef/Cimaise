@@ -104,6 +104,7 @@ tests/
 /tests/Views/*
 !/tests/Views/FrontendSettingGatesTest.php
 !/tests/Views/AdminSidebarTranslationsTest.php
+!/tests/Views/HeroPanelThemeTest.php
 !/tests/e2e/
 /tests/e2e/*
 !/tests/e2e/settings-effects.spec.js
