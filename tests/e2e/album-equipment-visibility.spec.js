@@ -94,13 +94,19 @@ test.describe.serial('Album equipment visibility', () => {
 
     test('EQV-03: hiding the block keeps the metadata and the unchecked state', async () => {
         test.skip(!album.id, 'album fixture unavailable');
-        const off = { ...base, custom_cameras: CAMERA, is_published: 'on' };
+        // A camera from the catalogue, so the selection can be read back from
+        // the edit form after the block has been hidden.
+        await page.goto(`${BASE}/admin/albums/${album.id}/edit`, { waitUntil: 'load' });
+        const cameraId = await page.locator('#album-cameras option').first().getAttribute('value').catch(() => null);
+        test.skip(!cameraId, 'no cameras in the catalogue');
+
+        const off = { ...base, 'cameras[]': cameraId, is_published: 'on' };
         delete off.show_equipment;
         await saveAlbum(page, album.id, off);
 
         const saved = await readAlbumForm(page, album.id);
         expect(saved.show_equipment).toBeUndefined();
         await expect(page.locator('input[name="show_equipment"]')).not.toBeChecked();
-        expect(await page.content()).toContain(CAMERA);
+        expect(saved['cameras[]'], 'camera still attached to the album').toBe(cameraId);
     });
 });
