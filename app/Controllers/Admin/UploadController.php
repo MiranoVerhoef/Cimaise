@@ -159,14 +159,7 @@ class UploadController extends BaseController
         }
     }
 
-    /**
-     * Honour the "generate variants in background" setting.
-     *
-     * Background: the job is persisted first, so a killed process or a
-     * restart cannot lose it, then drained after the response on PHP-FPM or by
-     * the image worker elsewhere. Foreground: generated before answering; a
-     * failure falls back to the queue instead of failing the upload.
-     */
+    /** Resume jobs persisted by ingest after the PHP-FPM response is sent. */
     private function scheduleVariantGeneration(int $imageId): void
     {
         (new ImageJobQueue($this->db))->drainAfterResponse();

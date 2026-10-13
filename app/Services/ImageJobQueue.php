@@ -351,6 +351,7 @@ class ImageJobQueue
         }
     }
 
+    /** @return array<int, array<string, mixed>> File-based progress avoids SQLite writes. */
     public function status(): array
     {
         $jobs = [];
@@ -395,6 +396,7 @@ class ImageJobQueue
         return $jobs;
     }
 
+    /** @param array<string, mixed> $changes */
     private function report(int $id, array $changes): void
     {
         $this->ensureDirectory();

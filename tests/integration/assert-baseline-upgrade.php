@@ -13,7 +13,8 @@ $snapshot = json_decode(file_get_contents("$root/storage/tmp/baseline-snapshot.j
 $adaptedSources = [
     'app/Services/UploadService.php', 'app/Services/ImageJobQueue.php',
     'app/Services/OriginalImage.php', 'app/Controllers/Admin/UploadController.php',
-    'resources/admin.js',
+    'resources/admin.js', 'app/Services/AlbumStorageService.php',
+    'app/Controllers/Admin/MediaController.php', 'app/Controllers/Admin/TypographyController.php',
 ];
 foreach ($snapshot['code'] as $file => $hash) {
     if (in_array($file, $adaptedSources, true)) {

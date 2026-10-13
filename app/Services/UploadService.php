@@ -623,7 +623,10 @@ class UploadService
         return $ok;
     }
 
-    /** The worker and admin UI use the same enabled size/format matrix. */
+    /**
+     * The worker and admin UI use the same enabled size/format matrix.
+     * @return array{breakpoints: array<string, mixed>, formats: list<string>}
+     */
     public static function variantConfiguration(SettingsService $settings): array
     {
         $defaults = $settings->defaults();
@@ -649,6 +652,7 @@ class UploadService
             fn () => $this->generateVariantsUnlocked($imageId, $force, $onlyVariant, $onlyFormat, $progress));
     }
 
+    /** @return array{generated: int, failed: int, skipped: int} */
     private function generateVariantsUnlocked(int $imageId, bool $force, ?string $onlyVariant, ?string $onlyFormat, ?callable $progress): array
     {
         clearstatcache();

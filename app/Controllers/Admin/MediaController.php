@@ -26,6 +26,7 @@ class MediaController extends BaseController
 
     private const PER_PAGE = 60;
 
+    /** @param array<string, mixed> $args */
     public function variants(Request $request, Response $response, array $args): Response
     {
         $id = (int)$args['id'];
@@ -75,6 +76,7 @@ class MediaController extends BaseController
     }
 
     /** AuthMiddleware protects previews, including unpublished and protected albums. */
+    /** @param array<string, mixed> $args */
     public function viewVariant(Request $request, Response $response, array $args): Response
     {
         $id = (int)$args['id'];

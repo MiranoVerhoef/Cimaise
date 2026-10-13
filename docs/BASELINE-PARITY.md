@@ -36,7 +36,7 @@ The new baseline includes upstream v1.4.26, including merged PRs #139 and #140. 
 
 CI seeds isolated volumes using the **published test.12 Docker image**, then boots the candidate through its real entrypoint. It verifies every saved setting in the fixture, image identity/metadata, existing original/variant/logo/font bytes, hidden equipment and completion of an existing queued job.
 
-The upgrade check retains exact source hashes for 12 unchanged implementations, including the per-image completion revision, album storage, mobile detection, homepage limit, typography, media/page/font controllers, progress/notification scripts and shared logo/download templates. Five intentionally adapted files (UploadService, ImageJobQueue, OriginalImage, UploadController and admin.js) are verified through their behavior rather than claiming identical source bytes.
+The upgrade check retains exact source hashes for 9 unchanged implementations, including the per-image completion revision, album storage, mobile detection, homepage limit, typography, media/page/font controllers, progress/notification scripts and shared logo/download templates. Five intentionally adapted files (UploadService, ImageJobQueue, OriginalImage, UploadController and admin.js), plus three files with PHPDoc-only type clarifications (album storage and media/font controllers), are verified through their behavior rather than claiming identical source bytes.
 
 ## Upstream 1.4.26 reconciliation
 
