@@ -20,7 +20,7 @@ const MEDIA = path.join(ROOT, 'public', 'media');
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(BASE);
 
 const variants = (imageId) => fs.readdirSync(MEDIA).filter((f) => f.startsWith(`${imageId}_`));
-const jobPending = (imageId) => fs.existsSync(path.join(JOBS, `${imageId}.job`));
+const jobPending = (imageId) => fs.existsSync(JOBS) && fs.readdirSync(JOBS).includes(`${imageId}.job`);
 
 test.describe.serial('Image job queue', () => {
     test.skip(!LOCAL, 'reads the server filesystem');
