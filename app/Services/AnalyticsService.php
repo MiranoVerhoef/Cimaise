@@ -390,19 +390,19 @@ class AnalyticsService
             $parsed['browser_version'] = $matches[1];
         }
 
-        // Platform detection
-        if (stripos($userAgent, 'Windows') !== false) {
+        // Mobile UAs also contain Linux or "like Mac OS X"; match them first.
+        if (stripos($userAgent, 'Android') !== false) {
+            $parsed['platform'] = 'Android';
+            $parsed['device_type'] = stripos($userAgent, 'Mobile') !== false ? 'mobile' : 'tablet';
+        } elseif (stripos($userAgent, 'iOS') !== false || stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') !== false || stripos($userAgent, 'iPod') !== false) {
+            $parsed['platform'] = 'iOS';
+            $parsed['device_type'] = stripos($userAgent, 'iPad') !== false ? 'tablet' : 'mobile';
+        } elseif (stripos($userAgent, 'Windows') !== false) {
             $parsed['platform'] = 'Windows';
         } elseif (stripos($userAgent, 'Mac') !== false) {
             $parsed['platform'] = 'macOS';
         } elseif (stripos($userAgent, 'Linux') !== false) {
             $parsed['platform'] = 'Linux';
-        } elseif (stripos($userAgent, 'Android') !== false) {
-            $parsed['platform'] = 'Android';
-            $parsed['device_type'] = 'mobile';
-        } elseif (stripos($userAgent, 'iOS') !== false || stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') !== false) {
-            $parsed['platform'] = 'iOS';
-            $parsed['device_type'] = stripos($userAgent, 'iPad') !== false ? 'tablet' : 'mobile';
         }
 
         return $parsed;

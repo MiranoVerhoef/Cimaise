@@ -20,6 +20,15 @@ use Slim\Views\Twig;
 
 class AlbumsController extends BaseController
 {
+    private function fallbackCategory(): int
+    {
+        $this->db->execute($this->db->insertIgnoreKeyword() . " INTO categories(name, slug) VALUES('None', 'none')");
+        $stmt = $this->db->pdo()->prepare("SELECT id FROM categories WHERE slug = 'none'");
+        $stmt->execute();
+        $id = (int)$stmt->fetchColumn();
+        $stmt->closeCursor();
+        return $id;
+    }
     private ?CustomFieldService $customFieldService = null;
     private ?PageCacheService $pageCacheService = null;
 
@@ -180,6 +189,12 @@ class AlbumsController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll();
+        $stmt->closeCursor();
+        $storageUsage = (new \App\Services\AlbumStorageService($pdo))->usage(array_column($rows, 'id'));
+        foreach ($rows as &$row) {
+            $row['storage'] = $storageUsage[(int)$row['id']];
+        }
+        unset($row);
 
         $pages = (int)ceil(($total) / $perPage);
         $pagination = [
@@ -278,8 +293,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;
@@ -531,7 +547,7 @@ class AlbumsController extends BaseController
             $item['custom_template_id'] ?? null
         );
 
-        $cats = $pdo->query('SELECT id, name FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
+        $cats = $pdo->query('SELECT id, name, slug FROM categories ORDER BY COALESCE(parent_id, 0), sort_order, name')->fetchAll();
         $tags = $pdo->query('SELECT id, name FROM tags ORDER BY name')->fetchAll();
 
         // Load templates if table exists (core + custom)
@@ -757,8 +773,9 @@ class AlbumsController extends BaseController
         $d = (array)$request->getParsedBody();
         $title = trim((string)($d['title'] ?? ''));
         $slug = trim((string)($d['slug'] ?? ''));
-        $categoryIds = array_map(intval(...), (array)($d['categories'] ?? []));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array)($d['categories'] ?? [])), static fn ($id) => $id > 0));
         $category_id = (int)($d['category_id'] ?? ($categoryIds[0] ?? 0));
+        if ($category_id <= 0) { $category_id = $this->fallbackCategory(); }
         $excerpt = trim(strip_tags((string)($d['excerpt'] ?? ''))) ?: null;
         $bodyRaw = trim((string)($d['body'] ?? '')) ?: null;
         $body = $bodyRaw ? \App\Support\Sanitizer::html($bodyRaw) : null;

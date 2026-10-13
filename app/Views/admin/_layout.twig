@@ -23,6 +23,10 @@
   <style nonce="{{ csp_nonce() }}">
     body, .font-sans { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important; }
     :root { --z-modal: 100000; }
+    #image-job-progress progress { appearance: none; height: 6px; border: 0; border-radius: 3px; background: #e5e7eb; }
+    #image-job-progress progress::-webkit-progress-bar { background: #e5e7eb; border-radius: 3px; }
+    #image-job-progress progress::-webkit-progress-value { background: var(--color-accent); border-radius: 3px; }
+    #image-job-progress progress::-moz-progress-bar { background: var(--color-accent); border-radius: 3px; }
   </style>
   <script nonce="{{ csp_nonce() }}">
     window.basePath = '{{ base_path|e('js') }}';
@@ -605,7 +609,7 @@
               <i class="fas fa-language"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.texts') }}</span><span class="nav-sub">{{ trans('admin.sidebar.texts_sub') }}</span></span>
             </a>
             {# Hook: admin_sidebar_navigation - Add custom navigation items #}
-            {{ do_action('admin_sidebar_navigation', {base_path: base_path}) }}
+            {{ do_action('admin_sidebar_navigation', {base_path: base_path, translations: admin_translations|default({})}) }}
           </div>
         </div>
 
@@ -699,6 +703,11 @@
     <!-- Main Content -->
     <div class="flex-1 lg:flex-1 min-w-0 overflow-x-hidden">
       <main class="p-4 lg:p-8 max-w-full" id="main-content">
+        <div id="image-job-progress" hidden class="card mb-4 p-4" role="status" aria-live="polite">
+          <div data-job-text class="text-sm mb-2"></div>
+          <progress class="w-full" max="100" value="0" aria-label="{{ trans('admin.image_jobs.label', {}, 'Image generation progress') }}"></progress>
+        </div>
+        <script src="{{ base_path }}/assets/image-job-progress.js?v={{ app_version|e('html_attr') }}" defer nonce="{{ csp_nonce() }}"></script>
         <div id="loading-indicator" class="hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
           <div class="bg-white p-4 rounded-lg shadow-lg">
             <i class="fas fa-spinner fa-spin mr-2"></i>{{ trans('admin.common.loading') }}

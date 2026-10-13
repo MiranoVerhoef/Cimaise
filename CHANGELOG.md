@@ -1,3 +1,14 @@
+## [Unreleased]
+
+- Generate image variants automatically with durable jobs, retries, SQLite contention handling and coordinated CLI/background processing on Apache and PHP-FPM.
+- Show upload/variant progress, original image details, gallery keyboard navigation, media filters and per-album storage usage.
+- Notify visitors when larger versions of displayed images are ready, without forcing a reload.
+- Preserve original upload bytes and improve original-download handling across admin, gallery and offline-worker controls.
+- Add independent Classic hero title/text controls, a per-album homepage photo limit, an uncategorized fallback and local font uploads.
+- Add dark-theme logos, a configurable About navigation name and working custom About/contact routes.
+- Correct category dropdown hover timing, maintenance logo/login controls and stale maintenance-page handling.
+- Enable Apache Brotli compression, fix mobile analytics detection and prevent duplicate Analytics Pro registration with translated labels.
+
 # Changelog
 
 All notable changes to Cimaise are documented in this file.
