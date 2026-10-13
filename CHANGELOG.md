@@ -5,7 +5,13 @@ All notable changes to Cimaise are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The release workflow extracts the `## [VERSION]` section below into the GitHub
+The release workflow extracts the `## [Unreleased]
+
+- Generate all configured image variants automatically through durable jobs on Apache and PHP-FPM, without requiring external cron.
+- Retry failed/interrupted jobs and coordinate HTTP, worker and CLI processing through image locks and safe SQLite write retries.
+- Honor synchronous/asynchronous generation settings and return nonzero CLI exit codes when generation fails.
+
+## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
 ## [1.4.24] - 2026-10-13
