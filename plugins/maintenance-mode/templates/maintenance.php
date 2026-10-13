@@ -25,11 +25,24 @@ $siteLogo = $config['site_logo'] ?? null;
 $showLogo = $config['show_logo'] ?? true;
 $showCountdown = $config['show_countdown'] ?? true;
 $basePath ??= '';
+// Uploaded logos are stored with their /media/ prefix; bare filenames are legacy.
+$logoUrl = null;
+if (is_string($siteLogo) && $siteLogo !== '') {
+    if (preg_match('#^https?://#i', $siteLogo)) {
+        $logoUrl = $siteLogo;
+    } else {
+        $logoUrl = $basePath . (str_starts_with($siteLogo, '/') ? $siteLogo : '/media/' . $siteLogo);
+    }
+}
+$showAdminLogin = $config['show_admin_login'] ?? true;
 $nonce = bin2hex(random_bytes(16));
 
 // Set response headers
 http_response_code(503);
 header('Retry-After: 3600');
+// A cached maintenance page would outlive the maintenance itself.
+header('Cache-Control: no-store, max-age=0');
+header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow');
 header('Content-Type: text/html; charset=UTF-8');
 ?>
@@ -239,8 +252,8 @@ header('Content-Type: text/html; charset=UTF-8');
     <div class="container">
         <!-- Logo or Site Name -->
         <div class="logo">
-            <?php if ($showLogo && $siteLogo): ?>
-                <img src="<?= $basePath ?>/media/<?= htmlspecialchars($siteLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
+            <?php if ($showLogo && $logoUrl !== null): ?>
+                <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
             <?php endif; ?>
         </div>
 
@@ -271,7 +284,9 @@ header('Content-Type: text/html; charset=UTF-8');
         <?php endif; ?>
 
         <!-- Admin Login Link -->
+        <?php if ($showAdminLogin): ?>
         <a href="<?= $basePath ?>/admin/login" class="login-link"><?= htmlspecialchars($config['admin_login_text'] ?? 'Admin Login', ENT_QUOTES, 'UTF-8') ?></a>
+        <?php endif; ?>
     </div>
 
     <footer class="footer">

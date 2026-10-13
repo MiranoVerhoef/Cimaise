@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Middlewares;
 
+use App\Services\ImageJobQueue;
 use App\Support\CookieHelper;
 use App\Support\Database;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -110,7 +111,30 @@ class AuthMiddleware implements MiddlewareInterface
             $_SESSION[self::CACHE_KEY] = $now;
         }
 
+        $this->resumeImageJobs();
+
         return $handler->handle($request);
+    }
+
+    /**
+     * Uploads leave their variant jobs in a durable queue. On PHP-FPM a later
+     * request of a verified admin finishes whatever an upload could not within
+     * its time budget, once this response has been sent. Deliberately placed
+     * after authentication: an anonymous request must never start that work.
+     */
+    private function resumeImageJobs(): void
+    {
+        if (!function_exists('fastcgi_finish_request')) {
+            return;
+        }
+        try {
+            $queue = new ImageJobQueue($this->db);
+            if ($queue->hasJobs()) {
+                $queue->drainAfterResponse();
+            }
+        } catch (\Throwable) {
+            // Never let the queue break an admin page.
+        }
     }
 
     /**

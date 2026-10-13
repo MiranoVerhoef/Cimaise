@@ -43,6 +43,7 @@ storage/originals/*
 storage/protected-media/*
 !storage/protected-media/.gitkeep
 !storage/protected-media/.htaccess
+storage/image-jobs/
 storage/tmp/*
 !storage/tmp/.gitkeep
 storage/cache/*
@@ -87,6 +88,9 @@ tests/
 !/tests/Services/BaseUrlServiceTest.php
 !/tests/Services/SettingsServiceBooleanTest.php
 !/tests/Services/ContainerMigrationServiceTest.php
+!/tests/Services/AnalyticsDeviceDetectionTest.php
+!/tests/Services/OriginalImageTest.php
+!/tests/Services/ImageJobQueueTest.php
 !/tests/Middlewares/
 /tests/Middlewares/*
 !/tests/Middlewares/TrustedProxyMiddlewareTest.php
@@ -97,9 +101,12 @@ tests/
 !/tests/Docker/
 /tests/Docker/*
 !/tests/Docker/EntrypointMigrationsTest.php
+!/tests/Docker/ImageWorkerTest.php
 !/tests/Support/
 /tests/Support/*
 !/tests/Support/ZipSafetyTest.php
+!/tests/Support/TwigCacheTest.php
+!/tests/Support/TestFilesystem.php
 !/tests/Controllers/
 /tests/Controllers/*
 !/tests/Controllers/AlbumPasswordAccessTest.php
@@ -110,6 +117,7 @@ tests/
 !/tests/Views/FrontendSettingGatesTest.php
 !/tests/Views/AdminSidebarTranslationsTest.php
 !/tests/Views/HeroPanelThemeTest.php
+!/tests/Views/MaintenancePageTest.php
 !/tests/e2e/
 /tests/e2e/*
 !/tests/e2e/settings-effects.spec.js
@@ -117,6 +125,7 @@ tests/
 !/tests/e2e/home-hero-toggle.spec.js
 !/tests/e2e/album-equipment-visibility.spec.js
 !/tests/e2e/album-edit-cache.spec.js
+!/tests/e2e/image-queue.spec.js
 
 # Cache
 .cache/

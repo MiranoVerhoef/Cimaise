@@ -8,7 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
-## [1.4.25] - 2026-10-13
+## [Unreleased]
+### Added
+- **Uploads are processed from a durable queue.** The responsive variants, the LQIP placeholder and the blurred preview of an uploaded image are generated from a queue stored on disk, so a restart or a killed process no longer loses them, and a failed image is retried with an increasing delay. On PHP-FPM the queue is processed after the upload response, as before. The Docker image, which could not do that, now runs a small worker next to Apache that starts PHP only while jobs are queued: until now its variants were only produced when a visitor first requested each one. Other setups can add `php bin/console images:work` to cron. Based on the queue @MiranoVerhoef built in his fork.
+- **"Generate variants in background" is honoured.** The setting was saved but never read. Switched off, an upload now generates everything before it answers.
+- **Maintenance page: the admin login link can be hidden** (Settings → Maintenance).
+
+### Fixed
+- **Phones and tablets are no longer counted as desktops in Analytics.** Android was reported as Linux and iPhone/iPad as macOS. Thanks to @MiranoVerhoef.
+- **The logo on the maintenance page.** An uploaded logo was requested from a doubled `/media/` path and never appeared. The maintenance page is also sent as non-cacheable, so it cannot outlive the maintenance. Thanks to @MiranoVerhoef.
+- **Compression status under Settings → Performance** reported Brotli and gzip as missing when Apache itself provides them (`mod_brotli`, `mod_deflate`). Thanks to @MiranoVerhoef.
+- **Analytics Pro follows the admin language.** Its dashboard labels were fixed Italian strings. Thanks to @MiranoVerhoef.
+- **Original downloads on older installs.** Originals stored under the legacy `media/originals` location could not be downloaded. Downloads are also never served from the offline cache, so a permission change applies at once. Thanks to @MiranoVerhoef.
+- **Pages rendered with the previous release's templates.** After files were replaced without the updater (manual upload, restored backup), templates compiled by the older version kept being used. Compiled templates are now kept per release and the older ones removed.
+
 ### Fixed
 - **Docker: upgrading the image now upgrades the database.** Pulling a newer image kept the old database without applying its migrations, so on an install upgraded from 1.4.23 the new "Show equipment" switch could not be saved. Pending migrations now run at container start, before Apache accepts requests, using the SQL shipped in the new image. A failed migration stops the start with the error in the container log; restarting the same image does nothing; going back to an image with the same schema is allowed, and only a real schema downgrade is refused.
 - **Browsers no longer keep an outdated page under a new validator.** When a page was being rebuilt while another visitor requested it, the old content could be sent with the new page's ETag and then be confirmed as current. Outdated copies are now sent as non-cacheable, and a validator is never attached to content it does not describe.

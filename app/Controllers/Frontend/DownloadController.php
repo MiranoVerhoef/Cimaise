@@ -59,41 +59,13 @@ class DownloadController extends BaseController
             return $response->withStatus(403);
         }
 
-        $root = dirname(__DIR__, 3);
-        $originalPath = (string)$row['original_path'];
-
-        // SECURITY: Comprehensive path traversal prevention
-        // Remove all potential traversal sequences
-        $originalPath = str_replace(['../', '..\\', '/../', '\\..\\', '../', '..\\'], '', $originalPath);
-        $originalPath = preg_replace('/\.{2,}/', '.', $originalPath); // Remove multiple dots
-        $originalPath = ltrim((string) $originalPath, '/');
-
-        // Ensure path is properly normalized and starts with expected directory
-        if (!str_starts_with($originalPath, 'storage/')) {
-            $originalPath = 'storage/' . ltrim($originalPath, '/');
-        }
-
-        // Additional safety: ensure no traversal characters remain
-        if (str_contains($originalPath, '..') || str_contains($originalPath, '\\')) {
-            return $response->withStatus(403);
-        }
-
-        $fsPath = $root . '/' . $originalPath;
-        $realPath = realpath($fsPath);
-        $storageRoot = realpath($root . '/storage/');
-
-        // SECURITY: Multi-layer validation
-        // 1. Verify resolved path exists and is within storage directory
-        if (!$realPath || !$storageRoot || !str_starts_with($realPath, $storageRoot . DIRECTORY_SEPARATOR)) {
-            return $response->withStatus(403);
-        }
-
-        // 2. Verify it's actually a file (not directory or other)
-        if (!is_file($realPath)) {
+        // Confined to the originals directories, wherever the stored path points.
+        $realPath = \App\Services\OriginalImage::resolve((string)$row['original_path']);
+        if ($realPath === null) {
             return $response->withStatus(404);
         }
 
-        // 3. Additional check: ensure it's an image file by MIME type validation
+        // Ensure it's an image file by MIME type validation
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $detectedMime = finfo_file($finfo, $realPath);
         finfo_close($finfo);

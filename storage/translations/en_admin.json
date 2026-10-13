@@ -1277,6 +1277,8 @@
     "admin.maintenance.show_animation_hint": "Show a subtle loading animation to indicate work in progress",
     "admin.maintenance.show_logo": "Show Site Logo",
     "admin.maintenance.show_logo_hint": "Display your site logo on the maintenance page",
+    "admin.maintenance.show_admin_login": "Show Admin Login Link",
+    "admin.maintenance.show_admin_login_hint": "Display the admin login link on the maintenance page",
     "admin.maintenance.title": "Maintenance Mode",
     "admin.media.add": "Add",
     "admin.media.add_to_album": "— Add to album —",
@@ -2624,6 +2626,14 @@
     "admin.sidebar.cache_sub": "Performance and cleanup",
     "admin.sidebar.updates_sub": "Check versions",
     "admin.sidebar.analytics_pro_sub": "Advanced statistics",
+    "admin.analytics_pro.active_users": "Active users (5 min)",
+    "admin.analytics_pro.avg_duration": "Average session duration (s)",
+    "admin.analytics_pro.description": "Real-time statistics from collected events.",
+    "admin.analytics_pro.events_today": "Events today",
+    "admin.analytics_pro.full_report": "View full report",
+    "admin.analytics_pro.no_events": "No events recorded yet.",
+    "admin.analytics_pro.pageviews_today": "Pageviews today",
+    "admin.analytics_pro.top_events": "Top engagement events",
     "admin.sidebar.custom_templates_sub": "Custom templates"
   }
 }
