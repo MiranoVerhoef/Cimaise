@@ -1,3 +1,12 @@
+## [1.4.26-test.1] - 2026-10-13
+
+- Adopt upstream 1.4.26 while retaining the fork's existing features and upgrade compatibility.
+- Batch affected-album cache refreshes, avoid starting PHP while the Docker queue is idle, and resume PHP-FPM jobs only after authenticated admin responses.
+- Retain automatic retries, SQLite contention handling, per-image locks, upload/variant progress and the enhanced-image reload notice.
+- Preserve maintenance settings when the plugin is disabled and clean compiled templates from older releases.
+- Polish login branding and logo contrast; move searchable chip filters into the Media Library toolbar beside Add to album.
+- Verify protected-image processing, original downloads, migrations, retained media/settings, Apache, PHP-FPM and restricted PHP-FPM.
+
 ## [1.4.24-test.2] - 2026-10-13
 
 - Preserve all tracked test.12 features on the v1.4.24 fork baseline, with retained-volume and browser verification.
