@@ -28,6 +28,12 @@ jobs:
         run: |
           curl -fsSL https://phar.phpunit.de/phpunit-10.phar -o /tmp/cimaise-phpunit.phar
           docker run --rm --entrypoint php -v /tmp/cimaise-phpunit.phar:/tmp/phpunit.phar:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test /tmp/phpunit.phar -c phpunit.xml
+      - name: Verify complete prerelease package
+        run: |
+          docker create --name package-source cimaise:test
+          mkdir -p /tmp/cimaise-package-source
+          docker cp package-source:/var/www/html/. /tmp/cimaise-package-source/
+          docker run --rm --entrypoint bash -v /tmp/cimaise-package-source:/var/www/html cimaise:test -c 'apt-get update -qq && apt-get install -y --no-install-recommends jq rsync zip unzip >/dev/null && bash bin/build-release.sh --skip-build'
       - name: Verify upgrade from the published fork baseline
         run: |
           docker volume create cimaise-baseline-db
