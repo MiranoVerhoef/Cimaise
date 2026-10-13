@@ -16,8 +16,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * CLI command for pre-generating page caches.
  *
- * Generates JSON caches for home, galleries, and album pages to improve
- * load times for visitors.
+ * Generates JSON caches for the home and galleries pages to improve load
+ * times for visitors. Album pages are cached on their first visit.
  *
  * Recommended cron setup (every 6 hours or after content updates):
  *   0 0,6,12,18 * * * cd /path/to/cimaise && php bin/console cache:warm --quiet-mode
@@ -39,24 +39,26 @@ class CacheWarmCommand extends Command
              ->addOption('clear', 'c', InputOption::VALUE_NONE, 'Clear all caches before warming')
              ->addOption('home', null, InputOption::VALUE_NONE, 'Only warm home page cache')
              ->addOption('galleries', null, InputOption::VALUE_NONE, 'Only warm galleries page cache')
-             ->addOption('albums', null, InputOption::VALUE_NONE, 'Only warm album caches')
+             ->addOption('albums', null, InputOption::VALUE_NONE, 'Accepted for compatibility: album pages are cached on their first visit, not pre-built')
              ->addOption('quiet-mode', null, InputOption::VALUE_NONE, 'Suppress all output (for cron)')
              ->setHelp(
                  <<<'HELP'
-The <info>cache:warm</info> command pre-generates JSON caches for all public pages:
+The <info>cache:warm</info> command pre-generates JSON caches for the listing pages:
 
   <info>php bin/console cache:warm</info>
 
 This command caches:
   - Home page (with all images and srcsets)
   - Galleries listing page
-  - Individual album pages (excluding NSFW and password-protected)
+
+Album pages are not pre-built: each public album is cached on its first
+anonymous visit and rebuilt automatically after an edit.
 
 Options:
   <info>--clear, -c</info>      Clear existing caches before warming
   <info>--home</info>           Only warm home page cache
   <info>--galleries</info>      Only warm galleries page cache
-  <info>--albums</info>         Only warm individual album caches
+  <info>--albums</info>         Accepted for compatibility (album pages need no pre-build)
 
 For cron usage, add the --quiet-mode flag:
 
@@ -104,7 +106,6 @@ HELP
             $stats = [
                 'home' => false,
                 'galleries' => false,
-                'albums' => 0,
                 'errors' => [],
             ];
 
@@ -146,22 +147,10 @@ HELP
                 }
             }
 
-            // Warm album pages
-            if ($warmAll || $onlyAlbums) {
-                if (!$quiet) {
-                    $output->writeln('Building album caches...');
-                }
-                try {
-                    $stats['albums'] = $cacheService->buildAlbumCaches();
-                    if (!$quiet) {
-                        $output->writeln("  <info>{$stats['albums']} albums cached</info>");
-                    }
-                } catch (\Throwable $e) {
-                    $stats['errors'][] = 'Albums: ' . $e->getMessage();
-                    if (!$quiet) {
-                        $output->writeln('  <error>FAIL: ' . $e->getMessage() . '</error>');
-                    }
-                }
+            // Album pages cannot be built faithfully outside the request that
+            // renders them, so they are cached on their first anonymous visit.
+            if (($warmAll || $onlyAlbums) && !$quiet) {
+                $output->writeln('<comment>Album pages: cached on first visit (nothing to pre-build).</comment>');
             }
 
             // Summary
@@ -170,7 +159,7 @@ HELP
                 $output->writeln('<info>Cache warming complete!</info>');
                 $output->writeln('');
 
-                $totalCached = ($stats['home'] ? 1 : 0) + ($stats['galleries'] ? 1 : 0) + $stats['albums'];
+                $totalCached = ($stats['home'] ? 1 : 0) + ($stats['galleries'] ? 1 : 0);
                 $output->writeln("Summary: {$totalCached} pages cached");
 
                 if (!empty($stats['errors'])) {

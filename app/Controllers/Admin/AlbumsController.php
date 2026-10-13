@@ -37,13 +37,14 @@ class AlbumsController extends BaseController
      * Invalidate page caches when album content changes.
      * Called after album create/update/delete to ensure fresh data.
      * Uses tag-based invalidation for efficient bulk cache clearing.
-     * If auto_warm is enabled, regenerates cache immediately after invalidation.
+     * Home and galleries are then re-warmed (synchronously with auto_warm,
+     * otherwise after the response). The album page itself is keyed by id and
+     * rebuilt on its next anonymous visit, so a rename needs no extra handling.
      *
      * @param string|null $albumSlug Current album slug to invalidate
-     * @param string|null $oldAlbumSlug Previous slug (for rename cases) to also invalidate
      * @param int|null $albumId Album ID for tag-based invalidation
      */
-    private function invalidatePageCaches(?string $albumSlug = null, ?string $oldAlbumSlug = null, ?int $albumId = null, bool $warmAlbum = true): void
+    private function invalidatePageCaches(?string $albumSlug = null, ?int $albumId = null): void
     {
         try {
             $settings = new SettingsService($this->db);
@@ -89,11 +90,6 @@ class AlbumsController extends BaseController
                 $this->pageCacheService->invalidateAlbum($albumSlug);
             }
 
-            // Invalidate old slug cache when album is renamed (prevents orphaned cache)
-            if ($oldAlbumSlug !== null && $oldAlbumSlug !== $albumSlug) {
-                $this->pageCacheService->invalidate("album:{$oldAlbumSlug}");
-            }
-
             // Drop the galleries filter-options cache — same file used by
             // GalleriesController::getFilterOptions() (storage/cache/filter_options.cache)
             @unlink(dirname(__DIR__, 3) . '/storage/cache/filter_options.cache');
@@ -108,15 +104,8 @@ class AlbumsController extends BaseController
                 $warmService = new CacheWarmService($this->db);
                 $warmService->warmHome();
                 $warmService->warmGalleries();
-                if ($warmAlbum && $albumSlug !== null) {
-                    $warmService->warmAlbum($albumSlug);
-                }
             } else {
-                $targets = ['home', 'galleries'];
-                if ($warmAlbum && $albumSlug !== null) {
-                    $targets[] = 'album:' . $albumSlug;
-                }
-                CacheWarmService::scheduleWarm($this->db, $targets);
+                CacheWarmService::scheduleWarm($this->db, ['home', 'galleries']);
             }
         } catch (\Throwable) {
             // Cache invalidation/warming failure should not break admin operations
@@ -489,7 +478,7 @@ class AlbumsController extends BaseController
             $pdo->commit();
 
             // Invalidate page caches
-            $this->invalidatePageCaches($slug, null, $albumId);
+            $this->invalidatePageCaches($slug, $albumId);
 
             // A new album (possibly created already-published) may change what
             // the sitemap lists — refresh it.
@@ -732,7 +721,7 @@ class AlbumsController extends BaseController
         $params[':album'] = $albumId;
         $sql = 'UPDATE images SET ' . implode(', ', $setParts) . ' WHERE id = :id AND album_id = :album';
         $pdo->prepare($sql)->execute($params);
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
 
         $accept = $request->getHeaderLine('Accept');
         if (str_contains($accept, 'application/json')) {
@@ -761,7 +750,6 @@ class AlbumsController extends BaseController
         $oldAlbum = $pdo->prepare('SELECT slug, is_nsfw, password_hash, published_at FROM albums WHERE id = ?');
         $oldAlbum->execute([$id]);
         $oldAlbumData = $oldAlbum->fetch(\PDO::FETCH_ASSOC) ?: [];
-        $oldAlbumSlug = $oldAlbumData['slug'] ?? null;
         $oldNsfw = (int)($oldAlbumData['is_nsfw'] ?? 0);
         $oldHasPassword = !empty($oldAlbumData['password_hash']);
         $wasProtected = $oldNsfw === 1 || $oldHasPassword;
@@ -1068,7 +1056,7 @@ class AlbumsController extends BaseController
             }
 
             // Invalidate page caches (pass old slug if renamed to prevent orphaned cache)
-            $this->invalidatePageCaches($slug, $oldAlbumSlug, $id);
+            $this->invalidatePageCaches($slug, $id);
 
             // Publish state / slug / content may have changed — refresh the sitemap.
             $this->regenerateSitemap();
@@ -1127,7 +1115,7 @@ class AlbumsController extends BaseController
         $stmt = $pdo->prepare('DELETE FROM albums WHERE id=:id');
         try {
             // Invalidate before DELETE so category pivot data is still readable
-            $this->invalidatePageCaches($albumSlug, null, $id, false);
+            $this->invalidatePageCaches($albumSlug, $id);
 
             $stmt->execute([':id' => $id]);
 
@@ -1196,7 +1184,7 @@ class AlbumsController extends BaseController
         $stmt->execute([':id' => $id]);
 
         // Invalidate page caches
-        $this->invalidatePageCaches($albumSlug, null, $id);
+        $this->invalidatePageCaches($albumSlug, $id);
 
         // The album just became publicly listable — refresh the sitemap.
         $this->regenerateSitemap();
@@ -1227,7 +1215,7 @@ class AlbumsController extends BaseController
         $stmt->execute([':id' => $id]);
 
         // Invalidate page caches (no warm — album is unpublished)
-        $this->invalidatePageCaches($albumSlug, null, $id, false);
+        $this->invalidatePageCaches($albumSlug, $id);
 
         // The album is no longer public — drop it from the sitemap.
         $this->regenerateSitemap();
@@ -1259,7 +1247,7 @@ class AlbumsController extends BaseController
         }
         $stmt = $this->db->pdo()->prepare('UPDATE albums SET cover_image_id=:img WHERE id=:id');
         $stmt->execute([':img' => $imageId, ':id' => $albumId]);
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         $accept = $request->getHeaderLine('Accept');
         if (str_contains($accept, 'application/json')) {
             $response->getBody()->write(json_encode(['ok' => true]));
@@ -1288,7 +1276,7 @@ class AlbumsController extends BaseController
                 $stmt->execute([':s' => $sort++, ':id' => (int)$imageId, ':a' => $albumId]);
             }
             $pdo->commit();
-            $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+            $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
             $payload = json_encode(['ok' => true]);
             $response->getBody()->write($payload);
             return $response->withHeader('Content-Type', 'application/json');
@@ -1385,7 +1373,7 @@ class AlbumsController extends BaseController
                 }
             }
             $pdo->commit();
-            $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+            $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
             $response->getBody()->write(json_encode(['ok' => true]));
             return $response->withHeader('Content-Type', 'application/json');
         } catch (\Throwable $e) {
@@ -1426,7 +1414,7 @@ class AlbumsController extends BaseController
             $pdo->rollBack();
             return $response->withStatus(500);
         }
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
         // try unlink files (best-effort). Originals can be shared (sha1 dedup /
@@ -1485,7 +1473,7 @@ class AlbumsController extends BaseController
             $pdo->rollBack();
             return $response->withStatus(500);
         }
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
         $protectedStorage = new \App\Services\ProtectedMediaStorage($this->db);
@@ -1613,7 +1601,7 @@ class AlbumsController extends BaseController
         }
 
         // Invalidate page caches — new image added to album
-        $this->invalidatePageCaches($this->getAlbumSlug($albumId), null, $albumId);
+        $this->invalidatePageCaches($this->getAlbumSlug($albumId), $albumId);
         // Image set changed — refresh the image sitemap.
         $this->regenerateSitemap();
 

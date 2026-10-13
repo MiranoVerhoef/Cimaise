@@ -1054,10 +1054,7 @@ class PageController extends BaseController
 
         // Try cache first for public albums
         if ($canUseCache) {
-            $cacheKey = 'album_' . (int) $album['id'];
-            if ($templateIdFromUrl > 0) {
-                $cacheKey .= '_t' . $templateIdFromUrl;
-            }
+            $cacheKey = PageCacheService::albumPageKey((int) $album['id'], $templateIdFromUrl);
             $cacheService = $this->getPageCacheService();
             $cached = $cacheService->get($cacheKey);
 
@@ -1800,10 +1797,7 @@ class PageController extends BaseController
 
         // Save to cache for future public requests
         if ($canUseCache) {
-            $cacheKey = 'album_' . (int) $album['id'];
-            if ($templateIdFromUrl > 0) {
-                $cacheKey .= '_t' . $templateIdFromUrl;
-            }
+            $cacheKey = PageCacheService::albumPageKey((int) $album['id'], $templateIdFromUrl);
             $this->getPageCacheService()->setWithTags($cacheKey, [
                 'template_file' => $twigTemplate,
                 'data' => $cacheableData,

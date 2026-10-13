@@ -50,7 +50,7 @@ class CacheMiddleware implements MiddlewareInterface
         ) {
             $ifNoneMatch = $request->getHeaderLine('If-None-Match');
             if ($ifNoneMatch !== '') {
-                $earlyEtag = $this->generateHtmlEtag($path);
+                $earlyEtag = $this->generateHtmlEtag($path, $request->getQueryParams());
                 if ($earlyEtag !== null && $this->matchesEtag($earlyEtag, $ifNoneMatch)) {
                     // Build a 304 from scratch — no handler invocation, no Twig render.
                     $emptyBody = new \Slim\Psr7\Stream(fopen('php://temp', 'r+'));
@@ -244,7 +244,7 @@ class CacheMiddleware implements MiddlewareInterface
         $visibility = $isSessionDependent ? 'private' : 'public';
 
         // Try to generate ETag from page cache (database or file) if available
-        $etag = $this->generateHtmlEtag($normalizedPath);
+        $etag = $this->generateHtmlEtag($normalizedPath, $request->getQueryParams());
         if (!$etag) {
             // Only hash body for small responses to avoid O(size) CPU/memory overhead
             // For large pages without cache ETags, skip hashing entirely
@@ -327,8 +327,10 @@ class CacheMiddleware implements MiddlewareInterface
 
     /**
      * Generate ETag for HTML pages based on cache (database or file).
+     *
+     * @param array<string, mixed> $query Query parameters of the request
      */
-    private function generateHtmlEtag(string $path): ?string
+    private function generateHtmlEtag(string $path, array $query = []): ?string
     {
         if (!$this->pageCacheService) {
             return null;
@@ -345,7 +347,13 @@ class CacheMiddleware implements MiddlewareInterface
         } elseif ($path === $galleriesPath || $path === $galleriesPath . '/') {
             $cacheType = 'galleries';
         } elseif (preg_match('#^/album/([^/]+)/?$#', $path, $matches)) {
-            $cacheType = 'album:' . $matches[1];
+            // The ETag must come from the entry the page is rendered from
+            // (PageCacheService::albumPageKey). A ?template=N request renders a
+            // different variant, so it falls back to hashing the body.
+            if (isset($query['template'])) {
+                return null;
+            }
+            $cacheType = $this->pageCacheService->albumPageKeyForSlug(rawurldecode($matches[1]));
         }
 
         if (!$cacheType) {
@@ -413,7 +421,8 @@ class CacheMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Normalize an ETag by stripping W/ prefix and surrounding quotes.
+     * Normalize an ETag by stripping W/ prefix, surrounding quotes and the
+     * content-coding suffix a compressing web server may have appended.
      */
     private function normalizeEtag(string $etag): string
     {
@@ -425,7 +434,11 @@ class CacheMiddleware implements MiddlewareInterface
         // Strip surrounding quotes
         $etag = trim($etag, '"');
 
-        return $etag;
+        // Apache appends the content coding to the validator when it compresses
+        // the response (mod_deflate / mod_brotli, DeflateAlterETag AddSuffix):
+        // the browser then sends back "<etag>-gzip" or "<etag>-br". Compare the
+        // validator itself, or a compressed page could never revalidate to 304.
+        return preg_replace('/-(gzip|br|zstd|deflate)$/', '', $etag) ?? $etag;
     }
 
     private function addNoCacheHeaders(Response $response): Response

@@ -107,14 +107,13 @@ class CacheWarmService
     /**
      * Warm all caches.
      *
-     * @return array Stats: ['home' => bool, 'galleries' => bool, 'albums' => int, 'errors' => array]
+     * @return array Stats: ['home' => bool, 'galleries' => bool, 'errors' => array]
      */
     public function warmAll(): array
     {
         $stats = [
             'home' => false,
             'galleries' => false,
-            'albums' => 0,
             'errors' => [],
         ];
 
@@ -138,13 +137,10 @@ class CacheWarmService
             Logger::warning("Cache warm failed for galleries: " . $e->getMessage());
         }
 
-        // Warm individual album caches
-        try {
-            $stats['albums'] = $this->buildAlbumCaches();
-        } catch (\Throwable $e) {
-            $stats['errors'][] = 'Albums: ' . $e->getMessage();
-            Logger::warning("Cache warm failed for albums: " . $e->getMessage());
-        }
+        // Album pages are not pre-built: their data depends on the request
+        // that renders them (plugins, per-album templates), so each one is
+        // cached on its first anonymous visit and rebuilt single-flight after
+        // an invalidation (PageController::claimPageRegeneration()).
 
         return $stats;
     }
@@ -414,159 +410,6 @@ class CacheWarmService
             'template_file' => 'frontend/galleries.twig',
             'data' => $cacheableData,
         ]);
-    }
-
-    /**
-     * Build and cache individual album pages.
-     *
-     * @return int Number of albums cached
-     */
-    public function buildAlbumCaches(): int
-    {
-        $pdo = $this->db->pdo();
-        $cached = 0;
-
-        // Get all published albums (public view = exclude NSFW and password-protected)
-        $stmt = $pdo->prepare("
-            SELECT slug
-            FROM albums
-            WHERE is_published = 1
-            AND is_nsfw = 0
-            AND (password_hash IS NULL OR password_hash = '')
-            ORDER BY published_at DESC
-        ");
-        $stmt->execute();
-        $slugs = $stmt->fetchAll(\PDO::FETCH_COLUMN);
-
-        foreach ($slugs as $slug) {
-            try {
-                if ($this->buildAlbumCache($slug)) {
-                    $cached++;
-                }
-            } catch (\Throwable $e) {
-                Logger::warning("Cache warm failed for album {$slug}: " . $e->getMessage());
-            }
-        }
-
-        return $cached;
-    }
-
-    /**
-     * Build and cache a single album page.
-     */
-    public function buildAlbumCache(string $slug): bool
-    {
-        $pdo = $this->db->pdo();
-
-        // Get album data
-        $stmt = $pdo->prepare("
-            SELECT
-                a.*,
-                c.name as category_name,
-                c.slug as category_slug,
-                t.name as template_name,
-                t.slug as template_slug,
-                t.settings as template_settings
-            FROM albums a
-            JOIN categories c ON c.id = a.category_id
-            LEFT JOIN templates t ON t.id = a.template_id
-            WHERE a.slug = ? AND a.is_published = 1 AND a.is_nsfw = 0
-            AND (a.password_hash IS NULL OR a.password_hash = '')
-        ");
-        $stmt->execute([$slug]);
-        $album = $stmt->fetch();
-
-        if (!$album) {
-            return false;
-        }
-
-        // Get album images (fetch raw columns, concatenate in PHP for MySQL/SQLite compatibility)
-        $imgStmt = $pdo->prepare("
-            SELECT i.*,
-                   cam.make as camera_make,
-                   cam.model as camera_model,
-                   l.brand as lens_brand,
-                   l.model as lens_model,
-                   f.brand as film_brand,
-                   f.name as film_name,
-                   dev.name as developer_name,
-                   lab.name as lab_name,
-                   loc.name as location_name
-            FROM images i
-            LEFT JOIN cameras cam ON cam.id = i.camera_id
-            LEFT JOIN lenses l ON l.id = i.lens_id
-            LEFT JOIN films f ON f.id = i.film_id
-            LEFT JOIN developers dev ON dev.id = i.developer_id
-            LEFT JOIN labs lab ON lab.id = i.lab_id
-            LEFT JOIN locations loc ON loc.id = i.location_id
-            WHERE i.album_id = ?
-            ORDER BY i.sort_order ASC, i.id ASC
-        ");
-        $imgStmt->execute([$album['id']]);
-        $images = $imgStmt->fetchAll();
-
-        // Build equipment names in PHP for MySQL/SQLite compatibility
-        foreach ($images as &$img) {
-            $img['camera_name'] = trim(($img['camera_make'] ?? '') . ' ' . ($img['camera_model'] ?? ''));
-            $img['lens_name'] = trim(($img['lens_brand'] ?? '') . ' ' . ($img['lens_model'] ?? ''));
-            $img['film_name'] = trim(($img['film_brand'] ?? '') . ' ' . ($img['film_name'] ?? ''));
-        }
-        unset($img);
-
-        // Process images with responsive sources
-        $images = $this->processImageSourcesBatch($images);
-
-        // Get album tags
-        $tagStmt = $pdo->prepare('
-            SELECT t.id, t.name, t.slug
-            FROM tags t
-            JOIN album_tag at ON at.tag_id = t.id
-            WHERE at.album_id = ?
-            ORDER BY t.name ASC
-        ');
-        $tagStmt->execute([$album['id']]);
-        $tags = $tagStmt->fetchAll();
-
-        // Parse template settings
-        $templateSettings = [];
-        if (!empty($album['template_settings'])) {
-            $templateSettings = json_decode((string) $album['template_settings'], true) ?: [];
-        }
-
-        // Build cacheable data
-        $cacheableData = [
-            'album' => $album,
-            'images' => $images,
-            'tags' => $tags,
-            'template_settings' => $templateSettings,
-        ];
-
-        // Determine page template (hero, magazine, or classic)
-        $pageTemplate = (string) ($album['album_page_template'] ?? '');
-        if ($pageTemplate === '') {
-            $pageTemplate = (string) ($this->settings->get('gallery.page_template', 'classic') ?? 'classic');
-        }
-        if (!in_array($pageTemplate, ['classic', 'hero', 'magazine'], true)) {
-            $pageTemplate = 'classic';
-        }
-        $templateFile = match ($pageTemplate) {
-            'hero' => 'frontend/gallery_hero.twig',
-            'magazine' => 'frontend/gallery_magazine.twig',
-            default => 'frontend/gallery.twig',
-        };
-
-        return $this->pageCacheService->set("album:{$slug}", [
-            'template_file' => $templateFile,
-            'data' => $cacheableData,
-        ]);
-    }
-
-    /**
-     * Warm a single album cache (wrapper for admin auto-warm).
-     */
-    public function warmAlbum(string $slug): bool
-    {
-        return $this->buildAlbumCache($slug);
     }
 
     /**
@@ -1299,7 +1142,7 @@ class CacheWarmService
      * frontend lazy regeneration, so concurrent warms stay single-flight.
      *
      * @param Database $db      Database handle (captured for the shutdown fn)
-     * @param string[] $targets Any of 'home', 'galleries', 'album:{slug}'
+     * @param string[] $targets Any of 'home', 'galleries'
      */
     public static function scheduleWarm(Database $db, array $targets): void
     {
@@ -1340,8 +1183,6 @@ class CacheWarmService
                         $svc->warmHome();
                     } elseif ($target === 'galleries') {
                         $svc->warmGalleries();
-                    } elseif (str_starts_with($target, 'album:')) {
-                        $svc->warmAlbum(substr($target, 6));
                     }
                 } catch (\Throwable $e) {
                     Logger::warning('Post-save cache warm failed', ['target' => $target, 'error' => $e->getMessage()]);
