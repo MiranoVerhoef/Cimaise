@@ -216,8 +216,8 @@ class ImageJobQueue
         $this->report($imageId, ['state' => 'processing', 'completed' => 0, 'total' => 0, 'current' => '', 'next_at' => 0]);
         $settings = new SettingsService($this->db);
         $uploads = new UploadService($this->db);
-        $stats = $uploads->generateVariantsForImage($imageId, progress: function (int $completed, int $total, string $current) use ($imageId, $row): void {
-            $steps = (!empty($row['is_nsfw']) || !empty($row['password_hash'])) ? 2 : 1;
+        $stats = $uploads->generateVariantsForImage($imageId, progress: function (int $completed, int $total, string $current) use ($imageId): void {
+            $steps = 1;
             $this->report($imageId, ['state' => 'processing', 'next_at' => 0, 'completed' => $completed, 'total' => $total + $steps, 'current' => $current]);
         });
 
@@ -230,16 +230,15 @@ class ImageJobQueue
             throw new RuntimeException(sprintf('%d of %d variants generated', $produced, $expected));
         }
 
-        if ($uploads->generateLQIP($imageId) === null) {
+        $protected = !empty($row['is_nsfw']) || !empty($row['password_hash']);
+        // Public albums get an LQIP; protected albums deliberately omit it
+        // and use a private blurred preview instead.
+        $placeholder = $protected ? $uploads->generateBlurredVariant($imageId) : $uploads->generateLQIP($imageId);
+        if ($placeholder === null) {
             throw new RuntimeException('Image placeholder generation failed');
         }
-        if (!empty($row['is_nsfw']) || !empty($row['password_hash'])) {
-            if ($uploads->generateBlurredVariant($imageId) === null) {
-                throw new RuntimeException('Protected image placeholder generation failed');
-            }
-        }
 
-        $steps = (!empty($row['is_nsfw']) || !empty($row['password_hash'])) ? 2 : 1;
+        $steps = 1;
         $this->report($imageId, ['state' => 'complete', 'completed' => $expected + $steps, 'total' => $expected + $steps, 'current' => '']);
         return (int) $row['album_id'];
     }

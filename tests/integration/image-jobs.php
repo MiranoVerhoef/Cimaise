@@ -108,6 +108,11 @@ try {
     check($upload->generateVariantsForImage($id, true)['failed'] === 0, 'protected image generation succeeds');
     check(is_file($root . '/storage/protected-media/' . $id . '_lg.jpg'), 'protected variants remain outside public media');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'protected variants have no public copy');
+    $queue->enqueue($id);
+    check($queue->drain()['failed'] === 0 && !is_file($job), 'protected queued job completes without a public LQIP');
+    $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
+    check($progress['state'] === 'complete' && $progress['total'] === 10, 'protected progress counts variants and its private blurred preview');
+
     $controller = new \App\Controllers\Admin\MediaController($db, \Slim\Views\Twig::create($root . '/app/Views'), new \App\Services\ExifService($db));
     $request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/admin/media/images/' . $id . '/variants');
     $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);
