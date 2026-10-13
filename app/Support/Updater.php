@@ -2178,7 +2178,7 @@ class Updater
      * Run database migrations between versions
      * @return array{success: bool, executed: array<string>, error: string|null}
      */
-    public function runMigrations(string $fromVersion, string $toVersion): array
+    public function runMigrations(string $fromVersion, string $toVersion, ?string $migrationsPath = null): array
     {
         $executed = [];
 
@@ -2188,7 +2188,7 @@ class Updater
         ]);
 
         try {
-            $migrationsPath = $this->rootPath . '/database/migrations';
+            $migrationsPath ??= $this->rootPath . '/database/migrations';
 
             if (!is_dir($migrationsPath)) {
                 $this->debugLog('WARNING', 'Migrations directory not found', ['path' => $migrationsPath]);
@@ -2267,6 +2267,14 @@ class Updater
                                                 $isIgnorable = true;
                                                 break;
                                             }
+                                        }
+                                        // A fresh Docker database already has the
+                                        // schema's indexes but no migration history.
+                                        // MySQL has no CREATE INDEX IF NOT EXISTS.
+                                        if (!$isIgnorable
+                                            && preg_match('/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $statement)
+                                            && preg_match('/duplicate key name/i', $msg)) {
+                                            $isIgnorable = true;
                                         }
                                         // CREATE/DROP TRIGGER: tolerate ONLY idempotency
                                         // collisions (a trigger SearchIndexer also

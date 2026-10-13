@@ -126,6 +126,9 @@ COPY --from=assets   --chown=www-data:www-data /app/public/assets ./public/asset
 # them — the UI would render raw translation keys).
 COPY --chown=www-data:www-data storage/translations/ /usr/share/cimaise/translations/
 
+# database/ is persisted too: its migration files belong to the old image.
+COPY --chown=www-data:www-data database/migrations/ /usr/share/cimaise/migrations/
+
 # Entrypoint prepares the writable runtime tree (volumes) and starts Apache.
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/cimaise-entrypoint
 RUN chown -R www-data:www-data /var/www/html

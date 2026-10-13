@@ -140,7 +140,7 @@ class CacheWarmService
         // Album pages are not pre-built: their data depends on the request
         // that renders them (plugins, per-album templates), so each one is
         // cached on its first anonymous visit and rebuilt single-flight after
-        // an invalidation (PageController::claimPageRegeneration()).
+        // an invalidation (PageCacheService::claimRegeneration()).
 
         return $stats;
     }

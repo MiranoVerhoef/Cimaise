@@ -124,6 +124,18 @@ chown -h "$WEB_USER":"$WEB_USER" "$ENV_LINK" 2>/dev/null || true
 
 if [ -f "$ENV_STORE" ]; then
   echo "[cimaise] .env present — application already configured."
+  echo "[cimaise] applying pending database migrations…"
+  # Use the image's SQL, not the old files hidden under the database volume.
+  # Run as the web user so SQLite sidecars remain writable by Apache. set -e
+  # prevents starting an incompatible application if a migration fails.
+  su -s /bin/sh -c "php '$APP_DIR/docker/migrate.php' /usr/share/cimaise/migrations" "$WEB_USER"
+  # The volume also holds page data and cached settings from the previous
+  # image. Discard them before accepting requests with the new code.
+  for cache_dir in "$APP_DIR/storage/cache/pages" "$APP_DIR/storage/tmp/query_cache"; do
+    if [ -d "$cache_dir" ]; then
+      find "$cache_dir" -type f -delete
+    fi
+  done
 else
   # First-boot banner: everything a user needs to reach the installer. When
   # CIMAISE_DB_* is set (compose does this) the installer form comes already

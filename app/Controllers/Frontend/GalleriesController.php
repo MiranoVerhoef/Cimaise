@@ -83,7 +83,7 @@ class GalleriesController extends BaseController
         // Admin-selected listing template; the cache key embeds the slug so a
         // template switch can never serve a page cached for another template.
         [$pageTemplateSlug, $pageTemplateFile] = $this->resolvePageTemplate();
-        $cacheKey = $pageTemplateSlug === 'classic' ? 'galleries' : 'galleries_' . $pageTemplateSlug;
+        $cacheKey = PageCacheService::galleriesPageKey($pageTemplateSlug);
 
         // Cache is only used for unfiltered public view.
         // SECURITY (N1): a visitor who has unlocked a password-protected album
@@ -108,10 +108,14 @@ class GalleriesController extends BaseController
                 ]));
             }
 
-            // Lazy regeneration: try stale cache
+            // Stale-while-revalidate: serve the stale copy only while another
+            // request holds the regeneration lock; otherwise rebuild below. The
+            // warmer cannot do it for us: it skips this page when gated albums
+            // exist and never builds the non-classic template keys.
             $staleCached = $cacheService->get($cacheKey, allowStale: true);
-            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])) {
-                // Serve stale, schedule background regeneration could be done here
+            if ($staleCached !== null && isset($staleCached['data']) && is_array($staleCached['data'])
+                && !$cacheService->claimRegeneration($cacheKey)) {
+                $response = $response->withHeader('Cache-Control', 'no-store');
                 return $this->view->render($response, $pageTemplateFile, array_merge($staleCached['data'], $seoCtx, [
                     'nsfw_consent' => $nsfwConsent,
                     'is_admin' => $isAdmin,
