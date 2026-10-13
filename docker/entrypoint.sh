@@ -17,6 +17,7 @@ WEB_USER="www-data"
 WRITABLE_DIRS="
   storage/cache
   storage/logs
+  storage/image-jobs
   storage/originals
   storage/image-jobs
   storage/fonts
@@ -163,9 +164,14 @@ else
   echo "[cimaise] ────────────────────────────────────────────────────────────"
 fi
 
-echo "[cimaise] starting Apache…"
-if [ "${1:-}" = "apache2-foreground" ]; then
-  # A separate, unprivileged worker retries durable jobs even without traffic.
-  /bin/sh "$APP_DIR/bin/image-worker.sh" &
+# ── image worker ────────────────────────────────────────────────────────────
+# mod_php cannot continue after the response, so uploaded images get their
+# variants from a background worker. It runs as the web user and only starts
+# PHP while jobs are queued. Skipped when the container runs another command.
+if [ "${1:-}" = "apache2-foreground" ] && [ "${CIMAISE_IMAGE_WORKER:-1}" != "0" ]; then
+  echo "[cimaise] starting image worker…"
+  su -s /bin/sh -c "exec /bin/sh '$APP_DIR/bin/image-worker.sh' '$APP_DIR'" "$WEB_USER" &
 fi
+
+echo "[cimaise] starting Apache…"
 exec "$@"

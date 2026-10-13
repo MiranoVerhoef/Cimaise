@@ -12,6 +12,22 @@
  */
 @config "../tailwind.admin.config.js";
 
+.media-toolbar { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: .5rem; }
+.media-filter-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1.5rem; padding: 1.25rem 1rem; border-top: 1px solid var(--color-border); }
+.media-filter-panel[hidden], .media-filter-chip[hidden] { display: none; }
+.media-filter-group { min-width: 0; }
+.media-filter-label { display: block; margin-bottom: .75rem; font-size: .75rem; font-weight: 600; color: var(--color-text-primary); }
+.media-filter-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.media-album-chips { max-height: 10rem; overflow-y: auto; padding: 2px; }
+.media-filter-chip { position: relative; cursor: pointer; max-width: 100%; }
+.media-filter-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.media-filter-chip span { display: block; padding: .5rem .75rem; border: 1px solid var(--color-border); border-radius: .5rem; font-size: .75rem; color: var(--color-text-primary); background: var(--color-bg-secondary); overflow-wrap: anywhere; }
+.media-filter-chip:hover span { background: var(--color-bg-tertiary); }
+.media-filter-chip input:checked + span { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-contrast); }
+.media-filter-chip input:focus-visible + span { outline: 2px solid var(--color-sage); outline-offset: 2px; }
+.media-filter-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; }
+#media-filter-toggle[aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
+
 /* ───────────────────────────────────────────────────────────────────────
  * Admin palette — "Mindful Moments" (forest green + sage + amber on cream).
  * Admin-only: this file loads AFTER app.css, so these override the shared

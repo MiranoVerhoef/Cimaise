@@ -299,8 +299,17 @@ const assert = require('node:assert/strict');
   assert.equal((await context.request.get(`/admin/media/images/${uploadData.id}/original`)).status(), 200);
   console.log('PASS: albums without a selected category use the None fallback');
   await page.goto('/admin/media?album=1&format=jpeg&generation=generated&q=preserved');
-  assert.equal(await page.locator('#media-filters [name="album"]').inputValue(), '1');
-  assert.equal(await page.locator('#media-filters [name="format"]').inputValue(), 'jpeg');
+  assert.equal(await page.locator('#media-filters [name="album"]:checked').inputValue(), '1');
+  assert.equal(await page.locator('#media-filters [name="format"]:checked').inputValue(), 'jpeg');
+  assert.equal(await page.locator('#media-filter-panel').isVisible(), true);
+  await page.locator('#media-filter-toggle').click();
+  assert.equal(await page.locator('#media-filter-panel').isVisible(), false);
+  await page.locator('#media-filter-toggle').click();
+  await page.locator('#media-album-search').fill('no-matching-album');
+  assert.equal(await page.locator('[data-album-title]:visible').count(), 0);
+  await page.locator('#media-album-search').fill('');
+  assert.ok(await page.locator('[data-album-title]:visible').count() > 0);
+
   assert.equal(await page.locator('[data-media-id]').count(), 0); // Search remains combined with every filter.
   await page.goto('/admin/media?album=1&format=jpeg&generation=generated');
   assert.ok(await page.locator('[data-media-id]').count() > 0);

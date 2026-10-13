@@ -12,7 +12,11 @@ final class AlbumStorageService
     {
     }
 
-    /** Count existing media files once per album, including shared originals. */
+    /**
+     * Count existing media files once per album, including shared originals.
+     * @param int[] $albumIds
+     * @return array<int, array{original_bytes: int, variant_bytes: int, total_bytes: int}>
+     */
     public function usage(array $albumIds): array
     {
         $albumIds = array_values(array_unique(array_map('intval', $albumIds)));

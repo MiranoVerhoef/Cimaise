@@ -6,6 +6,8 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.media.filters": "Filtri",
+    "admin.media.search_albums": "Cerca album",
     "admin.media.original_image": "Immagine originale",
     "admin.media.filter_album": "Album",
     "admin.media.all_albums": "Tutti gli album",
@@ -1335,8 +1337,8 @@
     "admin.maintenance.show_animation_hint": "Mostra un'animazione di caricamento per indicare lavori in corso",
     "admin.maintenance.show_logo": "Mostra Logo del Sito",
     "admin.maintenance.show_logo_hint": "Visualizza il logo del sito nella pagina di manutenzione",
-    "admin.maintenance.show_admin_login": "Mostra accesso amministratore",
-    "admin.maintenance.show_admin_login_hint": "Visualizza il link di accesso amministratore nella pagina di manutenzione",
+    "admin.maintenance.show_admin_login": "Mostra Link di Accesso Admin",
+    "admin.maintenance.show_admin_login_hint": "Visualizza il link di accesso all'amministrazione nella pagina di manutenzione",
     "admin.maintenance.title": "Modalità Manutenzione",
     "admin.media.add": "Aggiungi",
     "admin.media.add_to_album": "— Aggiungi ad album —",
@@ -1385,7 +1387,6 @@
     "admin.media.location": "Località",
     "admin.media.no_media": "Nessun file media",
     "admin.media.no_media_hint": "Carica immagini tramite gli album per popolare la libreria media",
-    "admin.media.original": "Originale",
     "admin.media.photo_metadata": "Metadati Foto",
     "admin.media.regenerate_variants": "Rigenera Varianti",
     "admin.media.save": "Salva",
@@ -2450,7 +2451,6 @@
     "admin.typography.context.navigation": "Navigazione",
     "admin.typography.description": "Personalizza i font del tuo portfolio",
     "admin.typography.font_family": "Famiglia Font",
-    "admin.typography.font_weight": "Peso Font",
     "admin.typography.gdpr_note": "Tutti i font sono serviti localmente per conformità GDPR",
     "admin.typography.live_update": "Aggiornamento in tempo reale",
     "admin.typography.preview": "Anteprima Live",
@@ -2700,8 +2700,6 @@
     "admin.sidebar.commands_sub": "Operazioni CLI",
     "admin.sidebar.diagnostics_sub": "Stato del sistema",
     "admin.sidebar.cache_sub": "Prestazioni e pulizia",
-    "admin.sidebar.updates_sub": "Verifica versioni",
-    "admin.sidebar.analytics_pro_sub": "Statistiche avanzate",
-    "admin.sidebar.custom_templates_sub": "Layout personalizzati"
+    "admin.sidebar.updates_sub": "Verifica versioni"
   }
 }

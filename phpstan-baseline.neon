@@ -2300,11 +2300,6 @@ parameters:
 			count: 1
 			path: app/Services/UploadService.php
 
-		-
-			message: '#^Method App\\Services\\UploadService\:\:generateVariantsForImage\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/UploadService.php
 
 		-
 			message: '#^Method App\\Services\\UploadService\:\:ingestAlbumUpload\(\) has parameter \$file with no value type specified in iterable type array\.$#'
@@ -2332,12 +2327,6 @@ parameters:
 
 		-
 			message: '#^Method App\\Services\\VariantMaintenanceService\:\:generateMissingVariants\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VariantMaintenanceService.php
-
-		-
-			message: '#^Method App\\Services\\VariantMaintenanceService\:\:resolveEnabledFormatsAndVariants\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Services/VariantMaintenanceService.php

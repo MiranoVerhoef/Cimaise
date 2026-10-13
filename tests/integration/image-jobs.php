@@ -10,6 +10,7 @@ use App\Services\SettingsService;
 use App\Services\UploadService;
 use App\Support\Database;
 use App\Support\ImageProcessingLock;
+use App\Tasks\ImagesWorkCommand;
 use App\Tasks\ImagesGenerateCommand;
 use App\Tasks\ImagesGenerateVariantsCommand;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -55,7 +56,7 @@ try {
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'asynchronous upload defers larger variants');
     check(array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0]['state'] === 'queued', 'queued progress is visible before processing');
     $previousRevision = \App\Services\ImageGenerationRevision::current();
-    check($queue->drain() === 0, 'queued image generates without errors');
+    check($queue->drain()['failed'] === 0, 'queued image generates without errors');
     check(\App\Services\ImageGenerationRevision::current() !== $previousRevision, 'completed generation advances the public opaque revision');
     check(!is_file($job), 'successful job is removed');
     $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
@@ -78,7 +79,7 @@ try {
     $queue->enqueue($id);
     rename($meta['path'], $meta['path'] . '.hold');
     $previousRevision = \App\Services\ImageGenerationRevision::current();
-    check($queue->drain() === 1 && is_file($job), 'failed job remains queued');
+    check($queue->drain()['failed'] === 1 && is_file($job), 'failed job remains queued');
     check(\App\Services\ImageGenerationRevision::current() === $previousRevision, 'failed generation does not announce enhanced versions');
     $state = json_decode(file_get_contents($job), true);
     check($state['attempts'] === 1 && $state['next_at'] > time(), 'failed job receives retry backoff');
@@ -88,10 +89,14 @@ try {
         $tester = new CommandTester($command);
         check($tester->execute(['--image' => $id]) === 1, 'CLI generation reports failure for missing original');
     }
+    $state['next_at'] = 0;
+    file_put_contents($job, json_encode($state));
+    $workerTester = new CommandTester(new ImagesWorkCommand($db));
+    check($workerTester->execute(['--quiet-mode' => true]) === 1, 'queue CLI reports encoding errors as failure');
     rename($meta['path'] . '.hold', $meta['path']);
     $state['next_at'] = 0;
     file_put_contents($job, json_encode($state));
-    check((new ImageJobQueue($db))->drain() === 0 && !is_file($job), 'a new worker resumes a failed/interrupted job');
+    check((new ImageJobQueue($db))->drain()['failed'] === 0 && !is_file($job), 'a new worker resumes a failed/interrupted job');
 
     $settings->set('image.variants_async', false);
     copy($meta['path'], $directory . '/sync.jpg');
@@ -103,6 +108,11 @@ try {
     check($upload->generateVariantsForImage($id, true)['failed'] === 0, 'protected image generation succeeds');
     check(is_file($root . '/storage/protected-media/' . $id . '_lg.jpg'), 'protected variants remain outside public media');
     check(!is_file($root . '/public/media/' . $id . '_lg.jpg'), 'protected variants have no public copy');
+    $queue->enqueue($id);
+    check($queue->drain()['failed'] === 0 && !is_file($job), 'protected queued job completes without a public LQIP');
+    $progress = array_values(array_filter($queue->status(), fn ($job) => $job['id'] === $id))[0];
+    check($progress['state'] === 'complete' && $progress['total'] === 10, 'protected progress counts variants and its private blurred preview');
+
     $controller = new \App\Controllers\Admin\MediaController($db, \Slim\Views\Twig::create($root . '/app/Views'), new \App\Services\ExifService($db));
     $request = (new \Slim\Psr7\Factory\ServerRequestFactory())->createServerRequest('GET', '/admin/media/images/' . $id . '/variants');
     $response = $controller->variants($request, new \Slim\Psr7\Response(), ['id' => $id]);

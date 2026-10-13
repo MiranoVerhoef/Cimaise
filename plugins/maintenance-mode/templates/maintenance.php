@@ -25,16 +25,16 @@ $siteLogo = $config['site_logo'] ?? null;
 $showLogo = $config['show_logo'] ?? true;
 $showCountdown = $config['show_countdown'] ?? true;
 $basePath ??= '';
-// Uploaded logos already include /media/. Keep legacy bare filenames working.
+// Uploaded logos are stored with their /media/ prefix; bare filenames are legacy.
 $logoUrl = null;
 if (is_string($siteLogo) && $siteLogo !== '') {
     if (preg_match('#^https?://#i', $siteLogo)) {
         $logoUrl = $siteLogo;
     } else {
-        $logoPath = str_starts_with($siteLogo, '/') ? $siteLogo : '/media/' . $siteLogo;
-        $logoUrl = $basePath . $logoPath;
+        $logoUrl = $basePath . (str_starts_with($siteLogo, '/') ? $siteLogo : '/media/' . $siteLogo);
     }
 }
+$showAdminLogin = $config['show_admin_login'] ?? true;
 $nonce = bin2hex(random_bytes(16));
 
 // Set response headers
@@ -252,8 +252,8 @@ header('Content-Type: text/html; charset=UTF-8');
     <div class="container">
         <!-- Logo or Site Name -->
         <div class="logo">
-            <?php if ($showLogo && $siteLogo): ?>
-                <img src="<?= htmlspecialchars($logoUrl ?? '', ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
+            <?php if ($showLogo && $logoUrl !== null): ?>
+                <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $siteTitle ?>">
             <?php endif; ?>
         </div>
 
@@ -284,7 +284,7 @@ header('Content-Type: text/html; charset=UTF-8');
         <?php endif; ?>
 
         <!-- Admin Login Link -->
-        <?php if ($config['show_admin_login'] ?? true): ?>
+        <?php if ($showAdminLogin): ?>
         <a href="<?= $basePath ?>/admin/login" class="login-link"><?= htmlspecialchars($config['admin_login_text'] ?? 'Admin Login', ENT_QUOTES, 'UTF-8') ?></a>
         <?php endif; ?>
     </div>

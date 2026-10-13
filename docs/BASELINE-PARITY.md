@@ -1,8 +1,8 @@
 # Fork baseline verification
 
-Comparison: published `1.4.23-test.12` → `1.4.24-test.2`.
+Comparison: published `1.4.23-test.12` → the fork baseline including upstream `1.4.26`.
 
-The new baseline includes upstream v1.4.24 and the author's Docker migration/cache-revalidation branch from PR #139. Its original commits and contributor history are retained. Upstream contribution branches remain separate from this combined fork build.
+The new baseline includes upstream v1.4.26, including merged PRs #139 and #140. Its original commits and contributor history are retained. Upstream contribution branches remain separate from this combined fork build.
 
 ## Feature coverage
 
@@ -36,8 +36,16 @@ The new baseline includes upstream v1.4.24 and the author's Docker migration/cac
 
 CI seeds isolated volumes using the **published test.12 Docker image**, then boots the candidate through its real entrypoint. It verifies every saved setting in the fixture, image identity/metadata, existing original/variant/logo/font bytes, hidden equipment and completion of an existing queued job.
 
-The same check compares 17 critical implementation files against their hashes from the published test.12 image. These include the generation service/queue, original resolver, storage service, mobile detection, homepage limit, typography, upload/media/page controllers, admin JavaScript, progress/notification scripts and shared logo/download templates. Those implementations are unchanged; modified upstream/shared files are checked through the behavior tests above.
+The upgrade check retains exact source hashes for 9 unchanged implementations, including the per-image completion revision, album storage, mobile detection, homepage limit, typography, media/page/font controllers, progress/notification scripts and shared logo/download templates. Five intentionally adapted files (UploadService, ImageJobQueue, OriginalImage, UploadController and admin.js), plus three files with PHPDoc-only type clarifications (album storage and media/font controllers), are verified through their behavior rather than claiming identical source bytes.
 
-Compatibility adjustments preserve legacy per-album equipment settings when migrating to the new column, normalize ownership of retained job/font directories, keep the full prerelease image identifier separate from the stable schema version in Docker/updater/package checks, and keep prerelease publishing away from stable Docker aliases.
+## Upstream 1.4.26 reconciliation
 
-This proves the tracked features and isolated upgrade fixture. It does not inspect the user's live Unraid volumes; retain a normal backup before deploying any database upgrade.
+- Adopt the queue's time budget, affected-album batch cache invalidation, guarded cache failures, authenticated PHP-FPM resumption and worker that avoids starting PHP while idle.
+- Retain upload-token correlation and file-based per-variant progress. Public completion notices advance after album caches are invalidated.
+- Retain failed jobs indefinitely with a capped retry delay; do not adopt upstream's six-attempt deletion policy.
+- Retain SQLite write retries, per-image encoder locks, original-byte downloads and their public/admin controls.
+- Retain prerelease migration handling, legacy equipment preferences and restored-volume ownership fixes unchanged.
+- Include the separately committed login branding and collapsible Media Library toolbar filters.
+- Remove the old global queue wakeup and duplicate Docker/console worker registration; only verified admin requests can resume jobs on PHP-FPM.
+
+Verification uses the real production image, upgrade volumes, HTTP uploads and restricted PHP-FPM, queue/SQLite/CLI integration checks, and Chromium admin controls. The local PHP suite excludes Linux shell-worker tests; those run inside the production Docker image in CI.

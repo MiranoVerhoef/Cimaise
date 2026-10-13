@@ -60,12 +60,13 @@ class DownloadController extends BaseController
             return $response->withStatus(403);
         }
 
+        // Confined to the originals directories, wherever the stored path points.
         $realPath = \App\Services\OriginalImage::resolve((string)$row['original_path']);
         if ($realPath === null) {
             return $response->withStatus(404);
         }
 
-        // 3. Additional check: ensure it's an image file by MIME type validation
+        // Ensure it's an image file by MIME type validation
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $detectedMime = finfo_file($finfo, $realPath);
         finfo_close($finfo);

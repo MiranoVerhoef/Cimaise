@@ -66,6 +66,7 @@ class TypographyController extends BaseController
         return $response->withHeader('Location', $this->redirect('/admin/typography'))->withStatus(302);
     }
 
+    /** @param array<string, mixed> $args */
     public function serveFont(Request $request, Response $response, array $args): Response
     {
         $filename = (string)($args['filename'] ?? '');

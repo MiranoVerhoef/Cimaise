@@ -3,33 +3,16 @@
 {% block content %}
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <h1 class="text-2xl font-bold text-black">{{ trans('admin.media.title') }}</h1>
-    <form method="get" id="media-filters" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-      <input type="text" name="q" value="{{ filters.q }}" class="form-input w-full sm:w-48" placeholder="{{ trans('admin.media.search') }}">
-      <select name="album" class="form-input w-full sm:w-40" aria-label="{{ trans('admin.media.filter_album', {}, 'Album') }}">
-        <option value="">{{ trans('admin.media.all_albums', {}, 'All albums') }}</option>
-        {% for a in albums %}<option value="{{ a.id }}" {% if filters.album == a.id %}selected{% endif %}>{{ a.title }}</option>{% endfor %}
-      </select>
-      <select name="format" class="form-input w-full sm:w-32" aria-label="{{ trans('admin.media.filter_format', {}, 'Original format') }}">
-        <option value="">{{ trans('admin.media.all_formats', {}, 'All formats') }}</option>
-        {% for format in ['jpeg', 'png', 'webp', 'heic', 'heif'] %}<option value="{{ format }}" {% if filters.format == format %}selected{% endif %}>{{ format|upper }}</option>{% endfor %}
-      </select>
-      <select name="generation" class="form-input w-full sm:w-48" aria-label="{{ trans('admin.media.filter_generation', {}, 'Image versions') }}">
-        <option value="">{{ trans('admin.media.all_versions', {}, 'All version states') }}</option>
-        {% for value, key in {active: 'generating', retrying: 'retrying', preview: 'preview_only', generated: 'has_versions'} %}<option value="{{ value }}" {% if filters.generation == value %}selected{% endif %}>{{ trans('admin.media.filter_' ~ key) }}</option>{% endfor %}
-      </select>
-      <button class="btn-secondary text-sm sm:text-base">
-        <i class="fas fa-search mr-2"></i>{{ trans('admin.media.search_button') }}
-      </button>
-      <a href="{{ base_path }}/admin/media" class="text-sm underline">{{ trans('admin.media.clear_filters', {}, 'Clear filters') }}</a>
-    </form>
   </div>
 
   <div class="flex gap-6 min-h-screen flex-col lg:flex-row">
     <!-- Main content area - larger on desktop -->
     <div class="flex-1 lg:flex-[3]">
       <!-- Toolbar -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 bg-white rounded-lg border border-gray-200 px-4 py-3">
-        <div class="flex items-center gap-4">
+      {% set active_filter_count = (filters.q ? 1 : 0) + (filters.album ? 1 : 0) + (filters.format ? 1 : 0) + (filters.generation ? 1 : 0) %}
+      <section class="media-toolbar mb-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4 py-3">
+        <div class="flex flex-wrap items-center gap-4">
           <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
             <input type="checkbox" id="media-select-all" class="rounded border-gray-300 text-black focus:ring-black">
             <span id="selection-count">{{ trans('admin.media.select_all') }}</span>
@@ -37,6 +20,10 @@
           <div class="text-sm text-gray-500 whitespace-nowrap" id="total-count">{{ items|length }} {{ trans('admin.media.items') }}</div>
         </div>
         <div class="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 w-full sm:w-auto">
+          <button type="button" id="media-filter-toggle" class="btn-primary text-sm" aria-expanded="{{ active_filter_count ? 'true' : 'false' }}" aria-controls="media-filter-panel">
+            <i class="fas fa-filter mr-2" aria-hidden="true"></i>{{ trans('admin.media.filters', {}, 'Filters') }}{% if active_filter_count %} ({{ active_filter_count }}){% endif %}
+            <i class="fas fa-chevron-down ml-2" aria-hidden="true"></i>
+          </button>
           <select id="media-attach-album" class="form-input text-sm min-w-0 sm:min-w-[200px] w-full sm:w-auto">
             <option value="">{{ trans('admin.media.add_to_album') }}</option>
             {% for a in albums %}
@@ -53,6 +40,9 @@
           </div>
         </div>
       </div>
+
+      {% include 'admin/media/_filters.twig' %}
+      </section>
 
       <!-- Media Grid -->
       {% include 'admin/media/_grid.twig' %}
