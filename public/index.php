@@ -794,7 +794,4 @@ if ($canonicalOverride === '') {
 }
 $app->add(new \App\Middlewares\TrustedProxyMiddleware($twig, $basePath, $canonicalOverride));
 
-if (isset($container['db'])) {
-    (new \App\Services\ImageJobQueue($container['db']))->schedule();
-}
 $app->run();
