@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
+## [1.4.23] - 2026-10-12
+### Security
+- **The installer stays locked when the database is unreachable.** With the install marker missing, a MySQL server that was down (or dropped mid-check) made the installer reachable again; it now answers 503 "installer locked" and keeps the reinstall path only for a reachable but genuinely incomplete database.
+- **Public rate limits actually limit.** The contact form, on-site search, the NSFW consent endpoints and the analytics beacon were throttled only on recognised failures, so their limits never triggered. Every request now counts on those routes, each route has its own counter, buckets follow the matched route (base path and slugs cannot reset them) and the check-and-record step is atomic.
+- **Error pages carry the security headers and are never cached.** 404/405/500 responses now get CSP, X-Frame-Options, nosniff, Referrer-Policy and HSTS plus `no-store`; 4xx/5xx responses can no longer be marked publicly cacheable, including on asset-looking paths.
+- **The service worker no longer keeps private photos.** Responses marked `private`, `no-cache` or `no-store` (unlocked password/NSFW media) are not cached, and copies cached by older versions are evicted on read.
+- **Plugin archives with symlink or traversal entries are rejected** before extraction, including archives created on macOS.
+- **Developer files are blocked on root-DocumentRoot installs** (`scripts/`, `resources/`, `docs/`, `tests/`, `docker-compose.yml`, `php.ini`, tool configs).
+
+### Fixed
+- **New albums are indexable again.** Albums created from the admin were saved as `noindex,nofollow` and left out of the sitemap. New albums now default to indexable. Albums created before this release keep their stored value: review them under each album's SEO settings if they should appear in search engines.
+- **Settings toggles can be switched off.** "Disable right click", the cookie-banner/analytics consent gate and image structured data ignored an explicit OFF; every JSON-LD block now follows the structured-data setting.
+- **The SEO settings page no longer turns everything off on fresh installs** (seeded toggles were shown unchecked and saved as OFF on the first save).
+- **Saving settings or social sharing refreshes the public pages** instead of leaving them cached for up to 24 hours.
+- **An unlocked password/NSFW album is never kept in the browser cache**, so a password change takes effect immediately for visitors.
+- **SEO settings that were saved but never used now work**: site keywords, photographer area served, lazy-loading of gallery images, preloading of the main image and automatic alt text.
+- **Diagnostics checks the real storage and media folders** instead of reporting them missing.
+- A value with invalid UTF-8 no longer empties a setting silently; the logger no longer fails outside the web bootstrap; a 405 under `/media/*` no longer turns into a 500.
+
+### Changed
+- **Calmer password and age-verification screens** with clearer layout, larger fields and a way back to the galleries.
+- **Accessibility on the public site**: one visible focus ring for keyboard users, 44px tap targets on phones (header buttons, lightbox arrows, share buttons, breadcrumbs, footer links), keyboard-operable menu on the "modern" home in dark mode, and unified 404 pages.
+- **Admin polish**: colours consistently follow the admin palette, many dark-mode contrast fixes (primary buttons, stat cards, table rows, checkboxes, notes, login button), headers that fit on phones, a compact single-list Diagnostics page, reduced-motion support, and a 44px hit area for bulk-selection checkboxes in the media library.
+
 ## [1.4.22] - 2026-09-01
 ### Security
 - **Album password grants are now bound to the password.** Rotating (or clearing)
