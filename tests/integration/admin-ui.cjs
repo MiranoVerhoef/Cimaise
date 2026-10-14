@@ -424,7 +424,7 @@ const assert = require('node:assert/strict');
   assert.equal(fontUpload.status(), 302);
   await page.reload();
   const fontOption = page.locator('select[name="body_font"] option').filter({ hasText: 'Uploaded Test' });
-  assert.equal(await fontOption.count(), 1);
+  assert.equal(await fontOption.count(), 1, (await page.locator('#flash-messages').textContent().catch(() => 'Font option missing after upload')) || 'Font option missing after upload');
   await page.locator('select[name="body_font"]').selectOption(await fontOption.getAttribute('value'));
   await saveForm('#typography-form');
   const fontCss = await (await anonymous.request.get('/fonts/typography.css')).text();
