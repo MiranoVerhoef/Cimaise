@@ -52,8 +52,9 @@ class AlbumsController extends BaseController
      *
      * @param string|null $albumSlug Current album slug to invalidate
      * @param int|null $albumId Album ID for tag-based invalidation
+     * @param string[]|null $invalidationTags Tags captured before a destructive mutation
      */
-    private function invalidatePageCaches(?string $albumSlug = null, ?int $albumId = null): void
+    private function invalidatePageCaches(?string $albumSlug = null, ?int $albumId = null, ?array $invalidationTags = null): void
     {
         try {
             $settings = new SettingsService($this->db);
@@ -63,35 +64,19 @@ class AlbumsController extends BaseController
 
             // Use tag-based invalidation for efficient bulk clearing
             if ($albumId !== null) {
-                // Collect all categories from pivot table (multi-category support)
-                $categoryIds = [];
-                try {
-                    $pivotStmt = $this->db->pdo()->prepare('SELECT category_id FROM album_category WHERE album_id = ?');
-                    $pivotStmt->execute([$albumId]);
-                    $categoryIds = array_map(intval(...), $pivotStmt->fetchAll(\PDO::FETCH_COLUMN) ?: []);
-                } catch (\Throwable) {
-                    // Schema legacy: pivot table may not exist yet
-                }
-                // Fallback to legacy albums.category_id if pivot is empty
-                if ($categoryIds === []) {
-                    $fallbackStmt = $this->db->pdo()->prepare('SELECT category_id FROM albums WHERE id = ?');
-                    $fallbackStmt->execute([$albumId]);
-                    $fbId = (int)($fallbackStmt->fetchColumn() ?: 0);
-                    if ($fbId > 0) {
-                        $categoryIds[] = $fbId;
-                    }
-                }
-                $tags = CacheTags::albumRelated($albumId);
-                foreach ($categoryIds as $cid) {
-                    if ($cid > 0) {
-                        $tags[] = CacheTags::category($cid);
-                    }
-                }
+                $tags = $invalidationTags ?? $this->albumInvalidationTags($albumId);
                 $this->pageCacheService->invalidateByTags(array_unique($tags));
             } else {
                 // Fallback to direct invalidation if no album ID
                 $this->pageCacheService->invalidate('home');
                 $this->pageCacheService->invalidate('galleries');
+            }
+
+            // Warmed entries may predate tag registration; cover every listing key.
+            $this->pageCacheService->invalidateHome();
+            $this->pageCacheService->invalidateGalleries();
+            if ($albumId !== null) {
+                $this->pageCacheService->invalidate(PageCacheService::albumPageKey($albumId));
             }
 
             // Invalidate specific album if slug provided
@@ -119,6 +104,36 @@ class AlbumsController extends BaseController
         } catch (\Throwable) {
             // Cache invalidation/warming failure should not break admin operations
         }
+    }
+
+    /** @return string[] Album and category tags, captured before deletion if necessary. */
+    private function albumInvalidationTags(int $albumId): array
+    {
+        // Collect all categories from pivot table (multi-category support)
+        $categoryIds = [];
+        try {
+            $pivotStmt = $this->db->pdo()->prepare('SELECT category_id FROM album_category WHERE album_id = ?');
+            $pivotStmt->execute([$albumId]);
+            $categoryIds = array_map(intval(...), $pivotStmt->fetchAll(\PDO::FETCH_COLUMN) ?: []);
+        } catch (\Throwable) {
+            // Schema legacy: pivot table may not exist yet
+        }
+        // Fallback to legacy albums.category_id if pivot is empty
+        if ($categoryIds === []) {
+            $fallbackStmt = $this->db->pdo()->prepare('SELECT category_id FROM albums WHERE id = ?');
+            $fallbackStmt->execute([$albumId]);
+            $fbId = (int)($fallbackStmt->fetchColumn() ?: 0);
+            if ($fbId > 0) {
+                $categoryIds[] = $fbId;
+            }
+        }
+        $tags = CacheTags::albumRelated($albumId);
+        foreach ($categoryIds as $cid) {
+            if ($cid > 0) {
+                $tags[] = CacheTags::category($cid);
+            }
+        }
+        return array_values(array_unique($tags));
     }
 
     private function getAlbumSlug(int $albumId): ?string
@@ -1133,10 +1148,10 @@ class AlbumsController extends BaseController
         // Delete album (CASCADE will handle images and image_variants records)
         $stmt = $pdo->prepare('DELETE FROM albums WHERE id=:id');
         try {
-            // Invalidate before DELETE so category pivot data is still readable
-            $this->invalidatePageCaches($albumSlug, $id);
-
+            // Keep category tags before CASCADE, but rebuild only after deletion.
+            $cacheTags = $this->albumInvalidationTags($id);
             $stmt->execute([':id' => $id]);
+            $this->invalidatePageCaches($albumSlug, $id, $cacheTags);
 
             // Album gone — refresh the sitemap so its URLs disappear.
             $this->regenerateSitemap();

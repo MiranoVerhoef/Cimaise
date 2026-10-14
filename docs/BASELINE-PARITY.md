@@ -49,3 +49,7 @@ The upgrade check retains exact source hashes for 9 unchanged implementations, i
 - Remove the old global queue wakeup and duplicate Docker/console worker registration; only verified admin requests can resume jobs on PHP-FPM.
 
 Verification uses the real production image, upgrade volumes, HTTP uploads and restricted PHP-FPM, queue/SQLite/CLI integration checks, and Chromium admin controls. The local PHP suite excludes Linux shell-worker tests; those run inside the production Docker image in CI.
+
+## Album deletion regression
+
+Deletion captures category tags before cascading the database rows, then invalidates and warms after the mutation. The Galleries warmer uses the same listing cover loader and first-image fallback as live rendering. Tests reproduce both stale deleted cards and blank warmed previews, verify shared media bytes remain unchanged, and exercise a real HTTP deletion with automatic warming enabled.

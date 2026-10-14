@@ -1,3 +1,9 @@
+## [1.4.26-test.2] - 2026-10-14
+
+- Rebuild homepage and Galleries caches after album deletion, preserving category invalidation tags before database cascades.
+- Populate warmed gallery previews using the live listing's cover-image structure and first-image fallback.
+- Verify deleted albums disappear immediately and surviving/shared original and preview bytes stay intact.
+
 ## [1.4.26-test.1] - 2026-10-13
 
 - Adopt upstream 1.4.26 while retaining the fork's existing features and upgrade compatibility.
