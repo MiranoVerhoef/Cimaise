@@ -487,7 +487,8 @@ const assert = require('node:assert/strict');
   await page.locator('[name="title"]').fill('Delete cache fixture');
   await page.locator('[name="slug"]').fill('delete-cache-fixture');
   const createForm = await page.locator('#album-form').evaluate(form => ({ action: form.action, values: Object.fromEntries(new FormData(form)) }));
-  const created = await context.request.post(createForm.action, { form: createForm.values, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+  const created = await context.request.post(createForm.action, { form: createForm.values, headers: { Accept: 'application/json' }, maxRedirects: 0 });
+  assert.equal(created.status(), 200);
   const deleteAlbum = await created.json();
   assert.equal(deleteAlbum.ok, true, JSON.stringify(deleteAlbum));
   const uploaded = await context.request.post(`/admin/albums/${deleteAlbum.id}/upload`, {
