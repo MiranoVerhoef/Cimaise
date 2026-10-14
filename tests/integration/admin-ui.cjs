@@ -498,15 +498,15 @@ const assert = require('node:assert/strict');
   assert.equal((await uploaded.json()).ok, true);
   const listingPage = await anonymous.newPage();
   await listingPage.goto('/galleries');
-  assert.ok(await listingPage.locator('a[href$="/album/delete-cache-fixture"]').count() > 0);
+  assert.ok(await listingPage.locator('[data-album-url$="/album/delete-cache-fixture"]').count() > 0);
   const editBeforeDelete = await context.request.get(`/admin/albums/${deleteAlbum.id}/edit`);
   const deleted = await context.request.post(`/admin/albums/${deleteAlbum.id}/delete`, {
     form: { csrf: editBeforeDelete.headers()['x-csrf-token'] }, maxRedirects: 0,
   });
   assert.equal(deleted.status(), 302);
   await listingPage.reload();
-  assert.equal(await listingPage.locator('a[href$="/album/delete-cache-fixture"]').count(), 0);
-  const survivingPreview = listingPage.locator('a[href$="/album/test"] img').first();
+  assert.equal(await listingPage.locator('[data-album-url$="/album/delete-cache-fixture"]').count(), 0);
+  const survivingPreview = listingPage.locator('[data-album-url$="/album/test"] img').first();
   assert.equal(await survivingPreview.count(), 1);
   const previewResponse = await anonymous.request.get(await survivingPreview.getAttribute('src'));
   assert.equal(previewResponse.status(), 200);
