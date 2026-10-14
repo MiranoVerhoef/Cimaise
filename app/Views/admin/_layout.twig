@@ -577,6 +577,8 @@
         {# Hook: admin_sidebar_before - Before all sidebar sections #}
         {{ do_action('admin_sidebar_before', {base_path: base_path}) }}
 
+        {% include 'admin/_navigation.twig' %}
+        <div id="admin-navigation-source">
         <!-- Main Navigation -->
         <div class="mb-8">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{{ trans('admin.sidebar.navigation') }}</p>
@@ -605,6 +607,9 @@
             <a href="{{ base_path }}/admin/pages" class="sidebar-link" data-spa-link>
               <i class="fas fa-file-alt"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.pages') }}</span><span class="nav-sub">{{ trans('admin.sidebar.pages_sub') }}</span></span>
             </a>
+            <a href="{{ base_path }}/admin/pages/home" class="sidebar-link" data-spa-link>
+              <i class="fas fa-home"></i><span class="nav-title">{{ trans('admin.sidebar.home') }}</span>
+            </a>
             <a href="{{ base_path }}/admin/texts" class="sidebar-link" data-spa-link>
               <i class="fas fa-language"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.texts') }}</span><span class="nav-sub">{{ trans('admin.sidebar.texts_sub') }}</span></span>
             </a>
@@ -614,7 +619,7 @@
         </div>
 
         <!-- Metadata -->
-        <div class="mb-8">
+        <div class="mb-8" data-nav-fallback="metadata">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{{ trans('admin.sidebar.metadata') }}</p>
           <div class="space-y-2">
             <a href="{{ base_path }}/admin/cameras" class="sidebar-link" data-spa-link>
@@ -668,6 +673,9 @@
             <a href="{{ base_path }}/admin/typography" class="sidebar-link" data-spa-link>
               <i class="fas fa-font"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.typography') }}</span><span class="nav-sub">{{ trans('admin.sidebar.typography_sub') }}</span></span>
             </a>
+            <a href="{{ base_path }}/admin/settings#site-branding" class="sidebar-link" data-spa-link>
+              <i class="fas fa-image"></i><span class="nav-title">{{ trans('admin.settings.site_logo') }}</span>
+            </a>
             <a href="{{ base_path }}/admin/seo" class="sidebar-link" data-spa-link>
               <i class="fas fa-search"></i><span class="nav-text"><span class="nav-title">{{ trans('admin.sidebar.seo') }}</span><span class="nav-sub">{{ trans('admin.sidebar.seo_sub') }}</span></span>
             </a>
@@ -695,6 +703,7 @@
           </div>
         </div>
 
+        </div>
         {# Hook: admin_sidebar_after - After all sidebar sections #}
         {{ do_action('admin_sidebar_after', {base_path: base_path}) }}
       </div>
@@ -762,6 +771,10 @@
           </div>
         {% endif %}
 
+        <section id="admin-section-navigation" hidden class="admin-section-navigation" aria-labelledby="admin-section-title">
+          <h2 id="admin-section-title"></h2>
+          <nav id="admin-section-tabs" aria-label="{{ trans('admin.sidebar.section_tools') }}"></nav>
+        </section>
         <div id="page-content">
           {% block content %}{% endblock %}
         </div>
@@ -846,18 +859,8 @@
     </div>
   </div>
 
+  <script src="{{ base_path }}/assets/js/admin-navigation.js?v={{ app_version|e('html_attr') }}" defer nonce="{{ csp_nonce() }}"></script>
   <script nonce="{{ csp_nonce() }}">
-    // Highlight active sidebar link
-    document.addEventListener('DOMContentLoaded', function() {
-      const currentPath = window.location.pathname;
-      const links = document.querySelectorAll('.sidebar-link');
-      
-      links.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-          link.classList.add('active');
-        }
-      });
-    });
 
     // Simple toast helper
     window.showToast = function(msg, type){
@@ -1127,6 +1130,7 @@
 
     // SPA Navigation System
     document.addEventListener('DOMContentLoaded', function() {
+      if (window.AdminNavigation) window.AdminNavigation.init();
       const pageContent = document.getElementById('page-content');
       const loadingIndicator = document.getElementById('loading-indicator');
       const sidebarLinks = document.querySelectorAll('[data-spa-link]');
@@ -1183,6 +1187,10 @@
       
       // Function to update active sidebar link
       function updateActiveSidebar(currentPath) {
+        if (window.AdminNavigation) {
+          window.AdminNavigation.update(currentPath);
+          return;
+        }
         sidebarLinks.forEach(link => {
           link.classList.remove('active');
           if (link.getAttribute('href') === currentPath) {
@@ -1544,6 +1552,7 @@
       
       // Handle clicks on dynamically loaded links
       function handleDynamicLinkClick(e) {
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
         const href = e.target.closest('a').getAttribute('href');
         if (href && href.includes('/admin/') && !href.includes('#') && !e.target.closest('form')) {
           e.preventDefault();
@@ -1557,6 +1566,9 @@
       // Handle sidebar navigation
       sidebarLinks.forEach(link => {
         link.addEventListener('click', function(e) {
+          if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || this.hasAttribute('target')) return;
+          const destination = new URL(this.href, window.location.href);
+          if (destination.origin !== window.location.origin || destination.hash) return;
           e.preventDefault();
 
           const href = this.getAttribute('href');
@@ -1573,14 +1585,15 @@
       
       // Handle browser back/forward buttons
       window.addEventListener('popstate', function() {
-        const currentPath = window.location.pathname;
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
         loadPageContent(currentPath);
         updateActiveSidebar(currentPath);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
       
       // Set initial active sidebar link
-      updateActiveSidebar(window.location.pathname);
+      updateActiveSidebar(window.location.href);
+      window.addEventListener('hashchange', () => updateActiveSidebar(window.location.href));
       
       // Add smooth transition to page content
       pageContent.style.transition = 'opacity 0.15s ease-in-out';
