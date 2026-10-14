@@ -547,6 +547,8 @@ const assert = require('node:assert/strict');
     form: { csrf: editBeforeDelete.headers()['x-csrf-token'] }, maxRedirects: 0,
   });
   assert.equal(deleted.status(), 302);
+  const deletedPublicPage = await anonymous.request.get('/album/delete-cache-fixture');
+  assert.equal(deletedPublicPage.status(), 404, 'Album deletion must succeed before checking its refreshed listing');
   await listingPage.reload();
   assert.equal(await listingPage.locator('[data-album-url$="/album/delete-cache-fixture"]').count(), 0);
   const survivingPreview = listingPage.locator('[data-album-url$="/album/test"] img').first();
