@@ -6,6 +6,10 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.sidebar.home": "Accueil",
+    "admin.sidebar.website": "Site web",
+    "admin.sidebar.appearance": "Apparence",
+    "admin.sidebar.section_tools": "Outils de la section",
     "admin.media.filters": "Filtres",
     "admin.media.search_albums": "Rechercher des albums",
     "admin.albums.add_more_images": "Ajouter plus d'images",
