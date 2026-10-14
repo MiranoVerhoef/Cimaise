@@ -1,3 +1,10 @@
+## [1.4.26-test.5] - 2026-10-14
+
+- Remove the unintended vertical scrollbar from admin page tabs while preserving horizontal scrolling on mobile.
+- Open Site Logo settings through the admin page transition, then smoothly scroll to the branding section.
+- Preserve unsaved settings when scrolling within the current page and respect reduced-motion preferences.
+- Retain the SQLite album-deletion fix and all earlier features from test.4.
+
 ## [1.4.26-test.4] - 2026-10-14
 
 - Close the SQLite album read cursor before deletion so concurrent image processing cannot prevent the delete with a stale WAL snapshot.
