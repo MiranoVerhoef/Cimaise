@@ -1208,6 +1208,21 @@
       function hideLoading() {
         loadingIndicator.classList.add('hidden');
       }
+
+      // Scroll only after the destination exists and the new page is visible.
+      function scrollToPageAnchor(url) {
+        const hash = new URL(url, window.location.href).hash;
+        if (!hash) return false;
+        let target;
+        try { target = document.getElementById(decodeURIComponent(hash.slice(1))); }
+        catch (e) { return false; }
+        if (!target) return false;
+        requestAnimationFrame(() => target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start'
+        }));
+        return true;
+      }
       
       // Function to load page content via AJAX
       async function loadPageContent(url) {
@@ -1310,6 +1325,7 @@
                 // Fade in new content
                 pageContent.style.opacity = '1';
                 hideLoading();
+                scrollToPageAnchor(url);
               })();
             }, 150);
           } else {
@@ -1568,15 +1584,21 @@
         link.addEventListener('click', function(e) {
           if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || this.hasAttribute('target')) return;
           const destination = new URL(this.href, window.location.href);
-          if (destination.origin !== window.location.origin || destination.hash) return;
+          if (destination.origin !== window.location.origin) return;
           e.preventDefault();
 
           const href = this.getAttribute('href');
+          const samePage = destination.pathname === window.location.pathname && destination.search === window.location.search;
+          if (samePage && destination.hash && scrollToPageAnchor(href)) {
+            updateActiveSidebar(href);
+            if (destination.href !== window.location.href) history.pushState(null, '', href);
+            return;
+          }
           loadPageContent(href);
           updateActiveSidebar(href);
 
           // Scroll main content to top
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (!destination.hash) window.scrollTo({ top: 0, behavior: 'smooth' });
 
           // Update browser history
           history.pushState(null, '', href);
