@@ -1,3 +1,10 @@
+## [1.4.26-test.3] - 2026-10-14
+
+- Replace the long admin menu with eight main sections and underlined page tabs.
+- Keep existing routes, plugin tools, direct edit links and the full menu fallback without JavaScript.
+- Support browser Back, filtered URLs, accessible active states and scrolling tabs on mobile.
+- Retain all fixes from 1.4.26-test.2, including gallery previews and cache refresh after album deletion.
+
 ## [1.4.26-test.2] - 2026-10-14
 
 - Rebuild homepage and Galleries caches after album deletion, preserving category invalidation tags before database cascades.
@@ -470,10 +477,3 @@ release notes, so keep one section per released tag.
 [1.4.2]: https://github.com/fabiodalez-dev/Cimaise/releases/tag/v1.4.2
 [1.4.1]: https://github.com/fabiodalez-dev/Cimaise/releases/tag/v1.4.1
 [1.4.0]: https://github.com/fabiodalez-dev/Cimaise/releases/tag/v1.4.0
-## [1.4.26-test.3] - 2026-10-14
-
-- Replace the long admin menu with eight main sections and underlined page tabs.
-- Keep existing routes, plugin tools, direct edit links and the full menu fallback without JavaScript.
-- Support browser Back, filtered URLs, accessible active states and scrolling tabs on mobile.
-- Retain all fixes from 1.4.26-test.2, including gallery previews and cache refresh after album deletion.
-
