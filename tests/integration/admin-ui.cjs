@@ -479,6 +479,40 @@ const assert = require('node:assert/strict');
   assert.equal(await themedPage.locator('img[src="' + lightLogoPath + '"]').filter({ visible: true }).count() > 0, true);
   await themedPage.close();
   console.log('PASS: dark logo upload preserves standard logo/favicons, follows both themes and falls back after removal; Contact navigation name persists');
+  await page.goto('/admin/cache');
+  await page.locator('#cache_enabled').check();
+  await page.locator('#auto_warm').check();
+  await saveForm('form[action$="/admin/cache/settings"]');
+  await page.goto('/admin/albums/create');
+  await page.locator('[name="title"]').fill('Delete cache fixture');
+  await page.locator('[name="slug"]').fill('delete-cache-fixture');
+  const createForm = await page.locator('#album-form').evaluate(form => ({ action: form.action, values: Object.fromEntries(new FormData(form)) }));
+  const created = await context.request.post(createForm.action, { form: createForm.values, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+  const deleteAlbum = await created.json();
+  assert.equal(deleteAlbum.ok, true, JSON.stringify(deleteAlbum));
+  const uploaded = await context.request.post(`/admin/albums/${deleteAlbum.id}/upload`, {
+    headers: { 'X-CSRF-Token': created.headers()['x-csrf-token'] },
+    multipart: { file: { name: 'shared-delete-fixture.jpg', mimeType: 'image/jpeg', buffer: originalBytes } },
+  });
+  assert.equal((await uploaded.json()).ok, true);
+  const listingPage = await anonymous.newPage();
+  await listingPage.goto('/galleries');
+  assert.ok(await listingPage.locator('a[href$="/album/delete-cache-fixture"]').count() > 0);
+  const editBeforeDelete = await context.request.get(`/admin/albums/${deleteAlbum.id}/edit`);
+  const deleted = await context.request.post(`/admin/albums/${deleteAlbum.id}/delete`, {
+    form: { csrf: editBeforeDelete.headers()['x-csrf-token'] }, maxRedirects: 0,
+  });
+  assert.equal(deleted.status(), 302);
+  await listingPage.reload();
+  assert.equal(await listingPage.locator('a[href$="/album/delete-cache-fixture"]').count(), 0);
+  const survivingPreview = listingPage.locator('a[href$="/album/test"] img').first();
+  assert.equal(await survivingPreview.count(), 1);
+  const previewResponse = await anonymous.request.get(await survivingPreview.getAttribute('src'));
+  assert.equal(previewResponse.status(), 200);
+  assert.match(previewResponse.headers()['content-type'], /^image\//);
+  assert.equal((await anonymous.request.get('/album/delete-cache-fixture')).status(), 404);
+  await listingPage.close();
+  console.log('PASS: deleting an album removes its warmed listing and preserves surviving preview bytes');
   await anonymous.close();
   console.log('PASS: uploaded fonts are selectable and served unchanged with refreshed CSS URLs; mobile callouts suppressed');
   await browser.close();

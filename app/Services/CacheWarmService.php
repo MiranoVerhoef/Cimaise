@@ -426,55 +426,25 @@ class CacheWarmService
             return [];
         }
 
-        $pdo = $this->db->pdo();
+        // Use the same listing-cover shape and fallback as the live controller.
+        $enrich = new AlbumEnrichmentService($this->db->pdo());
         $albumIds = array_column($albums, 'id');
-        $placeholders = implode(',', array_fill(0, count($albumIds), '?'));
-
-        // Get cover images
-        $imgStmt = $pdo->prepare("
-            SELECT i.*, a.id as album_id
-            FROM images i
-            JOIN albums a ON a.cover_image_id = i.id
-            WHERE a.id IN ({$placeholders})
-        ");
-        $imgStmt->execute($albumIds);
-        $coverImages = [];
-        foreach ($imgStmt->fetchAll() as $img) {
-            $coverImages[$img['album_id']] = $img;
-        }
-
-        // Get tags for all albums
-        $tagStmt = $pdo->prepare("
-            SELECT at.album_id, t.id, t.name, t.slug
-            FROM album_tag at
-            JOIN tags t ON t.id = at.tag_id
-            WHERE at.album_id IN ({$placeholders})
-            ORDER BY t.name ASC
-        ");
-        $tagStmt->execute($albumIds);
-        $albumTags = [];
-        foreach ($tagStmt->fetchAll() as $tag) {
-            $albumTags[$tag['album_id']][] = [
-                'id' => $tag['id'],
-                'name' => $tag['name'],
-                'slug' => $tag['slug'],
-            ];
-        }
-
-        // Enrich albums
-        foreach ($albums as &$album) {
-            $album['cover'] = $coverImages[$album['id']] ?? null;
-            $album['tags'] = $albumTags[$album['id']] ?? [];
-
-            // Process cover image sources - adds 'variants' array expected by _album_card.twig
-            if ($album['cover']) {
-                $album['cover'] = $this->processImageSources($album['cover']);
+        $coverIds = array_values(array_filter(array_column($albums, 'cover_image_id')));
+        $covers = $enrich->loadListingCoverImages($coverIds);
+        $needsFallback = [];
+        foreach ($albums as $album) {
+            if (empty($album['cover_image_id']) || !isset($covers[$album['cover_image_id']])) {
+                $needsFallback[] = $album['id'];
             }
-
-            // Note: is_locked and is_password_protected flags are not set here because
-            // all queries feeding enrichAlbums() filter out password-protected albums
-            // (using WHERE password_hash IS NULL OR password_hash = '').
-            // If enrichAlbums() is later called with unfiltered data, add the flag logic here.
+        }
+        $fallbacks = $enrich->loadFallbackCoverImages($needsFallback);
+        $tags = $enrich->loadTags($albumIds);
+        foreach ($albums as &$album) {
+            $album['cover_image'] = $covers[$album['cover_image_id'] ?? 0] ?? $fallbacks[$album['id']] ?? null;
+            $album['tags'] = $tags[$album['id']] ?? [];
+            $album['is_password_protected'] = false;
+            $album['is_locked'] = false;
+            unset($album['password_hash']);
         }
         unset($album);
 
@@ -841,24 +811,6 @@ class CacheWarmService
         unset($image);
 
         return $images;
-    }
-
-    /**
-     * Process a single image to add responsive sources.
-     */
-    private function processImageSources(array $image): array
-    {
-        $pdo = $this->db->pdo();
-
-        $varStmt = $pdo->prepare('
-            SELECT * FROM image_variants
-            WHERE image_id = ?
-            ORDER BY width ASC
-        ');
-        $varStmt->execute([$image['id']]);
-        $variants = $varStmt->fetchAll();
-
-        return $this->buildImageSources($image, $variants);
     }
 
     /**
