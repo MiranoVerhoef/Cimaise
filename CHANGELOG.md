@@ -1,3 +1,9 @@
+## [1.4.26-test.6] - 2026-10-14
+
+- Invalidate settings caches after successful writes so concurrent reads cannot hide newly uploaded fonts or saved settings.
+- Apply the existing safe SQLite write retries to settings saves.
+- Retain the tab scrollbar fix, smooth Site Logo navigation and all test.4 functionality.
+
 ## [1.4.26-test.5] - 2026-10-14
 
 - Remove the unintended vertical scrollbar from admin page tabs while preserving horizontal scrolling on mobile.

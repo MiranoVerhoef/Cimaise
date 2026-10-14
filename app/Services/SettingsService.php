@@ -114,12 +114,9 @@ class SettingsService
 
     public function set(string $key, mixed $value): void
     {
-        // Invalidate all caches before writing
-        $this->clearCache();
-
         $replace = $this->db->replaceKeyword();
         $now = $this->db->nowExpression();
-        $stmt = $this->db->pdo()->prepare("{$replace} INTO settings(`key`,`value`,`type`,`updated_at`) VALUES(:k, :v, :t, {$now})");
+        $sql = "{$replace} INTO settings(`key`,`value`,`type`,`updated_at`) VALUES(:k, :v, :t, {$now})";
         // JSON_INVALID_UTF8_SUBSTITUTE: a stray byte in a pasted value (custom
         // CSS/JS, texts) must not make json_encode() return FALSE — that was
         // persisted as an empty string and the setting silently vanished.
@@ -130,7 +127,10 @@ class SettingsService
             return;
         }
         $type = $value === null ? 'null' : (\is_bool($value) ? 'boolean' : (\is_numeric($value) ? 'number' : 'string'));
-        $stmt->execute([':k' => $key, ':v' => $encodedValue, ':t' => $type]);
+        $this->db->execute($sql, [':k' => $key, ':v' => $encodedValue, ':t' => $type]);
+
+        // Invalidate after committing so concurrent reads cannot retain a pre-save cache.
+        $this->clearCache();
 
         // Invalidate TwigGlobalsCache since settings affect Twig globals
         TwigGlobalsCache::invalidate();
