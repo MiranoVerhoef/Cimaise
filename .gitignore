@@ -204,3 +204,6 @@ m8-before/
 m8-after/
 
 /storage/image-jobs/
+
+# Album deletion and warmed gallery regression coverage
+!/tests/Controllers/AlbumDeletionCacheTest.php
