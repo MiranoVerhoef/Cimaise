@@ -1,3 +1,9 @@
+## [1.4.26-test.4] - 2026-10-14
+
+- Close the SQLite album read cursor before deletion so concurrent image processing cannot prevent the delete with a stale WAL snapshot.
+- Apply the existing safe write retries to album deletion and reproduce concurrent background writes in a regression test.
+- Include the eight-section admin sidebar, page tabs and all earlier fork fixes from test.3.
+
 ## [1.4.26-test.3] - 2026-10-14
 
 - Replace the long admin menu with eight main sections and underlined page tabs.

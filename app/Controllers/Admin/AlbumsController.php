@@ -1120,6 +1120,8 @@ class AlbumsController extends BaseController
         $slugStmt = $pdo->prepare('SELECT slug FROM albums WHERE id = ?');
         $slugStmt->execute([$id]);
         $albumSlug = $slugStmt->fetchColumn() ?: null;
+        // Release the WAL read snapshot before a concurrent worker can write.
+        $slugStmt->closeCursor();
 
         // Collect all file paths BEFORE deleting from DB (CASCADE will delete images/variants records)
         $files = [];
@@ -1146,11 +1148,10 @@ class AlbumsController extends BaseController
         }
 
         // Delete album (CASCADE will handle images and image_variants records)
-        $stmt = $pdo->prepare('DELETE FROM albums WHERE id=:id');
         try {
             // Keep category tags before CASCADE, but rebuild only after deletion.
             $cacheTags = $this->albumInvalidationTags($id);
-            $stmt->execute([':id' => $id]);
+            $this->db->execute('DELETE FROM albums WHERE id=:id', [':id' => $id]);
             $this->invalidatePageCaches($albumSlug, $id, $cacheTags);
 
             // Album gone — refresh the sitemap so its URLs disappear.

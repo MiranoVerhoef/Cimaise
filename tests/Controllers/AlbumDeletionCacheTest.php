@@ -124,9 +124,51 @@ final class AlbumDeletionCacheTest extends TestCase
         self::assertNull($cache->get('galleries'));
     }
 
-    private function deleteFixtureAlbum(): \Psr\Http\Message\ResponseInterface
+    public function testDeleteSurvivesAConcurrentBackgroundWriteAfterReadingTheAlbum(): void
     {
-        $controller = new class($this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends AlbumsController {
+        $path = tempnam(sys_get_temp_dir(), 'cimaise-delete-');
+        self::assertNotFalse($path);
+        $db = new Database(database: $path, isSqlite: true);
+        $pdo = new class('sqlite:' . $path) extends PDO {
+            public ?Closure $beforeDelete = null;
+
+            public function prepare(string $query, array $options = []): PDOStatement|false
+            {
+                if (str_starts_with($query, 'DELETE FROM albums') && $this->beforeDelete !== null) {
+                    $callback = $this->beforeDelete;
+                    $this->beforeDelete = null;
+                    $callback();
+                }
+                return parent::prepare($query, $options);
+            }
+        };
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $pdo->exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=100');
+        (new ReflectionProperty(Database::class, 'pdo'))->setValue($db, $pdo);
+        try {
+            $pdo->exec((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema.sqlite.sql'));
+            $pdo->exec("INSERT INTO categories(id,name,slug) VALUES(876540,'Fixture','fixture');
+                INSERT INTO albums(id,title,slug,category_id,is_published) VALUES
+                (876540,'Delete me','delete-me',876540,1),(876541,'Keep me','keep-me',876540,1)");
+            $writer = new PDO('sqlite:' . $path);
+            $pdo->beforeDelete = static fn () => $writer->exec("UPDATE albums SET title='Background write' WHERE id=876541");
+            self::assertSame(302, $this->deleteFixtureAlbum($db)->getStatusCode());
+            self::assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM albums WHERE id=876540')->fetchColumn(), json_encode($_SESSION['flash'] ?? []));
+            self::assertSame('Background write', $pdo->query('SELECT title FROM albums WHERE id=876541')->fetchColumn());
+        } finally {
+            $pdo->beforeDelete = null;
+            (new ReflectionProperty(Database::class, 'pdo'))->setValue($db, $this->db->pdo());
+            unset($writer, $pdo, $db);
+            foreach ([$path, $path . '-wal', $path . '-shm'] as $file) {
+                @unlink($file);
+            }
+        }
+    }
+
+    private function deleteFixtureAlbum(?Database $db = null): \Psr\Http\Message\ResponseInterface
+    {
+        $controller = new class($db ?? $this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends AlbumsController {
             // Preserve the fixture session; this test covers deletion, not PHP session startup.
             protected function ensureSession(): void {}
         };
