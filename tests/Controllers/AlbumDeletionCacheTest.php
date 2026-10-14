@@ -111,6 +111,19 @@ final class AlbumDeletionCacheTest extends TestCase
         }
     }
 
+    public function testWarmedListingsParticipateInAlbumTagInvalidation(): void
+    {
+        $warmer = new CacheWarmService($this->db);
+        self::assertTrue($warmer->warmHome());
+        self::assertTrue($warmer->warmGalleries());
+        $cache = $warmer->getPageCacheService();
+        self::assertNotNull($cache->get('home'));
+        self::assertNotNull($cache->get('galleries'));
+        $cache->invalidateByTags(CacheTags::albumRelated(876540));
+        self::assertNull($cache->get('home'));
+        self::assertNull($cache->get('galleries'));
+    }
+
     private function deleteFixtureAlbum(): \Psr\Http\Message\ResponseInterface
     {
         $controller = new class($this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends AlbumsController {

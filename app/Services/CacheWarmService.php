@@ -334,10 +334,10 @@ class CacheWarmService
             'has_more_images' => $hasMoreImages,
         ];
 
-        return $this->pageCacheService->set('home', [
+        return $this->pageCacheService->setWithTags('home', [
             'template_file' => $templateFile,
             'data' => $cacheableData,
-        ]);
+        ], CacheTags::homeRelated());
     }
 
     /**
@@ -408,10 +408,10 @@ class CacheWarmService
             'parent_categories' => $parentCategories,
         ];
 
-        return $this->pageCacheService->set('galleries', [
+        return $this->pageCacheService->setWithTags('galleries', [
             'template_file' => 'frontend/galleries.twig',
             'data' => $cacheableData,
-        ]);
+        ], [CacheTags::GALLERIES, CacheTags::NAVIGATION]);
     }
 
     /**
