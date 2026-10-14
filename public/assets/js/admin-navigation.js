@@ -69,7 +69,8 @@
       else item.link.removeAttribute('aria-current');
     });
     entries.forEach(item => {
-      (item.group === group ? tabs : source).appendChild(item.link);
+      const parent = item.group === group ? tabs : source;
+      if (item.link.parentElement !== parent) parent.appendChild(item.link);
       item.link.classList.toggle('active', item === selected);
       if (item === selected) item.link.setAttribute('aria-current', 'page');
       else item.link.removeAttribute('aria-current');

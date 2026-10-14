@@ -38,6 +38,7 @@ const assert = require('node:assert/strict');
   await page.locator('#admin-section-tabs a[href$="/admin/lenses"]').click();
   await waitForAdminPage();
   assert.equal(await page.locator('#admin-section-tabs [aria-current="page"]').innerText(), 'Lenses');
+  assert.equal(await page.locator('#admin-section-tabs [aria-current="page"]').evaluate(link => link === document.activeElement), true);
   await page.goBack();
   await waitForAdminPage();
   assert.match(page.url(), /\/admin\/cameras\?q=navigation-fixture$/);
