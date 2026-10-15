@@ -139,6 +139,60 @@ class SettingsService
         $this->loadCache();
     }
 
+    /** Save a form atomically; publish fresh caches only after the whole batch commits. */
+    public function setMany(array $values): void
+    {
+        if ($values === []) {
+            return;
+        }
+        $pdo = $this->db->pdo();
+        if ($pdo->inTransaction()) {
+            throw new \LogicException('Settings batches must own their transaction');
+        }
+        $encoded = [];
+        foreach ($values as $key => $value) {
+            $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            if ($json === false) {
+                throw new \InvalidArgumentException('Cannot encode setting: ' . $key);
+            }
+            $encoded[$key] = [$json, $value === null ? 'null' : (\is_bool($value) ? 'boolean' : (\is_numeric($value) ? 'number' : 'string'))];
+        }
+        // Roll back before retrying: a busy SQLite snapshot requires replaying the whole batch.
+        $changed = \App\Support\SqliteRetry::run($pdo, function () use ($pdo, $encoded): bool {
+            $pdo->beginTransaction();
+            try {
+                $stmt = $this->db->query('SELECT `key`, `value`, `type` FROM settings');
+                $stored = [];
+                foreach ($stmt->fetchAll() as $row) {
+                    $stored[$row['key']] = [$row['value'], $row['type']];
+                }
+                $stmt->closeCursor();
+                $changed = false;
+                $replace = $this->db->replaceKeyword();
+                $now = $this->db->nowExpression();
+                foreach ($encoded as $key => [$json, $type]) {
+                    if (($stored[$key] ?? null) === [$json, $type]) {
+                        continue;
+                    }
+                    $this->db->execute("{$replace} INTO settings(`key`,`value`,`type`,`updated_at`) VALUES(?, ?, ?, {$now})", [$key, $json, $type]);
+                    $changed = true;
+                }
+                $pdo->commit();
+                return $changed;
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $e;
+            }
+        });
+        if ($changed) {
+            $this->clearCache();
+            TwigGlobalsCache::invalidate();
+            $this->loadCache();
+        }
+    }
+
     public function defaults(): array
     {
         return [
