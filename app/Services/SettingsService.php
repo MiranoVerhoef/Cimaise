@@ -139,7 +139,10 @@ class SettingsService
         $this->loadCache();
     }
 
-    /** Save a form atomically; publish fresh caches only after the whole batch commits. */
+    /**
+     * Save a form atomically; publish fresh caches only after the whole batch commits.
+     * @param array<string, mixed> $values
+     */
     public function setMany(array $values): void
     {
         if ($values === []) {

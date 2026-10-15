@@ -51,13 +51,14 @@ final class SettingsBatchTest extends TestCase
             $pdo->exec('CREATE TABLE settings (`key` TEXT PRIMARY KEY, value TEXT, type TEXT, updated_at TEXT)');
             (new ReflectionProperty(Database::class, 'pdo'))->setValue($db, $pdo);
             $settings = new SettingsService($db);
-            $settings->setMany(['site.title' => 'Batch', 'image.variants_async' => false]);
-            self::assertSame(2, $pdo->writes);
+            $values = ['site.title' => 'Batch', 'image.variants_async' => false] + array_fill_keys(array_map(static fn (int $i): string => 'fixture.' . $i, range(1, 42)), 'value');
+            $settings->setMany($values);
+            self::assertSame(44, $pdo->writes);
             self::assertSame(2, $pdo->reads, 'One snapshot and one post-commit cache reload');
             self::assertSame(1, $pdo->transactions);
             self::assertFalse($settings->get('image.variants_async'));
-            $settings->setMany(['site.title' => 'Batch', 'image.variants_async' => false]);
-            self::assertSame(2, $pdo->writes, 'Unchanged values must not be rewritten');
+            $settings->setMany($values);
+            self::assertSame(44, $pdo->writes, 'Unchanged values must not be rewritten');
             self::assertSame(3, $pdo->reads, 'No cache reload for an unchanged batch');
 
             $pdo->exec("CREATE TRIGGER reject_setting BEFORE INSERT ON settings WHEN NEW.key='blocked' BEGIN SELECT RAISE(ABORT, 'blocked'); END");

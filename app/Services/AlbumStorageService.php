@@ -33,7 +33,7 @@ final class AlbumStorageService
         $stmt->execute($albumIds);
         $originals = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $stmt->closeCursor();
-        $stmt = $this->pdo->prepare("SELECT v.id, i.album_id, v.path, v.size_bytes FROM image_variants v JOIN images i ON i.id = v.image_id WHERE i.album_id IN ($placeholders) ORDER BY v.id");
+        $stmt = $this->pdo->prepare("SELECT v.image_id, i.album_id, v.path, v.size_bytes FROM image_variants v JOIN images i ON i.id = v.image_id WHERE i.album_id IN ($placeholders) ORDER BY v.image_id, v.path, v.size_bytes");
         $stmt->execute($albumIds);
         $variants = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $stmt->closeCursor();
