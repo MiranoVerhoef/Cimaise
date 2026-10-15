@@ -662,6 +662,11 @@ window.AdminInit = function() {
   initTooltips();
   initDropdowns();
   initFormValidation();
+
+  // Page scripts register before AdminInit. Initialize categories after old widgets are destroyed.
+  if (document.getElementById('categories-container') && window.pageInitializers?.categories) {
+    window.pageInitializers.categories();
+  }
   
   debugLog('AdminInit: All components initialized');
 };

@@ -578,7 +578,8 @@
         {{ do_action('admin_sidebar_before', {base_path: base_path}) }}
 
         {% include 'admin/_navigation.twig' %}
-        <div id="admin-navigation-source">
+        <noscript><style nonce="{{ csp_nonce() }}">html #admin-navigation-source[hidden] { display: block !important; } #admin-primary-navigation { display: none !important; }</style></noscript>
+        <div id="admin-navigation-source" hidden>
         <!-- Main Navigation -->
         <div class="mb-8">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{{ trans('admin.sidebar.navigation') }}</p>
@@ -1131,6 +1132,10 @@
     // SPA Navigation System
     document.addEventListener('DOMContentLoaded', function() {
       if (window.AdminNavigation) window.AdminNavigation.init();
+      else {
+        document.getElementById('admin-primary-navigation').hidden = true;
+        document.getElementById('admin-navigation-source').hidden = false;
+      }
       const pageContent = document.getElementById('page-content');
       const loadingIndicator = document.getElementById('loading-indicator');
       const sidebarLinks = document.querySelectorAll('[data-spa-link]');
@@ -1313,7 +1318,7 @@
                     fallback = true;
                   }
                   if (needsCategoriesDnD) {
-                    const hasSortable = Array.isArray(window.sortableInstances) && window.sortableInstances.length > 0;
+                    const hasSortable = needsCategoriesDnD.dataset.categoriesReady === 'true';
                     if (!hasSortable) fallback = true;
                   }
                   if (fallback) {

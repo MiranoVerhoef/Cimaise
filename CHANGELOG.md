@@ -1,3 +1,10 @@
+## [1.4.26-test.7] - 2026-10-15
+
+- Keep Albums and Categories navigation within the tabbed admin interface without fallback reloads or legacy-menu flashes.
+- Initialize category drag-and-drop after widget cleanup and isolate page scripts for repeat visits.
+- Render the compact sidebar immediately and retain the full navigation fallback without JavaScript.
+- Preserve all fixes and features from test.6.
+
 ## [1.4.26-test.6] - 2026-10-14
 
 - Invalidate settings caches after successful writes so concurrent reads cannot hide newly uploaded fonts or saved settings.

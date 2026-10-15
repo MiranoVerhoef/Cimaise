@@ -84,4 +84,7 @@
   }
 
   window.AdminNavigation = { init, update };
+  // This deferred script needs no widget bundle; hydrate page tools as soon as the DOM is parsed.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 })();

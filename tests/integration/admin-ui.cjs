@@ -15,6 +15,24 @@ const assert = require('node:assert/strict');
     const saved = await context.request.post(form.action, { form: form.values, maxRedirects: 0 });
     assert.equal(saved.status(), 302, await saved.text());
   }
+  const firstPaint = await context.newPage();
+  let releaseNavigationScript;
+  const navigationGate = new Promise(resolve => { releaseNavigationScript = resolve; });
+  await firstPaint.route('**/assets/js/admin-navigation.js*', async route => {
+    await navigationGate;
+    await route.continue();
+  });
+  const firstPaintLoad = firstPaint.goto('/admin/albums');
+  try {
+    await firstPaint.locator('#admin-primary-navigation a').first().waitFor();
+    assert.equal(await firstPaint.locator('#admin-primary-navigation a:visible').count(), 8);
+    assert.equal(await firstPaint.locator('#admin-navigation-source').isVisible(), false);
+  } finally {
+    releaseNavigationScript();
+    await firstPaintLoad;
+    await firstPaint.close();
+  }
+  console.log('PASS: compact sidebar is visible before navigation JavaScript loads, without flashing the legacy menu');
   await page.goto('/admin/analytics-pro');
   assert.equal(await page.locator('#admin-section-tabs a[href$="/admin/analytics-pro"]').count(), 1);
   assert.equal(await page.locator('#admin-primary-navigation a').count(), 8);
@@ -29,6 +47,25 @@ const assert = require('node:assert/strict');
   async function waitForAdminPage() {
     await page.waitForFunction(() => document.getElementById('loading-indicator').classList.contains('hidden') && getComputedStyle(document.getElementById('page-content')).opacity === '1');
   }
+  await page.goto('/admin/albums');
+  let categoryDocumentLoads = 0;
+  const countCategoryDocuments = request => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) categoryDocumentLoads++;
+  };
+  page.on('request', countCategoryDocuments);
+  for (let visit = 0; visit < 3; visit++) {
+    await page.locator('#admin-section-tabs a[href$="/admin/categories"]').click();
+    await waitForAdminPage();
+    await page.waitForFunction(() => document.getElementById('categories-container')?.dataset.categoriesReady === 'true');
+    assert.equal(await page.evaluate(() => !!window.Sortable.get(document.getElementById('root-list'))), true);
+    assert.equal(await page.locator('#admin-navigation-source').isVisible(), false);
+    assert.equal(await page.locator('#admin-primary-navigation a:visible').count(), 8);
+    await page.locator('#admin-section-tabs a[href$="/admin/albums"]').click();
+    await waitForAdminPage();
+  }
+  page.off('request', countCategoryDocuments);
+  assert.equal(categoryDocumentLoads, 0, 'Categories must initialize without full-page fallback reloads');
+  console.log('PASS: repeated Album/Category transitions preserve the short menu and live drag-and-drop without document reloads');
   await page.locator('#admin-primary-navigation [data-nav-group="metadata"]').click();
   await waitForAdminPage();
   assert.match(page.url(), /\/admin\/cameras$/);
