@@ -271,6 +271,7 @@ function initUppyAreaUpload() {
   });
 
   uppy.on('upload-start', () => {
+    window.dispatchEvent(new CustomEvent('cimaise:upload-activity', { detail: { uploading: true } }));
     progressEl.classList.remove('hidden');
     const statusEl = document.getElementById('upload-status');
     if (statusEl) statusEl.textContent = t('admin.upload.starting_upload');
@@ -287,6 +288,7 @@ function initUppyAreaUpload() {
   });
 
   uppy.on('upload-success', (file, response) => {
+    window.dispatchEvent(new CustomEvent('cimaise:upload-activity', { detail: { uploading: false } }));
     const state = generation.get(file.id);
     if (state) { state.id = response.body?.id; if (state.state !== 'complete') state.state = 'queued'; }
     updateFileEl(file.id, state?.state === 'complete' ? 100 : 0, state?.state === 'complete' ? t('admin.upload.versions_ready') : t('admin.upload.versions_queued'), false, state?.state === 'complete');
