@@ -1550,18 +1550,15 @@ class Updater
                 fwrite($handle, "DROP TABLE IF EXISTS `{$table}`;\n");
                 fwrite($handle, $createStmt . ";\n\n");
 
-                // Get data (table name validated above)
-                $rows = $pdo->query("SELECT * FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC);
-                foreach ($rows as $row) {
-                    $columns = array_keys($row);
-                    $values = array_map(function ($val) use ($pdo) {
-                        if ($val === null) {
-                            return 'NULL';
-                        }
-                        return $pdo->quote((string)$val);
-                    }, array_values($row));
-
-                    fwrite($handle, "INSERT INTO `{$table}` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $values) . ");\n");
+                // Let SQLite serialize its own storage types, including binary values.
+                $columns = $pdo->query("PRAGMA table_info(`{$table}`)")->fetchAll(PDO::FETCH_COLUMN, 1);
+                $quotedColumns = array_map(static fn ($column) => '"' . str_replace('"', '""', (string) $column) . '"', $columns);
+                $expressions = array_map(static fn ($column) =>
+                    "CASE WHEN typeof({$column}) = 'text' THEN 'CAST(X''' || hex({$column}) || ''' AS TEXT)' ELSE quote({$column}) END",
+                    $quotedColumns);
+                $rows = $pdo->query('SELECT ' . implode(', ', $expressions) . " FROM `{$table}`");
+                while ($values = $rows->fetch(PDO::FETCH_NUM)) {
+                    fwrite($handle, "INSERT INTO `{$table}` (" . implode(', ', $quotedColumns) . ") VALUES (" . implode(', ', $values) . ");\n");
                 }
                 fwrite($handle, "\n");
             }
