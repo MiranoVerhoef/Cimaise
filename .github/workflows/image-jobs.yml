@@ -31,8 +31,9 @@ jobs:
           docker run --rm --entrypoint php cimaise:test -r 'echo "PHP ", PHP_VERSION, "\n"; exit(PHP_VERSION === "8.5.12" ? 0 : 1);'
       - name: Verify PHP regressions and real Docker startup migrations
         run: |
-          curl -fsSL https://phar.phpunit.de/phpunit-10.phar -o /tmp/cimaise-phpunit.phar
-          docker run --rm --entrypoint php -v /tmp/cimaise-phpunit.phar:/tmp/phpunit.phar:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test /tmp/phpunit.phar -c phpunit.xml
+          mkdir -p /tmp/cimaise-test-vendor
+          docker run --rm -v "$PWD:/app:ro" -v /tmp/cimaise-test-vendor:/app/vendor composer:2 install --ignore-platform-reqs --no-interaction --no-progress --no-scripts
+          docker run --rm --entrypoint php -v /tmp/cimaise-test-vendor:/var/www/html/vendor:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test vendor/bin/phpunit -c phpunit.xml
       - name: Verify complete prerelease package
         run: |
           docker create --name package-source cimaise:test
