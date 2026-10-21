@@ -26,6 +26,7 @@ jobs:
           docker buildx imagetools inspect --raw "$IMAGE" > /tmp/published-manifest.json
           jq -e '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | contains(["amd64", "arm64"])' /tmp/published-manifest.json
           docker pull "$IMAGE"
+          docker run --rm --entrypoint php "$IMAGE" -r 'echo "Published PHP ", PHP_VERSION, "\n"; exit(PHP_VERSION === "8.5.12" ? 0 : 1);'
           test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$(git rev-parse HEAD)"
           test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.source" }}')" = "https://github.com/$REPO"
           docker buildx imagetools inspect "$IMAGE"
