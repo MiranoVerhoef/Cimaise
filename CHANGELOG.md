@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
+## [Unreleased]
+### Added
+- Grouped admin navigation, gallery keyboard navigation and collapsible media filters.
+- Original-image details and downloads, image-generation progress and enhanced-version notifications.
+- Per-album storage totals, uncategorized albums, independent hero text controls and a Classic homepage album limit.
+- Light/dark logos, editable About navigation and permalink, and local font uploads.
+
+### Fixed
+- Retry interrupted image jobs and SQLite contention safely across Apache, PHP-FPM and CLI generation.
+- Revalidate changed content, purge affected page caches and prevent maintenance pages from serving cached content.
+- Preserve album previews when deleting albums and avoid duplicate Analytics Pro navigation.
+- Preserve SQLite binary and text storage types in updater backups on PHP 8.5.
+- Apply numeric schema migrations during prerelease upgrades and preserve worker ownership.
+
+### Changed
+- Batch settings writes, cache album storage inspection and adapt admin polling to upload activity.
+- Pin the patched PHP 8.5.12 Docker runtime and verify publication without replacing stable tags with prereleases.
+- Exercise uploads, queues, SQLite contention, upgrades and admin controls in Apache, PHP-FPM and Chromium integration checks.
+
 ## [1.4.26] - 2026-10-13
 ### Added
 - **Uploads are processed from a durable queue.** The responsive variants, the LQIP placeholder and the blurred preview of an uploaded image are generated from a queue stored on disk, so a restart or a killed process no longer loses them, and a failed image is retried with an increasing delay. On PHP-FPM the queue is processed after the upload response, as before. The Docker image, which could not do that, now runs a small worker next to Apache that starts PHP only while jobs are queued: until now its variants were only produced when a visitor first requested each one. Other setups can add `php bin/console images:work` to cron. Based on the queue @MiranoVerhoef built in his fork.

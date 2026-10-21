@@ -87,6 +87,7 @@ tests/
 !/tests/Services/ProtectedMediaStorageTest.php
 !/tests/Services/BaseUrlServiceTest.php
 !/tests/Services/SettingsServiceBooleanTest.php
+!/tests/Services/SettingsPostWriteCacheTest.php
 !/tests/Services/ContainerMigrationServiceTest.php
 !/tests/Services/AnalyticsDeviceDetectionTest.php
 !/tests/Services/OriginalImageTest.php
@@ -212,3 +213,8 @@ presentazione.md
 .playwright-mcp/
 m8-before/
 m8-after/
+
+/storage/image-jobs/
+
+# Album deletion and warmed gallery regression coverage
+!/tests/Controllers/AlbumDeletionCacheTest.php

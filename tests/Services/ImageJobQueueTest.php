@@ -104,7 +104,7 @@ final class ImageJobQueueTest extends TestCase
         self::assertSame([5], $this->processed);
     }
 
-    public function testJobIsDroppedAfterTheLastAttempt(): void
+    public function testJobRemainsQueuedAfterRepeatedFailures(): void
     {
         $queue = $this->queue(static function (): int {
             throw new RuntimeException('corrupt original');
@@ -115,8 +115,10 @@ final class ImageJobQueueTest extends TestCase
             'next_at' => 0,
         ]));
 
-        self::assertSame(['processed' => 0, 'failed' => 1, 'remaining' => 0], $queue->drain());
-        self::assertFileDoesNotExist($this->directory . '/5.job');
+        self::assertSame(['processed' => 0, 'failed' => 1, 'remaining' => 1], $queue->drain());
+        self::assertFileExists($this->directory . '/5.job');
+        self::assertSame(ImageJobQueue::MAX_ATTEMPTS, $this->state(5)['attempts']);
+        self::assertGreaterThan(time(), $this->state(5)['next_at']);
     }
 
     public function testEnqueueingAgainKeepsTheRetryState(): void

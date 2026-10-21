@@ -6,6 +6,12 @@
     "version": "1.0.0"
   },
   "admin": {
+    "admin.sidebar.home": "Accueil",
+    "admin.sidebar.website": "Site web",
+    "admin.sidebar.appearance": "Apparence",
+    "admin.sidebar.section_tools": "Outils de la section",
+    "admin.media.filters": "Filtres",
+    "admin.media.search_albums": "Rechercher des albums",
     "admin.albums.add_more_images": "Ajouter plus d'images",
     "admin.version_label": "Version de l'application",
     "admin.albums.add_password": "Ajouter un mot de passe",
@@ -2171,6 +2177,7 @@
     "admin.analytics_pro.pageviews_today": "Pages vues aujourd'hui",
     "admin.analytics_pro.top_events": "Principaux événements d'engagement",
     "admin.sidebar.custom_templates_sub": "Modèles personnalisés",
+    "admin.sidebar.custom_templates": "Modèles personnalisés",
     "admin.sidebar.users": "Utilisateurs",
     "admin.sidebar.users_sub": "Comptes et rôles",
     "admin.social.add_profile": "Ajouter un profil",
