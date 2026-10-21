@@ -2,6 +2,7 @@
 
 - Update the Docker runtime to PHP 8.5.12, addressing CVE-2026-109618 and CVE-2026-109619.
 - Pin the patched Apache runtime and PHP 8.2.35 compatibility-test image by digest, and verify actual runtime versions in CI.
+- Pin the existing Imagick 3.8.1 source to its official GitHub commit so a PECL download outage does not block the build.
 - Retain every test.7 application fix; keep the pending performance changes separate.
 
 ## [1.4.26-test.7] - 2026-10-15

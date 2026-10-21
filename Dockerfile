@@ -80,7 +80,7 @@ RUN apt-get update \
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN install-php-extensions \
       gd \
-      imagick \
+      Imagick/imagick@70087bab33eab913e99ac77d64d04d1a2fd0b7b0 \
       exif \
       intl \
       zip \
