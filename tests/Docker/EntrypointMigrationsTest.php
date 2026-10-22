@@ -149,6 +149,14 @@ final class EntrypointMigrationsTest extends TestCase
         self::assertStringNotContainsString('starting Apache', $output);
     }
 
+    public function testOneOffCommandArgumentsAreNotLogged(): void
+    {
+        [$status, $output] = $this->boot([PHP_BINARY, '-r', 'echo "ok";', 'SECRET_ARGUMENT']);
+        self::assertSame(0, $status, $output);
+        self::assertStringContainsString('[cimaise] running: ' . PHP_BINARY, $output);
+        self::assertStringNotContainsString('SECRET_ARGUMENT', $output);
+    }
+
     public function testOneOffCommandStillAppliesMigrations(): void
     {
         $db = $this->seedVolume();

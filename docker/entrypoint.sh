@@ -186,7 +186,9 @@ fi
 if [ "$SERVER_MODE" = "1" ]; then
   echo "[cimaise] starting Apache…"
 else
-  echo "[cimaise] running: $*"
+  # Only the program name: arguments can carry secrets (e.g. a password
+  # passed to bin/console) and container logs are often shipped elsewhere.
+  echo "[cimaise] running: ${1:-}"
   exec 1>&3 3>&-
 fi
 exec "$@"
