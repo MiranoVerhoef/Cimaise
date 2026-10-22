@@ -33,8 +33,11 @@ final class EntrypointMigrationsTest extends TestCase
         // ownership changes are stubbed; shell control flow/PHP/SQL are real.
         file_put_contents($this->root . '/bin/chown', "#!/bin/sh\nexit 0\n");
         file_put_contents($this->root . '/bin/su', "#!/bin/sh\nshift 3\nexec /bin/sh -c \"\$1\"\n");
+        // Stand-in for the image CMD, so boots exercise the real server path.
+        file_put_contents($this->root . '/bin/apache2-foreground', "#!/bin/sh\necho APACHE_STARTED\n");
         chmod($this->root . '/bin/chown', 0755);
         chmod($this->root . '/bin/su', 0755);
+        chmod($this->root . '/bin/apache2-foreground', 0755);
     }
 
     protected function tearDown(): void
@@ -69,8 +72,11 @@ final class EntrypointMigrationsTest extends TestCase
         return $db;
     }
 
-    /** @return array{int, string} */
-    private function boot(): array
+    /**
+     * @param list<string> $command
+     * @return array{int, string, string} exit status, stdout+stderr, stdout alone
+     */
+    private function boot(array $command = ['apache2-foreground']): array
     {
         $env = getenv();
         foreach (array_keys($env) as $key) {
@@ -79,14 +85,16 @@ final class EntrypointMigrationsTest extends TestCase
             }
         }
         $env['PATH'] = $this->root . '/bin:' . dirname(PHP_BINARY) . ':' . ($env['PATH'] ?? '');
-        $process = proc_open(['/bin/sh', $this->root . '/entrypoint.sh', PHP_BINARY, '-r', 'echo "APACHE_STARTED\n";'],
+        $env['CIMAISE_IMAGE_WORKER'] = '0';
+        $process = proc_open(['/bin/sh', $this->root . '/entrypoint.sh', ...$command],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $this->root, $env);
         self::assertIsResource($process);
         fclose($pipes[0]);
-        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        return [proc_close($process), $output];
+        return [proc_close($process), $stdout . $stderr, $stdout];
     }
 
     public function testRetainedVolumeIsMigratedBeforeApacheAndRestartIsIdempotent(): void
@@ -129,5 +137,24 @@ final class EntrypointMigrationsTest extends TestCase
         self::assertStringContainsString('No .env yet', $output);
         self::assertStringContainsString('APACHE_STARTED', $output);
         self::assertFileDoesNotExist($this->root . '/database/database.sqlite');
+    }
+
+    public function testOneOffCommandKeepsStdoutCleanAndSkipsTheServerBanner(): void
+    {
+        [$status, $output, $stdout] = $this->boot([PHP_BINARY, '-r', 'echo "ONE_OFF\n";']);
+        self::assertSame(0, $status, $output);
+        self::assertSame("ONE_OFF\n", $stdout, 'entrypoint messages must not reach the command stdout');
+        self::assertStringContainsString('[cimaise] running:', $output);
+        self::assertStringNotContainsString('No .env yet', $output);
+        self::assertStringNotContainsString('starting Apache', $output);
+    }
+
+    public function testOneOffCommandStillAppliesMigrations(): void
+    {
+        $db = $this->seedVolume();
+        [$status, $output, $stdout] = $this->boot([PHP_BINARY, '-r', 'echo "ONE_OFF\n";']);
+        self::assertSame(0, $status, $output);
+        self::assertSame("ONE_OFF\n", $stdout);
+        self::assertSame(1, (int) $db->query('SELECT show_equipment FROM albums WHERE id = 99999')->fetchColumn());
     }
 }
