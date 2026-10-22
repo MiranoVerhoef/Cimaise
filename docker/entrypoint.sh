@@ -13,6 +13,18 @@ set -e
 APP_DIR="/var/www/html"
 WEB_USER="www-data"
 
+# Only the image CMD (apache2-foreground) serves the site. Any other command —
+# `docker run … php -v`, `docker compose run cimaise php bin/console …` — is a
+# one-off: the runtime tree, .env link and migrations are still prepared, but
+# the installer banner and the image worker are skipped, and this script's own
+# messages go to stderr so the command's stdout stays clean for piping.
+SERVER_MODE=0
+if [ "${1:-}" = "apache2-foreground" ]; then
+  SERVER_MODE=1
+else
+  exec 3>&1 1>&2
+fi
+
 # Directories the application must be able to write to at runtime.
 WRITABLE_DIRS="
   storage/cache
@@ -137,7 +149,7 @@ if [ -f "$ENV_STORE" ]; then
       find "$cache_dir" -type f -delete
     fi
   done
-else
+elif [ "$SERVER_MODE" = "1" ]; then
   # First-boot banner: everything a user needs to reach the installer. When
   # CIMAISE_DB_* is set (compose does this) the installer form comes already
   # prefilled with the bundled-MySQL credentials — no typing needed.
@@ -166,10 +178,17 @@ fi
 # mod_php cannot continue after the response, so uploaded images get their
 # variants from a background worker. It runs as the web user and only starts
 # PHP while jobs are queued. Skipped when the container runs another command.
-if [ "${1:-}" = "apache2-foreground" ] && [ "${CIMAISE_IMAGE_WORKER:-1}" != "0" ]; then
+if [ "$SERVER_MODE" = "1" ] && [ "${CIMAISE_IMAGE_WORKER:-1}" != "0" ]; then
   echo "[cimaise] starting image worker…"
   su -s /bin/sh -c "exec /bin/sh '$APP_DIR/bin/image-worker.sh' '$APP_DIR'" "$WEB_USER" &
 fi
 
-echo "[cimaise] starting Apache…"
+if [ "$SERVER_MODE" = "1" ]; then
+  echo "[cimaise] starting Apache…"
+else
+  # Only the program name: arguments can carry secrets (e.g. a password
+  # passed to bin/console) and container logs are often shipped elsewhere.
+  echo "[cimaise] running: ${1:-}"
+  exec 1>&3 3>&-
+fi
 exec "$@"
