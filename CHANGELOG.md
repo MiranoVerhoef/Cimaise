@@ -1,3 +1,12 @@
+## [1.4.26-test.9] - 2026-10-22
+
+- Integrate PR #23: batch settings writes with safe SQLite retries and invalidate caches once after commit.
+- Reduce idle admin polling while waking immediately for uploads and active generation.
+- Cache album storage inspection, detecting media changes immediately and reconciling external changes on expiry.
+- Preserve binary and text values in SQLite updater backups on PHP 8.5.
+- Include upstream installation/update lifecycle tests and use locked PHPUnit dependencies in CI.
+- Retain all test.8 features and the PHP 8.5.12 runtime.
+
 ## [1.4.26-test.8] - 2026-10-21
 
 - Update the Docker runtime to PHP 8.5.12, addressing CVE-2026-109618 and CVE-2026-109619.
