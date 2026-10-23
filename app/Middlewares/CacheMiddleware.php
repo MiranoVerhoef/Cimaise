@@ -428,7 +428,12 @@ class CacheMiddleware implements MiddlewareInterface
     private function htmlContentId(string $hash): string
     {
         $release = hash_file('sha256', dirname(__DIR__, 2) . '/version.json');
-        return '"' . hash('sha256', $hash . json_encode($this->settings->all()) . $release) . '"';
+        // The layout embeds the image-generation state (the visitor's
+        // enhanced-version watcher): a validator that ignored it would keep
+        // serving 304 for a page whose watcher state is stale.
+        $generation = \App\Services\ImageGenerationRevision::current()
+            . (\App\Services\ImageGenerationRevision::pending() ? ':pending' : ':idle');
+        return '"' . hash('sha256', $hash . json_encode($this->settings->all()) . $release . $generation) . '"';
     }
 
     /**
