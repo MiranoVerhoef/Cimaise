@@ -566,6 +566,8 @@ class UploadService
         $srcImg = match ($info['mime']) {
             'image/jpeg' => @imagecreatefromjpeg($src),
             'image/png' => @imagecreatefrompng($src),
+            'image/gif' => @imagecreatefromgif($src),
+            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($src) : null,
             default => null,
         };
         if (!$srcImg) {
@@ -597,6 +599,8 @@ class UploadService
         $srcImg = match ($info['mime']) {
             'image/jpeg' => @imagecreatefromjpeg($src),
             'image/png' => @imagecreatefrompng($src),
+            'image/gif' => @imagecreatefromgif($src),
+            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($src) : null,
             default => null,
         };
         if (!$srcImg) {
@@ -637,7 +641,7 @@ class UploadService
         $formats = array_map(static fn ($enabled) => filter_var($enabled, FILTER_VALIDATE_BOOLEAN), $formats);
         if (!array_filter($formats)) { $formats['jpg'] = true; }
         $enabled = array_values(array_filter(['avif', 'webp', 'jpg', 'jxl'], static fn ($fmt) => ($formats[$fmt] ?? false)
-            && ($fmt !== 'jxl' || \App\Services\Imaging\ImageEngine::capabilities()['jxl_write'])));
+            && ($fmt !== 'jxl' || \App\Services\Imaging\ImageEngine::jxlWritable())));
         return ['breakpoints' => $breakpoints, 'formats' => $enabled];
     }
 
@@ -794,7 +798,10 @@ class UploadService
                     // raw unlink on a composed path.
                     self::safeUnlink($oppositeDir . "/{$imageId}_{$variant}.{$fmt}");
                     $size = (int)filesize($destPath);
-                    [$vw, $vh] = ($fmt === 'jxl' ? false : getimagesize($destPath)) ?: [$targetW, (int)round($targetW * (int)$image['height'] / max(1, (int)$image['width']))];
+                    // getimagesize() cannot read JPEG-XL: derive the dimensions
+                    // from the source, never upscaled past its own width.
+                    $fallbackW = (int)$image['width'] > 0 ? min($targetW, (int)$image['width']) : $targetW;
+                    [$vw, $vh] = ($fmt === 'jxl' ? false : getimagesize($destPath)) ?: [$fallbackW, (int)round($fallbackW * (int)$image['height'] / max(1, (int)$image['width']))];
                     $replaceKeyword = $this->db->replaceKeyword();
                     $this->db->execute(sprintf('%s INTO image_variants(image_id, variant, format, path, width, height, size_bytes) VALUES(?,?,?,?,?,?,?)', $replaceKeyword), [$imageId, (string)$variant, (string)$fmt, $destRelUrl, (int)$vw, $vh, $size]);
                     $stats['generated']++;
@@ -1125,7 +1132,14 @@ class UploadService
             // Check if blur file existed BEFORE generation to track stats correctly
             $existedBefore = is_file($mediaDir . "/{$image['id']}_blur.jpg");
 
-            $blurPath = $this->generateBlurredVariant((int)$image['id'], $force);
+            try {
+                $blurPath = $this->generateBlurredVariant((int)$image['id'], $force);
+            } catch (\Throwable $e) {
+                // One image held by the worker (or failing) must not stop the
+                // rest of the album; the worker's own job generates its blur.
+                Logger::warning('Blurred variant skipped', ['image_id' => (int)$image['id'], 'error' => $e->getMessage()], 'upload');
+                $blurPath = null;
+            }
             if ($blurPath !== null) {
                 if (!$force && $existedBefore) {
                     $stats['skipped']++;
