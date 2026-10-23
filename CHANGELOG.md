@@ -24,7 +24,10 @@ release notes, so keep one section per released tag.
 
 ### Changed
 - Batch settings writes, cache album storage inspection and adapt admin polling to upload activity.
-- Pin the patched PHP 8.5.12 Docker runtime and verify publication without replacing stable tags with prereleases.
+- Verify the published Docker image (PHP 8.5.12 or later) and never let prerelease tags replace the stable aliases.
+- Uploads are sent as they are: the in-browser compression (JPEG re-encode at 85%, 4000 px cap, large PNGs converted to JPEG) is gone, so originals and their metadata reach the server intact.
+- An image job that fails 10 times in a row is parked (`storage/image-jobs/{id}.failed`) instead of being retried hourly forever; uploading or regenerating the image starts it again.
+- Visitors' pages watch for enhanced image versions only while images are still being generated, and for at most 10 minutes.
 - Exercise uploads, queues, SQLite contention, upgrades and admin controls in Apache, PHP-FPM and Chromium integration checks.
 
 ## [1.4.27] - 2026-10-22
