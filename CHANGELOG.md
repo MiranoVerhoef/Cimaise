@@ -27,6 +27,18 @@ release notes, so keep one section per released tag.
 - Pin the patched PHP 8.5.12 Docker runtime and verify publication without replacing stable tags with prereleases.
 - Exercise uploads, queues, SQLite contention, upgrades and admin controls in Apache, PHP-FPM and Chromium integration checks.
 
+## [1.4.27] - 2026-10-22
+### Security
+- **The Docker image runs PHP 8.5.12.** PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35, released on 2026-10-21, fix two critical remote code execution vulnerabilities in the PHP engine itself (CVE-2026-109618 and CVE-2026-109619, CVSS 9.2). The Apache `mod_php` setup the image uses is the most exposed one. The `1.4.26` image was already rebuilt on PHP 8.5.12 on 2026-10-21; this release ships it under a new version so every install picks it up. Image builds now always fetch the current PHP base image, so a rebuild after a PHP security release can never reuse an older one from the build cache.
+
+### Fixed
+- **Docker: one-off commands print only their own output.** `docker run fabiodalez/cimaise php -v` or `docker compose run cimaise php bin/console …` showed the installer banner and "starting Apache…" although Apache was never started, mixed with the command's output. The banner and the image worker are now reserved for the web server; other commands still get the storage tree, the `.env` link and the pending migrations, and the container's own messages go to stderr and name only the program, never its arguments, so the command's output can be piped or redirected to a file.
+
+### Upgrade notes
+- No database change.
+- Docker: `docker compose pull && docker compose up -d` (or pull the new tag) to get PHP 8.5.12.
+- Outside Docker, Cimaise uses the PHP of your server, which this release cannot update: make sure it runs PHP 8.5.12, 8.4.27, 8.3.36 or 8.2.35 or later, and ask your hosting provider if it does not. PHP 8.1 and older no longer receive security fixes, and PHP 8.2 reaches end of life on 2026-12-31.
+
 ## [1.4.26] - 2026-10-13
 ### Added
 - **Uploads are processed from a durable queue.** The responsive variants, the LQIP placeholder and the blurred preview of an uploaded image are generated from a queue stored on disk, so a restart or a killed process no longer loses them, and a failed image is retried with an increasing delay. On PHP-FPM the queue is processed after the upload response, as before. The Docker image, which could not do that, now runs a small worker next to Apache that starts PHP only while jobs are queued: until now its variants were only produced when a visitor first requested each one. Other setups can add `php bin/console images:work` to cron. Based on the queue @MiranoVerhoef built in his fork.
