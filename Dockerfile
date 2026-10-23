@@ -52,7 +52,7 @@ RUN composer dump-autoload --no-dev --optimize --classmap-authoritative
 # Debian 13 (trixie) + PHP 8.5: newest stable base = current security fixes for
 # the imaging system libraries (libheif, openexr, libde265, …) that the older
 # bookworm snapshot shipped with known CVEs.
-FROM php:8.5.12-apache-trixie@sha256:4d1f268dd3b670bd003861c5385cb2f8ba7196dbc88ee84dcae47270c116f242 AS runtime
+FROM php:8.5-apache-trixie AS runtime
 
 LABEL org.opencontainers.image.title="Cimaise" \
       org.opencontainers.image.description="Minimalist photography portfolio CMS (PHP 8.5, Slim 4, Twig) — SQLite or MySQL." \
@@ -80,7 +80,7 @@ RUN apt-get update \
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN install-php-extensions \
       gd \
-      Imagick/imagick@70087bab33eab913e99ac77d64d04d1a2fd0b7b0 \
+      imagick \
       exif \
       intl \
       zip \
