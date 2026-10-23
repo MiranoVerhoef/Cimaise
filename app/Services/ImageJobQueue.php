@@ -14,7 +14,10 @@ use RuntimeException;
  * One empty file per image under storage/image-jobs: no schema, and a job
  * survives a killed PHP process or a container restart. A job is removed only
  * after its image has every variant this runtime can produce; a failure keeps
- * it with an exponential backoff with a capped delay until a later attempt succeeds.
+ * it with an exponential backoff with a capped delay. After MAX_ATTEMPTS
+ * failures the job is parked as `{id}.failed`: it no longer wakes the worker
+ * or admin requests, and enqueueing the image again (re-upload, regenerate)
+ * starts it afresh.
  *
  * Who drains it:
  *  - PHP-FPM: the upload request itself, after the response has been sent;
@@ -24,8 +27,10 @@ use RuntimeException;
  */
 class ImageJobQueue
 {
-    /** Cap the backoff exponent, never discard a failed job. */
+    /** Failures after which a job is parked instead of retried. */
     public const MAX_ATTEMPTS = 10;
+    /** A synchronous upload waits at most this long for a running drain. */
+    private const SYNC_LOCK_WAIT = 20;
     private const BACKOFF_BASE = 30;
     private const BACKOFF_MAX = 3600;
     /** Page caches are refreshed at most this often while a long batch runs. */
@@ -42,7 +47,8 @@ class ImageJobQueue
         ?string $directory = null,
         ?\Closure $processor = null,
         ?\Closure $invalidator = null,
-        private readonly int $invalidationInterval = self::INVALIDATION_INTERVAL
+        private readonly int $invalidationInterval = self::INVALIDATION_INTERVAL,
+        private readonly float $syncLockWait = self::SYNC_LOCK_WAIT
     ) {
         $this->directory = $directory ?? dirname(__DIR__, 2) . '/storage/image-jobs';
         $this->processor = $processor ?? $this->process(...);
@@ -56,6 +62,11 @@ class ImageJobQueue
         }
         $this->ensureDirectory();
         $path = $this->jobPath($imageId);
+        // An explicit enqueue is a fresh request: a parked job starts over.
+        $parked = $this->failedPath($imageId);
+        if (is_file($parked)) {
+            UploadService::safeUnlink($parked);
+        }
         // Exclusive create: enqueueing twice must not reset the retry state.
         $handle = @fopen($path, 'x');
         if ($handle !== false) {
@@ -68,6 +79,19 @@ class ImageJobQueue
     public function hasJobs(): bool
     {
         return $this->jobFiles() !== [];
+    }
+
+    /** Jobs that may run now; those still backing off do not count. */
+    public function hasDueJobs(): bool
+    {
+        return $this->dueJobs() !== [];
+    }
+
+    /** Jobs parked after MAX_ATTEMPTS failures. */
+    public function failed(): int
+    {
+        clearstatcache();
+        return count(glob($this->directory . '/*.failed') ?: []);
     }
 
     public function pending(): int
@@ -133,6 +157,7 @@ class ImageJobQueue
                     }
                 }
             }
+            $this->pruneOrphanLocks();
         } finally {
             if ($albums !== []) {
                 $this->refreshPageCaches(array_keys($albums));
@@ -142,6 +167,42 @@ class ImageJobQueue
         }
         $result['remaining'] = $this->pending();
         return $result;
+    }
+
+    /**
+     * Per-image lock files are never unlinked while an image exists (see
+     * ImageProcessingLock). Those of deleted images can no longer be contended
+     * and are removed here, under the worker lock.
+     */
+    private function pruneOrphanLocks(): void
+    {
+        $locks = [];
+        foreach (glob($this->directory . '/*.lock') ?: [] as $path) {
+            $id = basename($path, '.lock');
+            if (ctype_digit($id) && !is_file($this->jobPath((int) $id))) {
+                $locks[(int) $id] = $path;
+            }
+        }
+        if ($locks === []) {
+            return;
+        }
+        try {
+            $existing = [];
+            foreach (array_chunk(array_keys($locks), 500) as $chunk) {
+                $stmt = $this->db->pdo()->prepare(
+                    'SELECT id FROM images WHERE id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')'
+                );
+                $stmt->execute($chunk);
+                foreach ($stmt->fetchAll(\PDO::FETCH_COLUMN) ?: [] as $id) {
+                    $existing[(int) $id] = true;
+                }
+            }
+            foreach (array_diff_key($locks, $existing) as $path) {
+                UploadService::safeUnlink($path);
+            }
+        } catch (\Throwable $e) {
+            Logger::warning('Image queue: lock cleanup skipped', ['error' => $e->getMessage()], 'upload');
+        }
     }
 
     /**
@@ -182,7 +243,7 @@ class ImageJobQueue
             ignore_user_abort(true);
             @set_time_limit($timeBudget + 60);
             try {
-                if (!$this->hasJobs()) {
+                if (!$this->hasDueJobs()) {
                     return;
                 }
                 // The connection sat idle while the client downloaded the
@@ -319,8 +380,22 @@ class ImageJobQueue
     /** @param array{attempts: int, next_at: int} $state */
     private function fail(int $imageId, array $state, \Throwable $error): void
     {
-        $attempts = min(self::MAX_ATTEMPTS, $state['attempts'] + 1);
+        $attempts = $state['attempts'] + 1;
         $path = $this->jobPath($imageId);
+        if ($attempts >= self::MAX_ATTEMPTS) {
+            // Park it: a job that keeps failing (an encoder this host lacks, a
+            // corrupt original) must not restart PHP every retry interval forever.
+            if (@rename($path, $this->failedPath($imageId))) {
+                $this->report($imageId, ['state' => 'failed', 'next_at' => 0, 'attempts' => $attempts]);
+                Logger::error('Image queue: job abandoned after repeated failures', [
+                    'image_id' => $imageId,
+                    'attempts' => $attempts,
+                    'error' => $error->getMessage(),
+                ], 'upload');
+                return;
+            }
+        }
+        $attempts = min(self::MAX_ATTEMPTS, $attempts);
         $nextAt = time() + min(self::BACKOFF_MAX, self::BACKOFF_BASE * 2 ** ($attempts - 1));
         // Write-then-rename: a crash mid-write leaves the previous state, and
         // an unreadable file simply counts as a fresh, immediately due job.
@@ -341,6 +416,11 @@ class ImageJobQueue
     private function jobPath(int $imageId): string
     {
         return $this->directory . '/' . $imageId . '.job';
+    }
+
+    private function failedPath(int $imageId): string
+    {
+        return $this->directory . '/' . $imageId . '.failed';
     }
 
     public function trackUpload(int $imageId, string $token): void
@@ -417,7 +497,11 @@ class ImageJobQueue
         }
     }
 
-    /** Persist before waiting so interruption never loses foreground work. */
+    /**
+     * Persist before waiting so interruption never loses foreground work.
+     * A running drain can hold the lock for minutes: after SYNC_LOCK_WAIT the
+     * upload returns and the job stays queued for that drain or the worker.
+     */
     public function runSynchronously(int $imageId): void
     {
         $this->enqueue($imageId);
@@ -426,8 +510,13 @@ class ImageJobQueue
             throw new RuntimeException('Cannot open image worker lock');
         }
         try {
-            if (!flock($lock, LOCK_EX)) {
-                throw new RuntimeException('Cannot acquire image worker lock');
+            $deadline = microtime(true) + $this->syncLockWait;
+            while (!flock($lock, LOCK_EX | LOCK_NB)) {
+                if (microtime(true) >= $deadline) {
+                    $this->drainAfterResponse();
+                    throw new RuntimeException('Image worker busy; job ' . $imageId . ' left queued');
+                }
+                usleep(250000);
             }
             $albumId = ($this->processor)($imageId);
             $this->complete($imageId);
