@@ -418,8 +418,14 @@ class CacheMiddleware implements MiddlewareInterface
         }
         $cacheFile = $this->pageCacheService->getCacheFilePath($cacheType);
         if ($cacheFile && file_exists($cacheFile)) {
-            $hash = hash_file('sha256', $cacheFile);
-            return $hash === false ? null : $this->htmlContentId($hash);
+            // The file is rewritten whenever the page is: its stat identifies
+            // the content without reading it on every request.
+            $mtime = filemtime($cacheFile);
+            $size = filesize($cacheFile);
+            if ($mtime === false || $size === false) {
+                return null;
+            }
+            return $this->htmlContentId($cacheFile . '-' . $mtime . '-' . $size);
         }
 
         return null;

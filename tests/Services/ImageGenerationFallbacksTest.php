@@ -6,6 +6,7 @@ use App\Services\Imaging\ImageEngine;
 use App\Services\SettingsService;
 use App\Services\UploadService;
 use App\Support\Database;
+use App\Support\ImageProcessingLock;
 use PHPUnit\Framework\TestCase;
 
 /** GD fallbacks, the JPEG-XL route and per-image locking in batch generation. */
@@ -160,7 +161,7 @@ final class ImageGenerationFallbacksTest extends TestCase
         $this->db->pdo()->exec("INSERT INTO images(id,album_id,original_path,file_hash,width,height,mime) VALUES
             (765432,765430,'/storage/originals/missing-a.jpg','blur-a',10,10,'image/jpeg'),
             (765433,765430,'/storage/originals/missing-b.jpg','blur-b',10,10,'image/jpeg')");
-        $dir = dirname(__DIR__, 2) . '/storage/image-jobs';
+        $dir = ImageProcessingLock::directory();
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
@@ -168,9 +169,12 @@ final class ImageGenerationFallbacksTest extends TestCase
         $this->cleanup[] = $lockPath;
         $held = fopen($lockPath, 'c');
         self::assertTrue(flock($held, LOCK_EX));
+        $wait = ImageProcessingLock::$cliWaitSeconds;
+        ImageProcessingLock::$cliWaitSeconds = 0.0;
         try {
             $stats = (new UploadService($this->db))->generateBlurredVariantsForAlbum(765430);
         } finally {
+            ImageProcessingLock::$cliWaitSeconds = $wait;
             flock($held, LOCK_UN);
             fclose($held);
         }

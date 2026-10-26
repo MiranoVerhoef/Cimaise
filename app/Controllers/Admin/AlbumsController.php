@@ -681,6 +681,8 @@ class AlbumsController extends BaseController
         }
         return $this->view->render($response, 'admin/albums/edit.twig', [
             'item' => $item,
+            'upload_max_pixels' => \App\Services\UploadService::MAX_IMAGE_PIXELS,
+            'upload_max_bytes' => \App\Services\UploadService::maxUploadBytes(),
             'categories' => $cats,
             'tags' => $tags,
             'templates' => $templates,

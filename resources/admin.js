@@ -1,6 +1,7 @@
 import Uppy from '@uppy/core'
 // We avoid rendering Uppy UI; we keep our own area
 import XHRUpload from '@uppy/xhr-upload'
+import { fitForUpload } from './js/utils/upload-fit.js'
 import TomSelect from 'tom-select'
 import 'tom-select/dist/css/tom-select.css'
 import Sortable from 'sortablejs'
@@ -113,6 +114,23 @@ function initUppyAreaUpload() {
         'Accept': 'application/json'
       }
     });
+
+  // Only a file the server would reject (pixel cap, PHP size limit) is
+  // downscaled here; everything else is uploaded byte for byte.
+  const uploadLimits = {
+    maxPixels: Number(area.dataset.maxPixels) || 0,
+    maxBytes: Number(area.dataset.maxBytes) || 0
+  };
+  uppy.addPreProcessor(async (fileIDs) => {
+    for (const id of fileIDs) {
+      const file = uppy.getFile(id);
+      if (!file) continue;
+      const fitted = await fitForUpload(file.data, uploadLimits);
+      if (!fitted) continue;
+      const name = fitted.type === 'image/jpeg' ? file.name.replace(/\.[^.]+$/, '') + '.jpg' : file.name;
+      uppy.setFileState(id, { data: fitted, size: fitted.size, type: fitted.type, name, meta: { ...file.meta, name, type: fitted.type } });
+    }
+  });
 
   // Track instance globally for proper cleanup on SPA re-inits
   if (!window.uppyInstances) window.uppyInstances = [];
@@ -301,13 +319,21 @@ function initUppyAreaUpload() {
     refreshGalleryArea();
   });
 
+  // A job waiting to retry, or parked after repeated failures, will not
+  // finish while this batch is on screen: the global panel keeps tracking it.
+  const SETTLED_STATES = ['complete', 'error', 'failed', 'retrying'];
+
   function finishBatch() {
-    if (!batchComplete || [...generation.values()].some(state => !['complete', 'error'].includes(state.state))) return;
+    if (!batchComplete || [...generation.values()].some(state => !SETTLED_STATES.includes(state.state))) return;
     const statusEl = document.getElementById('upload-status');
     const spinnerEl = document.getElementById('upload-spinner');
 
-    const count = [...generation.values()].filter(state => state.state === 'complete').length;
-    if (statusEl) statusEl.textContent = [...generation.values()].some(state => state.state === 'error') ? t('admin.common.error') : tf('admin.upload.versions_completed_summary', { count });
+    const states = [...generation.values()].map(state => state.state);
+    const count = states.filter(state => state === 'complete').length;
+    const retrying = states.filter(state => state === 'retrying').length;
+    let summary = states.some(state => state === 'error' || state === 'failed') ? t('admin.common.error') : tf('admin.upload.versions_completed_summary', { count });
+    if (retrying) summary += ` · ${tf('admin.image_jobs.retrying', { count: retrying })}`;
+    if (statusEl) statusEl.textContent = summary;
     if (spinnerEl) spinnerEl.className = 'rounded-full h-5 w-5 bg-green-500 flex items-center justify-center text-white text-xs';
     if (spinnerEl) spinnerEl.innerHTML = '<i class="fas fa-check"></i>';
 
@@ -333,7 +359,7 @@ function initUppyAreaUpload() {
   const jobsHandler = event => {
     if (!area.isConnected) return;
     for (const [fileId, state] of generation) {
-      if (['complete', 'error'].includes(state.state)) continue;
+      if (['complete', 'error', 'failed'].includes(state.state)) continue;
       const job = event.detail.find(job => job.upload_token === state.token || (state.id && Number(job.id) === Number(state.id)));
       if (!job) continue;
       state.state = job.state;
@@ -343,6 +369,7 @@ function initUppyAreaUpload() {
       if (job.state === 'complete') label = t('admin.upload.versions_ready') + ' ✓';
       else if (job.state === 'queued') label = t('admin.upload.versions_queued');
       else if (job.state === 'retrying') label = t('admin.media.versions_retrying');
+      else if (job.state === 'failed') label = t('admin.media.versions_failed');
       else if (job.state === 'processing') label = tf('admin.upload.creating_versions', { completed: job.completed, total: job.total || '…', current: job.current || '' });
       updateFileEl(fileId, percent, label, false, job.state === 'complete');
       const statusEl = document.getElementById('upload-status');

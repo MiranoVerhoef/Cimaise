@@ -14,7 +14,33 @@ class UploadService
     use RegistersImageVariants;
 
     /** Maximum total pixel count accepted (decompression-bomb guard, ~40 megapixel). */
-    private const MAX_IMAGE_PIXELS = 40000000;
+    public const MAX_IMAGE_PIXELS = 40000000;
+
+    /**
+     * Largest upload PHP accepts: the smaller of upload_max_filesize and
+     * post_max_size, in bytes (0: no limit). The upload area uses it to
+     * downscale in the browser only the files the server would reject.
+     */
+    public static function maxUploadBytes(): int
+    {
+        $limits = [];
+        foreach (['upload_max_filesize', 'post_max_size'] as $directive) {
+            $value = trim((string) ini_get($directive));
+            if ($value === '' || !preg_match('/^(\d+)\s*([kmg]?)/i', $value, $match)) {
+                continue;
+            }
+            $bytes = (int) $match[1] * match (strtolower($match[2])) {
+                'g' => 1024 ** 3,
+                'm' => 1024 ** 2,
+                'k' => 1024,
+                default => 1,
+            };
+            if ($bytes > 0) {
+                $limits[] = $bytes;
+            }
+        }
+        return $limits === [] ? 0 : min($limits);
+    }
 
     // HEIC/HEIF (#109) are accepted only when the server can actually decode
     // them (ImageEngine::capabilities()['heif_read']); validateImageFile()

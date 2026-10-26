@@ -33,7 +33,7 @@
       }
       const present = new Set(jobs.map(job => String(job.id)));
       for (const [id, job] of Object.entries(tracked)) {
-        if (!present.has(id)) tracked[id] = { ...job, pending: false, state: 'complete', completed: job.total };
+        if (!present.has(id)) tracked[id] = { ...job, pending: false, state: job.state === 'failed' ? 'failed' : 'complete', completed: job.total };
       }
       const batch = Object.values(tracked);
       if (!batch.length) { panel.hidden = true; return; }
@@ -46,7 +46,11 @@
       else { bar.max = total; bar.value = completed; }
       if (!active.length) {
         delay = 2000; // Keep the completion notice visible for its existing grace period.
-        text.textContent = t('admin.image_jobs.complete', 'Image versions ready');
+        // A parked job is not pending any more, but it did not succeed either.
+        const failed = batch.filter(job => job.state === 'failed').length;
+        text.textContent = failed
+          ? t('admin.image_jobs.failed', '{count} images could not be processed; regenerate them from the media library', { count: failed })
+          : t('admin.image_jobs.complete', 'Image versions ready');
         if (!finishedAt) finishedAt = Date.now();
         if (Date.now() - finishedAt > 8000) { tracked = {}; panel.hidden = true; finishedAt = 0; delay = 30000; }
       } else {

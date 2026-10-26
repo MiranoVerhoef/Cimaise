@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Support\Database;
+use App\Support\ImageProcessingBusy;
 use App\Support\Logger;
 use RuntimeException;
 
@@ -35,6 +36,8 @@ class ImageJobQueue
     private const BACKOFF_MAX = 3600;
     /** Page caches are refreshed at most this often while a long batch runs. */
     private const INVALIDATION_INTERVAL = 30;
+    /** Locks of deleted images are looked for at most this often. */
+    private const LOCK_PRUNE_INTERVAL = 86400;
 
     private readonly string $directory;
     /** @var \Closure(int): ?int Generates one image; returns its album id (null: image gone). */
@@ -141,6 +144,10 @@ class ImageJobQueue
                         if ($albumId !== null) {
                             $albums[$albumId] = true;
                         }
+                    } catch (ImageProcessingBusy $e) {
+                        // Another process holds the image: not a failure of it.
+                        $failed[$imageId] = true;
+                        $this->postpone($imageId, $state);
                     } catch (\Throwable $e) {
                         $result['failed']++;
                         $failed[$imageId] = true;
@@ -172,16 +179,31 @@ class ImageJobQueue
     /**
      * Per-image lock files are never unlinked while an image exists (see
      * ImageProcessingLock). Those of deleted images can no longer be contended
-     * and are removed here, under the worker lock.
+     * and are removed here, under the worker lock, at most once a day: there
+     * is one lock per image ever processed.
      */
     private function pruneOrphanLocks(): void
     {
+        $directory = $this->directory . '/locks';
+        $marker = $directory . '/.pruned';
+        if (is_file($marker) && time() - (int) @filemtime($marker) < self::LOCK_PRUNE_INTERVAL) {
+            return;
+        }
         $locks = [];
-        foreach (glob($this->directory . '/*.lock') ?: [] as $path) {
+        foreach (glob($directory . '/*.lock') ?: [] as $path) {
             $id = basename($path, '.lock');
             if (ctype_digit($id) && !is_file($this->jobPath((int) $id))) {
                 $locks[(int) $id] = $path;
             }
+        }
+        // Locks of earlier builds sat next to the jobs and are no longer used.
+        foreach (glob($this->directory . '/*.lock') ?: [] as $path) {
+            if (ctype_digit(basename($path, '.lock'))) {
+                UploadService::safeUnlink($path);
+            }
+        }
+        if (is_dir($directory)) {
+            @touch($marker);
         }
         if ($locks === []) {
             return;
@@ -296,7 +318,9 @@ class ImageJobQueue
         // and use a private blurred preview instead.
         $placeholder = $protected ? $uploads->generateBlurredVariant($imageId) : $uploads->generateLQIP($imageId);
         if ($placeholder === null) {
-            throw new RuntimeException('Image placeholder generation failed');
+            // Every variant exists, so the image is usable: retrying the whole
+            // job for its placeholder would only end in a parked "failed" job.
+            Logger::warning('Image queue: placeholder not generated', ['image_id' => $imageId, 'protected' => $protected], 'upload');
         }
 
         $steps = 1;
@@ -413,6 +437,24 @@ class ImageJobQueue
         ], 'upload');
     }
 
+    /**
+     * Retry soon without counting an attempt: the image is being generated
+     * by another process, which is not a failure of the image.
+     *
+     * @param array{attempts: int, next_at: int} $state
+     */
+    private function postpone(int $imageId, array $state): void
+    {
+        $path = $this->jobPath($imageId);
+        $nextAt = time() + self::BACKOFF_BASE;
+        $temporary = $path . '.tmp';
+        if (@file_put_contents($temporary, json_encode(['attempts' => $state['attempts'], 'next_at' => $nextAt])) === false
+            || !@rename($temporary, $path)) {
+            UploadService::safeUnlink($temporary);
+        }
+        $this->report($imageId, ['state' => 'queued', 'next_at' => $nextAt]);
+    }
+
     private function jobPath(int $imageId): string
     {
         return $this->directory . '/' . $imageId . '.job';
@@ -518,7 +560,17 @@ class ImageJobQueue
                 }
                 usleep(250000);
             }
-            $albumId = ($this->processor)($imageId);
+            $state = $this->readState($this->jobPath($imageId));
+            try {
+                $albumId = ($this->processor)($imageId);
+            } catch (ImageProcessingBusy $e) {
+                $this->postpone($imageId, $state);
+                throw $e;
+            } catch (\Throwable $e) {
+                // Same bookkeeping as a drain: backoff, attempt count, progress.
+                $this->fail($imageId, $state, $e);
+                throw $e;
+            }
             $this->complete($imageId);
             if ($albumId !== null) {
                 $this->refreshPageCaches([$albumId]);

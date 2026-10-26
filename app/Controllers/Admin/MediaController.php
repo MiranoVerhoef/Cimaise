@@ -75,8 +75,13 @@ class MediaController extends BaseController
         return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
     }
 
-    /** AuthMiddleware protects previews, including unpublished and protected albums. */
-    /** @param array<string, mixed> $args */
+    /**
+     * AuthMiddleware protects previews, including unpublished and protected
+     * albums. Private to this browser, and cached briefly so paging through
+     * the media library does not refetch every thumbnail.
+     *
+     * @param array<string, mixed> $args
+     */
     public function viewVariant(Request $request, Response $response, array $args): Response
     {
         $id = (int)$args['id'];
@@ -102,7 +107,7 @@ class MediaController extends BaseController
         if ($stream === false) { return $response->withStatus(404); }
         return $response->withBody(new \Slim\Psr7\Stream($stream))
             ->withHeader('Content-Type', $types[$format])->withHeader('Content-Length', (string)filesize($real))
-            ->withHeader('Cache-Control', 'private, no-store')->withHeader('X-Robots-Tag', 'noindex, noimageindex');
+            ->withHeader('Cache-Control', 'private, max-age=300')->withHeader('X-Robots-Tag', 'noindex, noimageindex');
     }
 
     private function invalidateAlbumCaches(int $albumId): void
@@ -222,7 +227,14 @@ class MediaController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $items = $stmt->fetchAll() ?: [];
+        $publicRoot = dirname(__DIR__, 3) . '/public';
         foreach ($items as &$item) {
+            // A public variant stays a static file the web server serves and
+            // the browser caches; only protected ones go through PHP.
+            $previewPath = (string)$item['preview_path'];
+            if (str_starts_with($previewPath, '/media/') && !str_contains($previewPath, '..') && is_file($publicRoot . $previewPath)) {
+                continue;
+            }
             if (preg_match('/^' . (int)$item['id'] . '_([a-zA-Z0-9_-]+)\.(jpg|webp|avif|jxl)$/D', basename((string)$item['preview_path']), $match)) {
                 $item['preview_path'] = '/admin/media/images/' . (int)$item['id'] . '/variants/' . $match[1] . '.' . $match[2];
             }

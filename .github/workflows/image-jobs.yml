@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify adaptive progress polling and the visitors' version watcher
-        run: node --test tests/integration/image-job-polling.cjs tests/integration/image-version-notice.cjs
+        run: node --test tests/integration/image-job-polling.cjs tests/integration/image-version-notice.cjs tests/integration/upload-fit.cjs
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build production Apache image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

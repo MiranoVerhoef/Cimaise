@@ -154,13 +154,23 @@ final class ImageJobQueueTest extends TestCase
         $this->db->pdo()->exec('INSERT INTO images (id) VALUES (7)');
         $queue = $this->queue();
         $queue->enqueue(1);
-        touch($this->directory . '/7.lock');
-        touch($this->directory . '/8.lock');
+        mkdir($this->directory . '/locks');
+        touch($this->directory . '/locks/7.lock');
+        touch($this->directory . '/locks/8.lock');
+        touch($this->directory . '/9.lock');
 
         $queue->drain();
 
-        self::assertFileExists($this->directory . '/7.lock');
-        self::assertFileDoesNotExist($this->directory . '/8.lock');
+        self::assertFileExists($this->directory . '/locks/7.lock');
+        self::assertFileDoesNotExist($this->directory . '/locks/8.lock');
+        self::assertFileDoesNotExist($this->directory . '/9.lock', 'locks of earlier builds are removed');
+        self::assertFileExists($this->directory . '/worker.lock');
+
+        // The lookup runs at most once a day.
+        touch($this->directory . '/locks/8.lock');
+        $queue->enqueue(1);
+        $queue->drain();
+        self::assertFileExists($this->directory . '/locks/8.lock');
     }
 
     public function testSynchronousRunGivesUpWhileADrainHoldsTheLockAndKeepsTheJob(): void
@@ -191,6 +201,42 @@ final class ImageJobQueueTest extends TestCase
         $queue->runSynchronously(5);
         self::assertSame([5], $this->processed);
         self::assertFileDoesNotExist($this->directory . '/5.job');
+    }
+
+    public function testSynchronousFailureIsRecordedLikeADrainFailure(): void
+    {
+        $queue = $this->queue(static function (): int {
+            throw new RuntimeException('3 of 15 variants generated');
+        });
+        try {
+            $queue->runSynchronously(5);
+            self::fail('The processor error must reach the upload');
+        } catch (RuntimeException $e) {
+            self::assertSame('3 of 15 variants generated', $e->getMessage());
+        }
+
+        $state = $this->state(5);
+        self::assertSame(1, $state['attempts']);
+        self::assertGreaterThan(time(), $state['next_at']);
+        self::assertFalse($queue->hasDueJobs());
+        $job = array_values(array_filter($queue->status(), static fn (array $job): bool => $job['id'] === 5))[0];
+        self::assertSame('retrying', $job['state']);
+    }
+
+    public function testAnImageHeldByAnotherProcessIsPostponedWithoutCountingAnAttempt(): void
+    {
+        $queue = $this->queue(static function (int $imageId): int {
+            throw new \App\Support\ImageProcessingBusy("Image {$imageId} is already being processed; retry later");
+        });
+        $queue->enqueue(5);
+        file_put_contents($this->directory . '/5.job', json_encode(['attempts' => 2, 'next_at' => 0]));
+
+        self::assertSame(['processed' => 0, 'failed' => 0, 'remaining' => 1], $queue->drain());
+
+        $state = $this->state(5);
+        self::assertSame(2, $state['attempts']);
+        self::assertGreaterThan(time(), $state['next_at']);
+        self::assertFileDoesNotExist($this->directory . '/5.failed');
     }
 
     public function testEnqueueingAgainKeepsTheRetryState(): void

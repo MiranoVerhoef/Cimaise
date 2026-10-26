@@ -30,7 +30,7 @@ final class ImagesGenerateCommandTest extends TestCase
     protected function tearDown(): void
     {
         (new ReflectionProperty(SettingsService::class, 'cache'))->setValue(null, $this->settingsSnapshot);
-        @unlink(dirname(__DIR__, 2) . '/storage/image-jobs/765440.lock');
+        @unlink(\App\Support\ImageProcessingLock::directory() . '/765440.lock');
     }
 
     private function generate(array $input): string
