@@ -77,8 +77,9 @@ class MediaController extends BaseController
 
     /**
      * AuthMiddleware protects previews, including unpublished and protected
-     * albums. Private to this browser, and cached briefly so paging through
-     * the media library does not refetch every thumbnail.
+     * albums. Never stored by the browser: a protected image must not stay
+     * readable from the cache after logout. Public previews do not come here
+     * (index() links their static files).
      *
      * @param array<string, mixed> $args
      */
@@ -107,7 +108,7 @@ class MediaController extends BaseController
         if ($stream === false) { return $response->withStatus(404); }
         return $response->withBody(new \Slim\Psr7\Stream($stream))
             ->withHeader('Content-Type', $types[$format])->withHeader('Content-Length', (string)filesize($real))
-            ->withHeader('Cache-Control', 'private, max-age=300')->withHeader('X-Robots-Tag', 'noindex, noimageindex');
+            ->withHeader('Cache-Control', 'private, no-store')->withHeader('X-Robots-Tag', 'noindex, noimageindex');
     }
 
     private function invalidateAlbumCaches(int $albumId): void
