@@ -9,26 +9,35 @@ The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
 
 ## [Unreleased]
-### Added
-- Grouped admin navigation, gallery keyboard navigation and collapsible media filters.
-- Original-image details and downloads, image-generation progress and enhanced-version notifications.
-- Per-album storage totals, uncategorized albums, independent hero text controls and a Classic homepage album limit.
-- Light/dark logos, editable About navigation and permalink, and local font uploads.
 
-### Fixed
-- Retry interrupted image jobs and SQLite contention safely across Apache, PHP-FPM and CLI generation.
-- Revalidate changed content, purge affected page caches and prevent maintenance pages from serving cached content.
-- Preserve album previews when deleting albums and avoid duplicate Analytics Pro navigation.
-- Preserve SQLite binary and text storage types in updater backups on PHP 8.5.
-- Apply numeric schema migrations during prerelease upgrades and preserve worker ownership.
+## [1.4.28] - 2026-10-27
+This release brings in the improvements @MiranoVerhoef built in his fork while moving his portfolio to Cimaise (#142). Thanks, Mirano!
+
+### Added
+- **Admin:** grouped navigation, keyboard navigation in the gallery, collapsible media filters, and media library filters by album, format and generation state.
+- **Image details:** the original's size and download, the state of every generated version, generation progress across admin pages, and a notice for visitors when sharper versions of the photos they are looking at become available.
+- **Albums and homepage:** per-album storage totals, albums without a category, independent hero text controls and a per-album photo limit on the Classic homepage.
+- **Branding:** separate light and dark logos, an editable About link and permalink, and local font uploads.
 
 ### Changed
-- Batch settings writes, cache album storage inspection and adapt admin polling to upload activity.
-- Verify the published Docker image (PHP 8.5.12 or later) and never let prerelease tags replace the stable aliases.
-- Uploads are sent as they are: the in-browser compression (JPEG re-encode at 85%, 4000 px cap, large PNGs converted to JPEG) is gone, so originals and their metadata reach the server intact.
-- An image job that fails 10 times in a row is parked (`storage/image-jobs/{id}.failed`) instead of being retried hourly forever; uploading or regenerating the image starts it again.
-- Visitors' pages watch for enhanced image versions only while images are still being generated, and for at most 10 minutes.
-- Exercise uploads, queues, SQLite contention, upgrades and admin controls in Apache, PHP-FPM and Chromium integration checks.
+- **Uploads keep the original file.** The in-browser compression (JPEG re-encode at 85%, 4000 px cap, large PNGs converted to JPEG) is gone, so originals and their metadata reach the server intact. Only a file the server would reject (over the 40 MP limit or the PHP upload size) is downscaled in the browser so that it can still be uploaded.
+- **Failing image jobs stop retrying.** A job that fails 10 times in a row is parked (`storage/image-jobs/{id}.failed`) instead of being retried every hour forever, and the admin shows it as failed; uploading or regenerating the image starts it again. A job for an image another process is generating is postponed, not counted as a failure.
+- **Visitors' pages watch for sharper image versions** only while images are still being generated, and for at most 10 minutes.
+- Settings writes are batched, album storage totals are cached, and admin polling adapts to upload activity.
+
+### Fixed
+- Interrupted image jobs resume safely, and SQLite lock contention between Apache, PHP-FPM and CLI generation is retried instead of failing.
+- Changed content is revalidated, affected page caches are purged, and maintenance pages are never served from a cache.
+- Album previews are preserved when an album is deleted; Analytics Pro no longer appears twice in the navigation.
+- Updater backups of SQLite databases keep binary and text values intact on PHP 8.5.
+- Prerelease upgrades apply their schema migrations.
+- `images:generate` regenerates everything again when called without options; GD-only hosts produce variants from WebP and GIF originals again.
+- Platform analytics: a user agent such as "Studios/2.1" is no longer counted as iOS.
+
+### Upgrade notes
+- No database change.
+- Docker: `docker compose pull && docker compose up -d`.
+- If you relied on the browser shrinking large uploads to save bandwidth or disk space, originals are now stored at full size.
 
 ## [1.4.27] - 2026-10-22
 ### Security
