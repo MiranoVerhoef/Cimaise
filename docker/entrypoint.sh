@@ -30,7 +30,9 @@ WRITABLE_DIRS="
   storage/cache
   storage/logs
   storage/image-jobs
+  storage/image-jobs/locks
   storage/originals
+  storage/fonts
   storage/protected-media
   storage/rate_limits
   storage/tmp

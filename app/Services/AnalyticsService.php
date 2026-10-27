@@ -390,13 +390,12 @@ class AnalyticsService
             $parsed['browser_version'] = $matches[1];
         }
 
-        // Mobile user agents also carry "Linux" (Android) or "like Mac OS X"
-        // (iOS), so they must be matched before the desktop platforms.
+        // Mobile UAs also contain Linux or "like Mac OS X"; match them first.
         if (stripos($userAgent, 'Android') !== false) {
             $parsed['platform'] = 'Android';
-            // Android tablets omit the "Mobile" token.
             $parsed['device_type'] = stripos($userAgent, 'Mobile') !== false ? 'mobile' : 'tablet';
-        } elseif (stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') !== false || stripos($userAgent, 'iPod') !== false) {
+        } elseif (preg_match('/\b(?:iPhone|iPad|iPod|iOS)\b/', $userAgent)) {
+            // Whole, case-sensitive tokens: "Studios" or "BIOS" are not iOS.
             $parsed['platform'] = 'iOS';
             $parsed['device_type'] = stripos($userAgent, 'iPad') !== false ? 'tablet' : 'mobile';
         } elseif (stripos($userAgent, 'Windows') !== false) {
