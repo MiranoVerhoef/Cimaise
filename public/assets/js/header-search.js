@@ -7,7 +7,7 @@
       .map(id => document.getElementById(id)).filter(Boolean);
     if (!panel || !input || !toggles.length) return;
     const mobile = matchMedia('(max-width: 767px)');
-    let row, opener, hiddenControls = [];
+    let row, opener;
     panel.classList.add('inline-header-search');
     // The closed form must not be reachable by keyboard or assistive technology.
     panel.inert = true;
@@ -15,8 +15,6 @@
       panel.classList.add('hidden');
       panel.inert = true;
       row?.classList.remove('search-open');
-      hiddenControls.forEach(([element, wasInert]) => { element.inert = wasInert; });
-      hiddenControls = [];
       toggles.forEach(toggle => {
         toggle.setAttribute('aria-expanded', 'false');
         toggle.querySelector('i')?.classList.replace('fa-times', 'fa-search');
@@ -41,10 +39,16 @@
       const navigation = row.firstElementChild;
       const brand = navigation.matches('a') ? navigation : navigation.firstElementChild;
       const actions = row.children[1].getBoundingClientRect();
-      // Mobile temporarily gives the logo's space to search; the bar never grows.
-      const left = mobile.matches ? 0 : Math.max(0, brand.getBoundingClientRect().right - bounds.left + 24);
-      const right = mobile.matches ? 52 : Math.max(0, bounds.right - actions.left + 16);
-      row.style.setProperty('--search-left', left + 'px');
+      const toggle = toggles.find(element => element.closest('.site-search-row') === row && element.getClientRects().length);
+      const visibleNav = [...navigation.querySelectorAll('nav')].filter(element => element.getClientRects().length);
+      const navigationEnd = Math.max(brand.getBoundingClientRect().right, ...visibleNav.map(element => element.getBoundingClientRect().right));
+      const available = actions.left - navigationEnd - 24;
+      const popover = mobile.matches || available < 180;
+      // Never cover navigation: use a small anchored popover when inline space is tight.
+      const width = popover ? Math.min(280, bounds.width) : Math.min(240, available);
+      const right = popover ? Math.max(0, Math.min(bounds.width - width, bounds.right - toggle.getBoundingClientRect().right)) : bounds.right - actions.left + 12;
+      panel.classList.toggle('search-popover', popover);
+      row.style.setProperty('--search-width', width + 'px');
       row.style.setProperty('--search-right', right + 'px');
     };
     const open = toggle => {
@@ -60,11 +64,6 @@
         document.documentElement.classList.remove('mobile-menu-open');
       }
       row.classList.add('search-open');
-      const obscured = mobile.matches
-        ? [...row.querySelectorAll('a, button')].filter(element => !panel.contains(element) && !toggles.includes(element))
-        : [...row.querySelectorAll('nav')];
-      hiddenControls = obscured.map(element => [element, element.inert]);
-      hiddenControls.forEach(([element]) => { element.inert = true; });
       panel.classList.remove('hidden');
       panel.inert = false;
       toggles.forEach(element => {
