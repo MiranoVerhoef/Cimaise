@@ -17,6 +17,11 @@ final class AdminSettingsSections
             'fields' => ['dark_mode', 'allow_theme_toggle', 'custom_css', 'pwa_theme_color', 'pwa_background_color'],
             'keys' => ['frontend.dark_mode', 'frontend.allow_theme_toggle', 'frontend.custom_css', 'pwa.theme_color', 'pwa.background_color'],
         ],
+        'gallery' => [
+            'title' => 'admin.settings.gallery_settings',
+            'fields' => ['gallery_page_template', 'default_template_id', 'show_exif_lightbox', 'show_tags_in_header', 'pagination_limit'],
+            'keys' => ['gallery.page_template', 'gallery.default_template_id', 'lightbox.show_exif', 'navigation.show_tags_in_header', 'pagination.limit'],
+        ],
     ];
 
     /** @return list<string> */
