@@ -2069,6 +2069,7 @@
     "admin.settings.image_processing": "Traitement des images",
     "admin.settings.display": "Affichage",
     "admin.settings.gallery_settings": "Paramètres des galeries",
+    "admin.settings.protection": "Protection du contenu",
     "admin.settings.title": "Paramètres",
     "admin.settings.update_lensfun": "Mettre à jour la base de données",
     "admin.settings.updating_lensfun": "Mise à jour...",

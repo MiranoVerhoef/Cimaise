@@ -22,6 +22,11 @@ final class AdminSettingsSections
             'fields' => ['gallery_page_template', 'default_template_id', 'show_exif_lightbox', 'show_tags_in_header', 'pagination_limit'],
             'keys' => ['gallery.page_template', 'gallery.default_template_id', 'lightbox.show_exif', 'navigation.show_tags_in_header', 'pagination.limit'],
         ],
+        'protection' => [
+            'title' => 'admin.settings.protection',
+            'fields' => ['nsfw_global_warning', 'recaptcha_site_key', 'recaptcha_secret_key', 'recaptcha_enabled', 'disable_right_click'],
+            'keys' => ['privacy.nsfw_global_warning', 'recaptcha.site_key', 'recaptcha.secret_key', 'recaptcha.enabled', 'frontend.disable_right_click'],
+        ],
     ];
 
     /** @return list<string> */
