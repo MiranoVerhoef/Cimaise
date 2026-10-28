@@ -35,17 +35,22 @@
       brand.classList.add('search-brand-navigation');
       actions.classList.add('search-header-actions');
     };
-    const open = toggle => {
+    const measure = () => {
       if (!row) return;
-      opener = toggle;
       const bounds = row.getBoundingClientRect();
-      const brand = row.firstElementChild.firstElementChild || row.firstElementChild;
+      const navigation = row.firstElementChild;
+      const brand = navigation.matches('a') ? navigation : navigation.firstElementChild;
       const actions = row.children[1].getBoundingClientRect();
       // Mobile temporarily gives the logo's space to search; the bar never grows.
       const left = mobile.matches ? 0 : Math.max(0, brand.getBoundingClientRect().right - bounds.left + 24);
       const right = mobile.matches ? 52 : Math.max(0, bounds.right - actions.left + 16);
       row.style.setProperty('--search-left', left + 'px');
       row.style.setProperty('--search-right', right + 'px');
+    };
+    const open = toggle => {
+      if (!row) return;
+      opener = toggle;
+      measure();
       const menu = document.getElementById('mobile-menu');
       if (menu && !menu.classList.contains('hidden')) {
         menu.classList.add('hidden');
@@ -81,8 +86,8 @@
       }
     });
     mobile.addEventListener('change', place);
-    // Recalculate available space on resize, without leaving a stale open overlay.
-    window.addEventListener('resize', () => { if (!panel.classList.contains('hidden')) close(); });
+    // Keep the field open when a mobile keyboard changes the viewport height.
+    window.addEventListener('resize', measure);
     window.CimaiseHeaderSearch = { close };
     place();
   };
