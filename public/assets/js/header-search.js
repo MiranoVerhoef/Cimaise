@@ -73,9 +73,16 @@
       });
       // Global reduced-motion styles also transition inherited visibility. Wait
       // until the field is painted before focusing, including a rapid close.
-      requestAnimationFrame(() => {
-        if (!panel.inert) input.focus({ preventScroll: true });
-      });
+      let focusFrames = 0;
+      const focusWhenVisible = () => {
+        if (panel.inert) return;
+        if (getComputedStyle(input).visibility === 'visible') {
+          input.focus({ preventScroll: true });
+        } else if (++focusFrames < 12) {
+          requestAnimationFrame(focusWhenVisible);
+        }
+      };
+      requestAnimationFrame(focusWhenVisible);
     };
     toggles.forEach(toggle => toggle.addEventListener('click', () => {
       if (panel.classList.contains('hidden')) open(toggle); else close(true);
