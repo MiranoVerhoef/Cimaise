@@ -26,7 +26,9 @@ html.dark .site-search-row .inline-header-search.hidden {
 .inline-header-search form { position: relative; width: 100%; }
 .inline-header-search .header-search-field,
 .inline-header-search .modern-search-field { min-height: 44px; height: 44px; }
-.inline-header-search #header-search { width: 100%; font-size: 16px; }
+.inline-header-search #header-search { width: 100%; font-size: 16px; transition-property: color, background-color, border-color, box-shadow; }
+/* Explicit visibility avoids inherited visibility transitions delaying focus. */
+.inline-header-search:not(.hidden) #header-search { visibility: visible; }
 .inline-header-search #header-search-suggestions {
     position: absolute; top: 100%; left: 0; right: 0; margin-top: 8px;
     max-height: min(60vh, 400px); overflow: auto;
@@ -35,6 +37,7 @@ html.dark .site-search-row .inline-header-search.hidden {
 .search-open .search-brand-navigation nav { opacity: 0; visibility: hidden; }
 @media (max-width: 767px) {
     .site-search-row.search-open > :not(.inline-header-search) { visibility: hidden; }
+    .site-search-row #mobile-search-toggle { visibility: visible; transition-property: color, background-color, border-color, box-shadow; }
     .site-search-row.search-open #mobile-search-toggle {
         position: absolute; right: 0; top: 50%; transform: translateY(-50%);
         visibility: visible;
