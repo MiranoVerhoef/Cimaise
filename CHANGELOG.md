@@ -2,7 +2,7 @@
 
 ## [1.4.28-test.2] - 2026-10-28
 
-- Expand search inside the existing header on Classic and Modern, with floating suggestions, mobile support, keyboard controls and light/dark styling.
+- Expand search inside the existing header on Classic and Modern, with floating suggestions, mobile support, keyboard controls and light/dark styling; restore Enter searches outside gallery pages.
 - Give Site Logo its own Appearance page, including independent light/dark logo and favicon saves.
 - Split General, Display, Gallery, Image Processing, Content Protection, Performance and Maintenance settings into focused pages with isolated saves.
 - Remove duplicate album-layout controls and preserve content-warning settings when saving Privacy.
