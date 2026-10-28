@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [1.4.28-test.3] - 2026-10-28
+
+- Keep header search compact (up to 240px inline) without hiding or disabling navigation, logos or action buttons.
+- Use a small anchored dropdown when the header has insufficient inline space, including mobile.
+- Preserve autocomplete, gallery filtering, Enter submissions and Escape/focus behavior from test.2.
+
 ## [1.4.28-test.2] - 2026-10-28
 
 - Expand search inside the existing header on Classic and Modern, with floating suggestions, mobile support, keyboard controls and light/dark styling; restore Enter searches outside gallery pages.
