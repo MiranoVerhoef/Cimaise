@@ -1,12 +1,13 @@
 ## [Unreleased]
 
-- Organize General site settings under Website, with isolated section pages and page-specific scripts.
+## [1.4.28-test.2] - 2026-10-28
 
-- Separate image-processing settings and tools into their own scoped page.
-- Docker installations show container update instructions and reject direct application updates.
-
-- Give Appearance > Site Logo its own page and save action, including light/dark logos and favicons.
-- Remove branding controls from Settings, preserve independent saves and redirect old Site Logo bookmarks.
+- Expand search inside the existing header on Classic and Modern, with floating suggestions, mobile support, keyboard controls and light/dark styling.
+- Give Site Logo its own Appearance page, including independent light/dark logo and favicon saves.
+- Split General, Display, Gallery, Image Processing, Content Protection, Performance and Maintenance settings into focused pages with isolated saves.
+- Remove duplicate album-layout controls and preserve content-warning settings when saving Privacy.
+- Detect Docker installations, explain image-based updates and block direct application updates inside containers.
+- Retain the upstream 1.4.28 baseline and all previously published fixes.
 
 ## [1.4.28-test.1] - 2026-10-28
 
