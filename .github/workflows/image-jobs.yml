@@ -91,6 +91,7 @@ jobs:
           path: |
             /tmp/cimaise-admin-gallery.png
             /tmp/cimaise-branding-page.png
+            /tmp/cimaise-settings-*.png
           if-no-files-found: ignore
       - name: Verify PHP-FPM HTTP upload and restart recovery
         run: |

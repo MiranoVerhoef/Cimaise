@@ -52,7 +52,7 @@ class SettingsController extends BaseController
 
         return $this->view->render($response, 'admin/settings.twig', [
             'settingsPage' => $request->getAttribute('settings_section', 'general'),
-            'settingsPageTitle' => AdminSettingsSections::PAGES[$request->getAttribute('settings_section', '')]['title'] ?? 'admin.settings.title',
+            'settingsPageTitle' => AdminSettingsSections::PAGES[$request->getAttribute('settings_section', '')]['title'] ?? 'admin.settings.general',
             'settings' => $settings,
             'templates' => $templates,
             'album_page_templates' => $albumPageTemplates,
@@ -128,7 +128,11 @@ class SettingsController extends BaseController
         }
 
         $data = (array)$request->getParsedBody();
-        $scopedGeneral = ($data['_settings_page'] ?? '') === 'general';
+        // Recognise older complete Settings forms, but never treat an unmarked
+        // partial request as permission to reset settings on other pages.
+        $legacyFullForm = !array_key_exists('_settings_page', $data)
+            && isset($data['bp_sm'], $data['site_title'], $data['gallery_page_template'], $data['pwa_theme_color']);
+        $scopedGeneral = $definition === null && !$legacyFullForm;
         if ($definition !== null) {
             $data = array_intersect_key($data, array_flip($definition['fields']));
         } elseif ($scopedGeneral) {
