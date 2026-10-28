@@ -35,6 +35,7 @@ jobs:
           docker cp "$container:/var/www/html/app" /tmp/published-app
           diff -qr app /tmp/published-app
           for path in version.json public/assets/js/header-search.js public/assets/css/header-search.css; do
+            [ -f "$path" ] || continue # Historical tags may predate these assets.
             docker cp "$container:/var/www/html/$path" /tmp/published-file
             cmp "$path" /tmp/published-file
             rm /tmp/published-file
