@@ -642,7 +642,7 @@ const assert = require('node:assert/strict');
     const darkSearchToggle = themedPage.locator('#header-search-toggle').filter({ visible: true });
     await darkSearchToggle.click();
     await themedPage.locator('#header-search').waitFor({ state: 'visible' });
-    assert.equal(await themedPage.locator('#header-search-panel').evaluate(element => getComputedStyle(element).visibility), 'visible');
+    await themedPage.waitForFunction(() => getComputedStyle(document.getElementById('header-search-panel')).visibility === 'visible');
     await themedPage.keyboard.press('Escape');
     assert.equal(await themedPage.locator('#header-search-panel').evaluate(element => getComputedStyle(element).visibility === 'hidden' || element.inert), true);
 
