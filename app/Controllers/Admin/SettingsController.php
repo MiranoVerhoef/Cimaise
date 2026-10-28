@@ -362,7 +362,7 @@ class SettingsController extends BaseController
         // blank the stored title/message or switch the options off.
         if (array_key_exists('maintenance_title', $data)) {
             $changes['maintenance.enabled'] = isset($data['maintenance_enabled']);
-            $changes['maintenance.title'] = trim((string)$data['maintenance_title']);
+            $changes['maintenance.title'] = trim((string)($data['maintenance_title'] ?? ''));
             $changes['maintenance.message'] = trim((string)($data['maintenance_message'] ?? ''));
             $changes['maintenance.show_logo'] = isset($data['maintenance_show_logo']);
             $changes['maintenance.show_admin_login'] = isset($data['maintenance_show_admin_login']);
