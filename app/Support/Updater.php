@@ -1550,11 +1550,14 @@ class Updater
                 fwrite($handle, "DROP TABLE IF EXISTS `{$table}`;\n");
                 fwrite($handle, $createStmt . ";\n\n");
 
-                // Let SQLite serialize its own storage types, including binary values.
+                // Let SQLite serialize its own storage types, including binary
+                // values. quote() keeps text readable; only text holding a NUL
+                // byte (which quote() would truncate) is written as hex.
                 $columns = $pdo->query("PRAGMA table_info(`{$table}`)")->fetchAll(PDO::FETCH_COLUMN, 1);
                 $quotedColumns = array_map(static fn ($column) => '"' . str_replace('"', '""', (string) $column) . '"', $columns);
                 $expressions = array_map(static fn ($column) =>
-                    "CASE WHEN typeof({$column}) = 'text' THEN 'CAST(X''' || hex({$column}) || ''' AS TEXT)' ELSE quote({$column}) END",
+                    "CASE WHEN typeof({$column}) = 'text' AND instr(CAST({$column} AS BLOB), X'00') > 0"
+                    . " THEN 'CAST(X''' || hex({$column}) || ''' AS TEXT)' ELSE quote({$column}) END",
                     $quotedColumns);
                 $rows = $pdo->query('SELECT ' . implode(', ', $expressions) . " FROM `{$table}`");
                 while ($values = $rows->fetch(PDO::FETCH_NUM)) {

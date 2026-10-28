@@ -1,4 +1,5 @@
-/* Shared reload pill, with lightweight checks only while a photo page is visible. */
+/* Shared reload pill, with lightweight checks only while a photo page is visible
+   and the server reported queued image jobs when it rendered the page. */
 (() => {
   const config = window.cimaiseImageNotice;
   if (!config) return;
@@ -45,9 +46,21 @@
     });
     return sizes;
   }
+  // Nothing is being generated: there is nothing to watch for.
+  if (!config.pending) return;
+  // Bounded: a visitor's open tab must not poll the server indefinitely.
+  const WATCH_FOR_MS = 10 * 60 * 1000;
+  const startedAt = Date.now();
   let revision = config.revision;
   let busy = false;
+  let timer = 0;
+  function stop() {
+    clearInterval(timer);
+    document.removeEventListener('visibilitychange', onVisible);
+  }
+  function onVisible() { if (!document.hidden) check(); }
   async function check() {
+    if (Date.now() - startedAt > WATCH_FOR_MS) { stop(); return; }
     if (busy || document.hidden || !navigator.onLine) return;
     const shown = photoSizes(document.getElementById('main-content') || document);
     if (!shown.size) return;
@@ -66,6 +79,7 @@
       revision = next;
       if ([...shown].some(([id, size]) => (available.get(id) || 0) > size)) {
         window.cimaiseShowUpdate(config.message, () => location.reload());
+        stop();
       }
     } catch (_) {
       // Offline/timeouts are retried on the next visible check without interrupting viewing.
@@ -74,7 +88,7 @@
       busy = false;
     }
   }
-  setInterval(check, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  timer = setInterval(check, 30000);
+  document.addEventListener('visibilitychange', onVisible);
   check();
 })();

@@ -1,3 +1,12 @@
+## [1.4.28-test.1] - 2026-10-28
+
+- Adopt upstream 1.4.28, which includes all improvements contributed in PR #142.
+- Include the maintainer's queue parking, due-only worker wakeups, bounded synchronous waits and processing-lock fixes.
+- Restore image CLI behavior and GD WebP/GIF support, correct JPEG-XL handling and refresh image-generation validators.
+- Limit visitor polling, preserve readable SQLite backups, refresh logo globals and complete French translations.
+- Preserve originals on upload, downscaling only files that exceed server limits; include SERVER_MODE support and refreshed Docker builds.
+- Retain fork upgrade fixtures and verify both upstream and published fork upgrades.
+
 ## [1.4.26-test.9] - 2026-10-22
 
 - Integrate PR #23: batch settings writes with safe SQLite retries and invalidate caches once after commit.
@@ -90,6 +99,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The release workflow extracts the `## [VERSION]` section below into the GitHub
 release notes, so keep one section per released tag.
+
+## [Unreleased]
+
+## [1.4.28] - 2026-10-27
+This release brings in the improvements @MiranoVerhoef built in his fork while moving his portfolio to Cimaise (#142). Thanks, Mirano!
+
+### Added
+- **Admin:** grouped navigation, keyboard navigation in the gallery, collapsible media filters, and media library filters by album, format and generation state.
+- **Image details:** the original's size and download, the state of every generated version, generation progress across admin pages, and a notice for visitors when sharper versions of the photos they are looking at become available.
+- **Albums and homepage:** per-album storage totals, albums without a category, independent hero text controls and a per-album photo limit on the Classic homepage.
+- **Branding:** separate light and dark logos, an editable About link and permalink, and local font uploads.
+
+### Changed
+- **Uploads keep the original file.** The in-browser compression (JPEG re-encode at 85%, 4000 px cap, large PNGs converted to JPEG) is gone, so originals and their metadata reach the server intact. Only a file the server would reject (over the 40 MP limit or the PHP upload size) is downscaled in the browser so that it can still be uploaded.
+- **Failing image jobs stop retrying.** A job that fails 10 times in a row is parked (`storage/image-jobs/{id}.failed`) instead of being retried every hour forever, and the admin shows it as failed; uploading or regenerating the image starts it again. A job for an image another process is generating is postponed, not counted as a failure.
+- **Visitors' pages watch for sharper image versions** only while images are still being generated, and for at most 10 minutes.
+- Settings writes are batched, album storage totals are cached, and admin polling adapts to upload activity.
+
+### Fixed
+- Interrupted image jobs resume safely, and SQLite lock contention between Apache, PHP-FPM and CLI generation is retried instead of failing.
+- Changed content is revalidated, affected page caches are purged, and maintenance pages are never served from a cache.
+- Album previews are preserved when an album is deleted; Analytics Pro no longer appears twice in the navigation.
+- Updater backups of SQLite databases keep binary and text values intact on PHP 8.5.
+- Prerelease upgrades apply their schema migrations.
+- `images:generate` regenerates everything again when called without options; GD-only hosts produce variants from WebP and GIF originals again.
+- Platform analytics: a user agent such as "Studios/2.1" is no longer counted as iOS.
+
+### Upgrade notes
+- No database change.
+- Docker: `docker compose pull && docker compose up -d`.
+- If you relied on the browser shrinking large uploads to save bandwidth or disk space, originals are now stored at full size.
+
+## [1.4.27] - 2026-10-22
+### Security
+- **The Docker image runs PHP 8.5.12.** PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35, released on 2026-10-21, fix two critical remote code execution vulnerabilities in the PHP engine itself (CVE-2026-109618 and CVE-2026-109619, CVSS 9.2). The Apache `mod_php` setup the image uses is the most exposed one. The `1.4.26` image was already rebuilt on PHP 8.5.12 on 2026-10-21; this release ships it under a new version so every install picks it up. Image builds now always fetch the current PHP base image, so a rebuild after a PHP security release can never reuse an older one from the build cache.
+
+### Fixed
+- **Docker: one-off commands print only their own output.** `docker run fabiodalez/cimaise php -v` or `docker compose run cimaise php bin/console …` showed the installer banner and "starting Apache…" although Apache was never started, mixed with the command's output. The banner and the image worker are now reserved for the web server; other commands still get the storage tree, the `.env` link and the pending migrations, and the container's own messages go to stderr and name only the program, never its arguments, so the command's output can be piped or redirected to a file.
+
+### Upgrade notes
+- No database change.
+- Docker: `docker compose pull && docker compose up -d` (or pull the new tag) to get PHP 8.5.12.
+- Outside Docker, Cimaise uses the PHP of your server, which this release cannot update: make sure it runs PHP 8.5.12, 8.4.27, 8.3.36 or 8.2.35 or later, and ask your hosting provider if it does not. PHP 8.1 and older no longer receive security fixes, and PHP 8.2 reaches end of life on 2026-12-31.
 
 ## [1.4.26] - 2026-10-13
 ### Added

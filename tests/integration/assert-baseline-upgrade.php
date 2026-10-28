@@ -16,6 +16,9 @@ $adaptedSources = [
     'resources/admin.js', 'app/Services/AlbumStorageService.php',
     // Adaptive polling is covered by image-job-polling.cjs and the real upload/browser suite.
     'public/assets/image-job-progress.js',
+    // Upstream 1.4.28 refined completion validators, device detection and bounded visitor polling.
+    'app/Services/ImageGenerationRevision.php', 'app/Services/AnalyticsService.php',
+    'public/assets/js/image-version-notice.js',
     'app/Controllers/Admin/MediaController.php', 'app/Controllers/Admin/TypographyController.php',
 ];
 foreach ($snapshot['code'] as $file => $hash) {

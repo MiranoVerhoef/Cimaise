@@ -38,7 +38,7 @@ jobs:
   # ── Compute only secret-free values (tags + Docker Hub availability) ─────────
   prepare:
     name: Prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tags: ${{ steps.cfg.outputs.tags }}
       dockerhub_enabled: ${{ steps.cfg.outputs.dockerhub_enabled }}
@@ -103,7 +103,7 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Compute build vars
         id: vars
@@ -125,10 +125,10 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -136,19 +136,22 @@ jobs:
 
       - name: Log in to Docker Hub
         if: needs.prepare.outputs.dockerhub_enabled == 'true'
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           provenance: false
+          # Always resolve the base image again: a manual re-run after a PHP
+          # security release must pick up the patched php:8.5-apache image.
+          pull: true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -165,7 +168,7 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: digests-${{ steps.vars.outputs.pair }}
           path: ${{ runner.temp }}/digests/*
@@ -176,20 +179,20 @@ jobs:
   merge:
     name: Merge manifest
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Download digests
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -197,7 +200,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: needs.prepare.outputs.dockerhub_enabled == 'true'
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -241,7 +244,7 @@ jobs:
       # merge job otherwise runs without sources.
       - name: Checkout (for Docker Hub README)
         if: needs.prepare.outputs.dockerhub_enabled == 'true'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sync Docker Hub repository description
         if: needs.prepare.outputs.dockerhub_enabled == 'true'
@@ -250,6 +253,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/cimaise
-          short-description: "Minimalist photography portfolio CMS — PHP 8.3 + Apache. SQLite/MySQL. Multi-arch."
+          short-description: "Minimalist photography portfolio CMS — PHP 8.5 + Apache. SQLite/MySQL. Multi-arch."
           readme-filepath: ./.github/DOCKER_HUB_README.md
           enable-url-completion: true

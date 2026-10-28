@@ -18,6 +18,20 @@ final class ImageGenerationRevision
         return preg_match('/^[a-f0-9]{32}$/D', $revision) ? $revision : '0';
     }
 
+    /**
+     * True while any image still has a queued generation job. One directory
+     * listing; visitors' pages only watch for upgrades while this holds.
+     */
+    public static function pending(): bool
+    {
+        foreach (glob(dirname(self::path()) . '/*.job') ?: [] as $job) {
+            if (ctype_digit(basename($job, '.job'))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static function advance(): void
     {
         $path = self::path();

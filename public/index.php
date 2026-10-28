@@ -436,6 +436,7 @@ if (file_exists($versionFile)) {
 }
 $twig->getEnvironment()->addGlobal('app_version', $appVersion);
 $twig->getEnvironment()->addGlobal('image_generation_revision', \App\Services\ImageGenerationRevision::current());
+$twig->getEnvironment()->addGlobal('image_generation_pending', \App\Services\ImageGenerationRevision::pending());
 
 // Load Twig globals from cache (APCu/file) - reduces ~50 settings queries to ~1
 // Cache is invalidated when settings change via TwigGlobalsCache::invalidate()
@@ -579,7 +580,11 @@ if (!$isInstallerRoute && !$isMediaRequest && $container['db'] !== null) {
             $typographyService = new \App\Services\TypographyService($settingsSvc);
             $criticalFonts = $typographyService->getCriticalFontsForPreload($basePath);
             $twig->getEnvironment()->addGlobal('critical_fonts_preload', $criticalFonts);
-            $twig->getEnvironment()->addGlobal('typography_version', substr(hash('sha256', $typographyService->generateFullCss($basePath)), 0, 16));
+            // typography.css is built from the typography.* settings only:
+            // hash those instead of generating the stylesheet on every request.
+            $typographySettings = array_filter($settingsSvc->all(), static fn ($key): bool => str_starts_with((string) $key, 'typography.'), ARRAY_FILTER_USE_KEY);
+            ksort($typographySettings);
+            $twig->getEnvironment()->addGlobal('typography_version', substr(hash('sha256', $basePath . '|' . $appVersion . '|' . json_encode($typographySettings)), 0, 16));
         }
     } catch (\Throwable) {
         // Fallback: use TwigGlobalsCache defaults on error

@@ -1,3 +1,26 @@
+# Current fork baseline: upstream 1.4.28
+
+The 1.4.28-test.1 application tree matches upstream release 1.4.28 exactly.
+Upstream merged PR #142, retaining our navigation, media controls, branding,
+cache invalidation, album storage, uploads and performance work, with the
+maintainer's subsequent corrections. No application feature remains fork-only.
+
+Fork differences are release metadata/history, this audit record and the older
+published-fork upgrade fixture added alongside upstream's Docker upgrade test.
+No deployment or volume mapping changes are included.
+
+Intentional adopted behavior changes:
+- Jobs park after ten failures; regeneration or re-upload requeues them.
+- Workers wake only for due jobs; synchronous generation waits at most 20 seconds.
+- Visitors poll only while generation is pending, for at most ten minutes.
+- Docker pulls the upstream floating PHP 8.5 base; CI verifies PHP >= 8.5.12.
+- Uploads retain originals, fitting files only when server limits require it.
+
+The archived audit below describes earlier test releases and is historical;
+its old indefinite-retry and pinning decisions are superseded above.
+
+---
+
 # Fork baseline verification
 
 Comparison: published `1.4.23-test.12` → the fork baseline including upstream `1.4.26`.

@@ -68,6 +68,8 @@ try {
     }
     check($upload->generateVariantsForImage($id)['generated'] === 0, 'repeat generation skips existing variants');
 
+    // Same process, second handle: do not wait for ourselves.
+    ImageProcessingLock::$cliWaitSeconds = 0.0;
     ImageProcessingLock::run($id, function () use ($upload, $id): void {
         try {
             $upload->generateVariantsForImage($id);

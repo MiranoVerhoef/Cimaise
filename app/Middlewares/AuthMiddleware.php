@@ -112,7 +112,9 @@ class AuthMiddleware implements MiddlewareInterface
             $_SESSION[self::CACHE_KEY] = $now;
         }
 
-        $this->resumeImageJobs();
+        if (self::resumesImageJobs($request->getUri()->getPath())) {
+            $this->resumeImageJobs();
+        }
 
         return $handler->handle($request);
     }
@@ -123,6 +125,12 @@ class AuthMiddleware implements MiddlewareInterface
      * its time budget, once this response has been sent. Deliberately placed
      * after authentication: an anonymous request must never start that work.
      */
+    /** The progress poll runs every few seconds and promises no job claims. */
+    public static function resumesImageJobs(string $path): bool
+    {
+        return !str_ends_with(rtrim($path, '/'), '/admin/api/image-jobs');
+    }
+
     private function resumeImageJobs(): void
     {
         if (!function_exists('fastcgi_finish_request')) {
@@ -130,7 +138,7 @@ class AuthMiddleware implements MiddlewareInterface
         }
         try {
             $queue = new ImageJobQueue($this->db);
-            if ($queue->hasJobs()) {
+            if ($queue->hasDueJobs()) {
                 $queue->drainAfterResponse();
             }
         } catch (\Throwable) {

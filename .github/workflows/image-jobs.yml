@@ -2,7 +2,7 @@ name: Verify image jobs
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'fix/**', 'feat/**', 'release/**']
+    branches: ['main']
   pull_request:
     paths: ['app/**', 'plugins/**', 'resources/**', 'public/**', 'docker/**', 'Dockerfile', 'tests/integration/**']
 permissions:
@@ -14,12 +14,12 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify adaptive progress polling
-        run: node --test tests/integration/image-job-polling.cjs
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify adaptive progress polling and the visitors' version watcher
+        run: node --test tests/integration/image-job-polling.cjs tests/integration/image-version-notice.cjs tests/integration/upload-fit.cjs
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build production Apache image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           load: true
@@ -28,7 +28,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=image-jobs
       - name: Verify patched PHP runtime
         run: |
-          docker run --rm --entrypoint php cimaise:test -r 'echo "PHP ", PHP_VERSION, "\n"; exit(PHP_VERSION === "8.5.12" ? 0 : 1);'
+          docker run --rm --entrypoint php cimaise:test -r 'echo "PHP ", PHP_VERSION, "\n"; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 && version_compare(PHP_VERSION, "8.5.12", ">=") ? 0 : 1);'
       - name: Verify PHP regressions and real Docker startup migrations
         run: |
           mkdir -p /tmp/cimaise-test-vendor
@@ -40,6 +40,12 @@ jobs:
           mkdir -p /tmp/cimaise-package-source
           docker cp package-source:/var/www/html/. /tmp/cimaise-package-source/
           docker run --rm --entrypoint bash -v /tmp/cimaise-package-source:/var/www/html cimaise:test -c 'apt-get update -qq && apt-get install -y --no-install-recommends jq rsync zip unzip >/dev/null && bash bin/build-release.sh --skip-build'
+      - name: Verify upgrade from the published upstream baseline
+        run: |
+          docker run --rm --network host --entrypoint php -e CIMAISE_DOCKER_IMAGE=cimaise:test -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker:ro -v /tmp/cimaise-test-vendor:/var/www/html/vendor:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test vendor/bin/phpunit -c phpunit.xml tests/Docker/ImageUpgradeTest.php
+      - name: Verify upgrade from the deployed test.9 baseline
+        run: |
+          docker run --rm --network host --entrypoint php -e CIMAISE_DOCKER_IMAGE=cimaise:test -e CIMAISE_DOCKER_BASELINE=ghcr.io/miranoverhoef/cimaise:1.4.26-test.9 -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker:ro -v /tmp/cimaise-test-vendor:/var/www/html/vendor:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test vendor/bin/phpunit -c phpunit.xml tests/Docker/ImageUpgradeTest.php
       - name: Verify upgrade from the published fork baseline
         run: |
           docker volume create cimaise-baseline-db
@@ -70,7 +76,7 @@ jobs:
           # This test host must retain the already-built production dependencies.
           rm /tmp/fpm-source/.dockerignore
           docker build -f tests/integration/Dockerfile.fpm -t cimaise:fpm /tmp/fpm-source
-          docker run --rm --entrypoint php cimaise:fpm -r 'echo "PHP-FPM host ", PHP_VERSION, "\n"; exit(PHP_VERSION === "8.2.35" ? 0 : 1);'
+          docker run --rm --entrypoint php cimaise:fpm -r 'echo "PHP-FPM host ", PHP_VERSION, "\n"; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 2 && version_compare(PHP_VERSION, "8.2.35", ">=") ? 0 : 1);'
       - name: Verify admin gallery, visibility controls and progress in Chromium
         run: |
           npm install --prefix /tmp/cimaise-browser-tests --no-audit --no-fund playwright
@@ -79,7 +85,7 @@ jobs:
           NODE_PATH=/tmp/cimaise-browser-tests/node_modules node tests/integration/admin-ui.cjs
       - name: Upload admin screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: admin-gallery-preview
           path: /tmp/cimaise-admin-gallery.png
