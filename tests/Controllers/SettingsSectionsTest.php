@@ -201,6 +201,22 @@ final class SettingsSectionsTest extends TestCase
         self::assertSame('My galleries', $settings->get('galleries.title'));
     }
 
+    public function testPrivacyPreferencesCannotResetContentWarning(): void
+    {
+        (new SettingsService($this->db))->set('privacy.nsfw_global_warning', true);
+        $controller = new class($this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends \App\Controllers\Admin\PrivacyController {
+            protected function ensureSession(): void {}
+            protected function getBasePath(): string { return ''; }
+        };
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/privacy')->withParsedBody([
+            'csrf' => 'sections-test', 'cookie_banner_enabled' => '1',
+        ]);
+        self::assertSame(302, $controller->save($request, new Response())->getStatusCode());
+        $settings = new SettingsService($this->db);
+        self::assertTrue($settings->get('privacy.nsfw_global_warning'));
+        self::assertTrue($settings->get('privacy.cookie_banner_enabled'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
