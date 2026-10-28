@@ -1,0 +1,60 @@
+// Handle page template changes for default template selector (IIFE for SPA navigation)
+(function initPageTemplateHandler() {
+  const pageTemplateRadios = document.querySelectorAll('input[name="gallery_page_template"]');
+  const defaultTemplateSelect = document.querySelector('select[name="default_template_id"]');
+
+  if (pageTemplateRadios.length > 0 && defaultTemplateSelect) {
+    // Add event listeners to all page template radios (avoid duplicate binding)
+    pageTemplateRadios.forEach(radio => {
+      if (radio._templateBound) return;
+      radio._templateBound = true;
+      radio.addEventListener('change', function() {
+        updateDefaultTemplateSelector(this.value);
+      });
+    });
+
+    // Set initial state based on currently selected radio
+    const selectedRadio = document.querySelector('input[name="gallery_page_template"]:checked');
+    if (selectedRadio) {
+      updateDefaultTemplateSelector(selectedRadio.value);
+    }
+  }
+})();
+
+function updateDefaultTemplateSelector(selectedValue) {
+  const defaultTemplateSelect = document.querySelector('select[name="default_template_id"]');
+  const defaultTemplateContainer = defaultTemplateSelect?.closest('.default-template-container');
+
+  if (defaultTemplateSelect && defaultTemplateContainer) {
+    if (selectedValue === 'magazine') {
+      // Disable the selector
+      defaultTemplateSelect.disabled = true;
+      defaultTemplateSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
+      defaultTemplateContainer.classList.add('opacity-75');
+
+      // Show disabled message
+      let msg = defaultTemplateContainer.querySelector('.template-disabled-message');
+      if (!msg) {
+        msg = document.createElement('div');
+        msg.className = 'template-disabled-message text-xs text-gray-500 mt-2 p-3 bg-gray-50 rounded border border-gray-200';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-info-circle mr-1';
+        msg.appendChild(icon);
+        msg.appendChild(document.createTextNode('{{ trans('admin.settings.magazine_disables_default')|e('js') }}'));
+        defaultTemplateContainer.appendChild(msg);
+      }
+      msg.style.display = 'block';
+    } else {
+      // Enable the selector
+      defaultTemplateSelect.disabled = false;
+      defaultTemplateSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
+      defaultTemplateContainer.classList.remove('opacity-75');
+
+      // Hide disabled message
+      const msg = defaultTemplateContainer.querySelector('.template-disabled-message');
+      if (msg) {
+        msg.style.display = 'none';
+      }
+    }
+  }
+}

@@ -160,6 +160,31 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('image.variants_async'));
     }
 
+    public function testUnmarkedGeneralRequestCannotResetOtherPages(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings')->withParsedBody([
+            'csrf' => 'sections-test', 'site_title' => 'Changed title', 'q_jpg' => '1',
+        ]);
+        $this->controller()->save($request, new Response());
+        $settings = new SettingsService($this->db);
+        self::assertSame('Changed title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+        self::assertTrue($settings->get('maintenance.enabled'));
+    }
+
+    public function testLegacyFullSettingsFormStillWorks(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings')->withParsedBody([
+            'csrf' => 'sections-test', 'site_title' => 'Legacy title', 'bp_sm' => '200',
+            'gallery_page_template' => 'classic', 'pwa_theme_color' => '#123456', 'q_jpg' => '67',
+        ]);
+        $this->controller()->save($request, new Response());
+        $settings = new SettingsService($this->db);
+        self::assertSame('Legacy title', $settings->get('site.title'));
+        self::assertSame(67, $settings->get('image.quality')['jpg']);
+        self::assertSame('#123456', $settings->get('pwa.theme_color'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');

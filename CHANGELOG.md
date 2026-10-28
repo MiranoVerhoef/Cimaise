@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Organize General site settings under Website, with isolated section pages and page-specific scripts.
+
 - Separate image-processing settings and tools into their own scoped page.
 - Docker installations show container update instructions and reject direct application updates.
 

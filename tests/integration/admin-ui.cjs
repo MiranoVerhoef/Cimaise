@@ -191,6 +191,8 @@ const assert = require('node:assert/strict');
   console.log('PASS: gallery click/keyboard, SPA re-entry, variant views and retry progress');
 
   await page.goto('/admin/settings');
+  assert.equal(await page.locator('#admin-primary-navigation .active').innerText(), 'Website');
+  assert.equal(await page.locator('[name="bp_sm"], [name="dark_mode"], [name="maintenance_enabled"], [name="compression_type"], [name="recaptcha_site_key"], [name="pagination_limit"]').count(), 0);
   const csrf = await page.locator('#settings-form input[name="csrf"]').inputValue();
   const blockedUpdate = await context.request.post('/admin/updates/perform', { form: { csrf, version: '99.0.0' } });
   assert.equal(blockedUpdate.status(), 409);
@@ -647,5 +649,10 @@ const assert = require('node:assert/strict');
   console.log('PASS: deleting an album removes its warmed listing and preserves surviving preview bytes');
   await anonymous.close();
   console.log('PASS: uploaded fonts are selectable and served unchanged with refreshed CSS URLs; mobile callouts suppressed');
+  for (const [path, group] of [['/admin/settings', 'Website'], ['/admin/settings/images', 'System'], ['/admin/settings/display', 'Appearance'], ['/admin/settings/gallery', 'Gallery'], ['/admin/settings/protection', 'Website'], ['/admin/settings/performance', 'System'], ['/admin/settings/maintenance', 'System']]) {
+    await page.goto(path);
+    assert.equal(await page.locator('#admin-primary-navigation .active').innerText(), group);
+    await page.screenshot({ path: '/tmp/cimaise-settings-' + path.split('/').pop() + '.png', fullPage: true });
+  }
   await browser.close();
 })().catch(error => { console.error(error); process.exit(1); });

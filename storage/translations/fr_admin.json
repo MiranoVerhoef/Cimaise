@@ -2071,6 +2071,8 @@
     "admin.settings.gallery_settings": "Paramètres des galeries",
     "admin.settings.protection": "Protection du contenu",
     "admin.settings.maintenance_inactive": "Activez le plugin Mode maintenance pour configurer cette page.",
+    "admin.settings.general": "Général",
+    "admin.settings.general_description": "Gérez les informations du site, les coordonnées, la langue et le format de date.",
     "admin.settings.title": "Paramètres",
     "admin.settings.update_lensfun": "Mettre à jour la base de données",
     "admin.settings.updating_lensfun": "Mise à jour...",
