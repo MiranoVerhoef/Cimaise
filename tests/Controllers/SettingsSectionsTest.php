@@ -77,6 +77,22 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('image.variants_async'));
     }
 
+    public function testDisplaySavePreservesOtherSections(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/display')->withParsedBody([
+            'csrf' => 'sections-test', 'dark_mode' => '1', 'allow_theme_toggle' => '1',
+            'pwa_theme_color' => '#123456', 'site_title' => 'Ignore this', 'q_jpg' => '1',
+        ]);
+        $response = $this->controller()->section($request, new Response(), ['section' => 'display']);
+        self::assertSame('/admin/settings/display?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertTrue($settings->get('frontend.dark_mode'));
+        self::assertSame('#123456', $settings->get('pwa.theme_color'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+        self::assertTrue($settings->get('maintenance.enabled'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');

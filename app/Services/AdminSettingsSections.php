@@ -12,6 +12,11 @@ final class AdminSettingsSections
             'fields' => ['fmt_avif', 'fmt_webp', 'fmt_jpg', 'fmt_jxl', 'q_avif', 'q_webp', 'q_jpg', 'q_jxl', 'preview_w', 'bp_sm', 'bp_md', 'bp_lg', 'bp_xl', 'bp_xxl', 'variants_async'],
             'keys' => ['image.formats', 'image.quality', 'image.preview', 'image.breakpoints', 'image.variants_async'],
         ],
+        'display' => [
+            'title' => 'admin.settings.display',
+            'fields' => ['dark_mode', 'allow_theme_toggle', 'custom_css', 'pwa_theme_color', 'pwa_background_color'],
+            'keys' => ['frontend.dark_mode', 'frontend.allow_theme_toggle', 'frontend.custom_css', 'pwa.theme_color', 'pwa.background_color'],
+        ],
     ];
 
     /** @return list<string> */
