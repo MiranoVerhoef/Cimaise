@@ -237,3 +237,4 @@ m8-after/
 !/tests/Controllers/BrandingSettingsTest.php
 
 !/tests/Controllers/SettingsSectionsTest.php
+!/tests/Support/DockerUpdatePolicyTest.php
