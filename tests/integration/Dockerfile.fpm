@@ -1,4 +1,4 @@
-FROM php:8.2.35-fpm-bookworm@sha256:a34985e5d46df8d1cba0c509f870413886a29e3fe7f1edf17f64a7babf306d09
+FROM php:8.2-fpm-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends nginx libsqlite3-dev libicu-dev libonig-dev libavif-dev libwebp-dev libjpeg62-turbo-dev libpng-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-avif \
     && docker-php-ext-install gd pdo_sqlite exif intl mbstring \

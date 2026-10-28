@@ -945,6 +945,10 @@ class MediaController extends BaseController
             if (!$locked || !$this->variantFileExists($relativePath, $protected)) {
                 $this->uploadService->generateVariantsForImage($imageId, false, $variant, $format);
             }
+        } catch (\App\Support\ImageProcessingBusy) {
+            // The worker is generating this image right now: serve the
+            // fallback, but do not remember it as a failure.
+            return;
         } catch (\Throwable $e) {
             Logger::warning('MediaController: on-demand variant generation failed', [
                 'image_id' => $imageId,

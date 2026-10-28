@@ -394,7 +394,8 @@ class AnalyticsService
         if (stripos($userAgent, 'Android') !== false) {
             $parsed['platform'] = 'Android';
             $parsed['device_type'] = stripos($userAgent, 'Mobile') !== false ? 'mobile' : 'tablet';
-        } elseif (stripos($userAgent, 'iOS') !== false || stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') !== false || stripos($userAgent, 'iPod') !== false) {
+        } elseif (preg_match('/\b(?:iPhone|iPad|iPod|iOS)\b/', $userAgent)) {
+            // Whole, case-sensitive tokens: "Studios" or "BIOS" are not iOS.
             $parsed['platform'] = 'iOS';
             $parsed['device_type'] = stripos($userAgent, 'iPad') !== false ? 'tablet' : 'mobile';
         } elseif (stripos($userAgent, 'Windows') !== false) {

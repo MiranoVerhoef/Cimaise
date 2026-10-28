@@ -52,6 +52,7 @@
     <script nonce="{{ csp_nonce() }}">
     window.cimaiseImageNotice = {
       revision: '{{ image_generation_revision|default('0')|e('js') }}',
+      pending: {{ (image_generation_pending ?? false) ? 'true' : 'false' }},
       endpoint: '{{ base_path|e('js') }}/api/image-generation-revision',
       message: '{{ trans('images.enhanced_ready', {}, 'Enhanced image versions are ready')|e('js') }}',
       reload: '{{ trans('updates.reload', {}, 'Reload')|e('js') }}',

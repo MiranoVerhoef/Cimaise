@@ -75,8 +75,14 @@ class MediaController extends BaseController
         return $response->withHeader('Content-Type', 'application/json')->withHeader('Cache-Control', 'no-store');
     }
 
-    /** AuthMiddleware protects previews, including unpublished and protected albums. */
-    /** @param array<string, mixed> $args */
+    /**
+     * AuthMiddleware protects previews, including unpublished and protected
+     * albums. Never stored by the browser: a protected image must not stay
+     * readable from the cache after logout. Public previews do not come here
+     * (index() links their static files).
+     *
+     * @param array<string, mixed> $args
+     */
     public function viewVariant(Request $request, Response $response, array $args): Response
     {
         $id = (int)$args['id'];
@@ -222,7 +228,14 @@ class MediaController extends BaseController
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $items = $stmt->fetchAll() ?: [];
+        $publicRoot = dirname(__DIR__, 3) . '/public';
         foreach ($items as &$item) {
+            // A public variant stays a static file the web server serves and
+            // the browser caches; only protected ones go through PHP.
+            $previewPath = (string)$item['preview_path'];
+            if (str_starts_with($previewPath, '/media/') && !str_contains($previewPath, '..') && is_file($publicRoot . $previewPath)) {
+                continue;
+            }
             if (preg_match('/^' . (int)$item['id'] . '_([a-zA-Z0-9_-]+)\.(jpg|webp|avif|jxl)$/D', basename((string)$item['preview_path']), $match)) {
                 $item['preview_path'] = '/admin/media/images/' . (int)$item['id'] . '/variants/' . $match[1] . '.' . $match[2];
             }
