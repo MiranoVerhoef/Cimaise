@@ -20,6 +20,8 @@ $adaptedSources = [
     'app/Services/ImageGenerationRevision.php', 'app/Services/AnalyticsService.php',
     'public/assets/js/image-version-notice.js',
     'app/Controllers/Admin/MediaController.php', 'app/Controllers/Admin/TypographyController.php',
+    // The listing editor now preserves global album layouts; regression-tested separately.
+    'app/Controllers/Admin/PagesController.php',
 ];
 foreach ($snapshot['code'] as $file => $hash) {
     if (in_array($file, $adaptedSources, true)) {
