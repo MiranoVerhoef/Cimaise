@@ -27,6 +27,13 @@ html.dark .site-search-row .inline-header-search.hidden {
 .inline-header-search .header-search-field,
 .inline-header-search .modern-search-field { min-height: 44px; height: 44px; }
 .inline-header-search #header-search { width: 100%; font-size: 16px; transition-property: color, background-color, border-color, box-shadow; }
+.inline-header-search #header-search:focus,
+.inline-header-search #header-search:focus-visible { outline: none; box-shadow: none; }
+.inline-header-search .header-search-field:focus-within,
+.inline-header-search .modern-search-field:focus-within {
+    border-color: var(--color-accent, #6b7280);
+    box-shadow: 0 0 0 1px var(--color-accent, #6b7280);
+}
 /* Explicit visibility avoids inherited visibility transitions delaying focus. */
 .inline-header-search:not(.hidden) #header-search { visibility: visible; }
 .inline-header-search #header-search-suggestions {
