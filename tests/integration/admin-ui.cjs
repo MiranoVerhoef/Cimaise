@@ -594,6 +594,16 @@ const assert = require('node:assert/strict');
       assert.equal(await categoryToggle.getAttribute('aria-expanded'), 'false');
       console.log('PASS: categories stay open across the panel and cancel delayed hiding on pointer re-entry');
     }
+    if (template === 'modern') {
+      const menuButton = themedPage.locator('.global-head .menu-btn');
+      const menuBox = await menuButton.boundingBox();
+      const themeBox = await themedPage.locator('.global-head [data-theme-toggle]').boundingBox();
+      assert.ok(menuBox.x >= themeBox.x + themeBox.width && menuBox.x + menuBox.width <= 1440);
+      await menuButton.click();
+      await themedPage.locator('.menu-component.is-open').waitFor({ state: 'visible' });
+      await themedPage.locator('.menu-close').click();
+      await themedPage.waitForFunction(() => !document.querySelector('.menu-component').classList.contains('is-open'));
+    }
     for (const width of [1440, 820, 390]) {
       await themedPage.setViewportSize({ width, height: 1000 });
       await themedPage.emulateMedia({ reducedMotion: 'reduce' });
