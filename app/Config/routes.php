@@ -600,6 +600,15 @@ return function (App $app, array $container) {
         return $resp;
     });
 
+    $app->map(['GET', 'POST'], '/admin/settings/{section:' . implode('|', array_keys(\App\Services\AdminSettingsSections::PAGES)) . '}', function (Request $request, Response $response, array $args) use ($container) {
+        $controller = new \App\Controllers\Admin\SettingsController($container['db'], Twig::fromRequest($request));
+        return $controller->section($request, $response, $args);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        $resp = new \Slim\Psr7\Response(503);
+        $resp->getBody()->write('Service Unavailable');
+        return $resp;
+    });
+
     // Filter Settings
     $app->get('/admin/filter-settings', function (Request $request, Response $response) use ($container) {
         $controller = new \App\Controllers\Admin\FilterSettingsController($container['db'], Twig::fromRequest($request));

@@ -1,0 +1,85 @@
+<?php
+declare(strict_types=1);
+
+use App\Controllers\Admin\SettingsController;
+use App\Services\SettingsService;
+use App\Support\Database;
+use PHPUnit\Framework\TestCase;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Response;
+use Slim\Views\Twig;
+
+final class SettingsSectionsTest extends TestCase
+{
+    private Database $db;
+    private mixed $cache;
+    private array $session;
+
+    protected function setUp(): void
+    {
+        $this->cache = (new ReflectionProperty(SettingsService::class, 'cache'))->getValue();
+        $this->session = $_SESSION ?? [];
+        $_SESSION = ['csrf' => 'sections-test'];
+        $this->db = new Database(database: ':memory:', isSqlite: true);
+        $this->db->pdo()->exec(file_get_contents(dirname(__DIR__, 2) . '/database/schema.sqlite.sql'));
+        $settings = new SettingsService($this->db);
+        (new ReflectionProperty(SettingsService::class, 'cache'))->setValue(null, $settings->defaults());
+        $settings->setMany([
+            'site.title' => 'Preserved title', 'site.logo' => '/media/logo.png',
+            'image.breakpoints' => ['sm' => 200, 'md' => 400, 'lg' => 800, 'xl' => 1200, 'xxl' => 1600],
+            'image.variants_async' => true, 'maintenance.enabled' => true,
+            'cache.storage_backend' => 'database',
+        ]);
+    }
+
+    protected function tearDown(): void
+    {
+        (new ReflectionProperty(SettingsService::class, 'cache'))->setValue(null, $this->cache);
+        $_SESSION = $this->session;
+    }
+
+    private function controller(): SettingsController
+    {
+        return new class($this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends SettingsController {
+            protected function ensureSession(): void {}
+            protected function getBasePath(): string { return ''; }
+        };
+    }
+
+    public function testImagePageOnlyWritesItsSettings(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/images')->withParsedBody([
+            'csrf' => 'sections-test', 'fmt_jpg' => '1', 'q_jpg' => '90',
+            'site_title' => 'Ignore this', 'logo_type' => 'text',
+        ]);
+        $response = $this->controller()->section($request, new Response(), ['section' => 'images']);
+        self::assertSame('/admin/settings/images?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertSame(90, $settings->get('image.quality')['jpg']);
+        self::assertFalse($settings->get('image.variants_async'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertSame('/media/logo.png', $settings->get('site.logo'));
+        self::assertTrue($settings->get('maintenance.enabled'));
+    }
+
+    public function testGeneralFormCannotResetMovedSettings(): void
+    {
+        $before = (new SettingsService($this->db))->get('image.breakpoints');
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings')->withParsedBody([
+            'csrf' => 'sections-test', '_settings_page' => 'general', 'site_title' => 'New title',
+            'bp_sm' => '9999', 'variants_async' => '',
+        ]);
+        $response = $this->controller()->save($request, new Response());
+        self::assertSame('/admin/settings?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertSame('New title', $settings->get('site.title'));
+        self::assertSame($before, $settings->get('image.breakpoints'));
+        self::assertTrue($settings->get('image.variants_async'));
+    }
+
+    public function testUnknownSectionsAreNotAccepted(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
+        self::assertSame(404, $this->controller()->section($request, new Response(), ['section' => 'unknown'])->getStatusCode());
+    }
+}
