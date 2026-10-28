@@ -2124,6 +2124,7 @@
     "admin.settings.site_description": "Site Description",
     "admin.settings.site_description_default": "Professional Photography Portfolio",
     "admin.settings.site_language": "Site Language",
+    "admin.settings.branding_description": "Choose your light and dark logos, logo type and favicons.",
     "admin.settings.site_logo": "Site Logo",
     "admin.settings.site_title": "Site Title",
     "admin.settings.slideshow": "Slideshow",

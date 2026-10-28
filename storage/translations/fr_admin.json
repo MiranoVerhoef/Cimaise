@@ -2061,6 +2061,7 @@
     "admin.settings.site_description": "Description du site",
     "admin.settings.site_description_default": "Portfolio de photographie professionnelle",
     "admin.settings.site_language": "Langue du site",
+    "admin.settings.branding_description": "Choisissez vos logos clair et sombre, le type de logo et les favicons.",
     "admin.settings.site_logo": "Logo du site",
     "admin.settings.site_title": "Titre du site",
     "admin.settings.slideshow": "Diaporama",
