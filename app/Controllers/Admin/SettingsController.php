@@ -37,16 +37,7 @@ class SettingsController extends BaseController
         // Custom album page templates (from plugins)
         $albumPageTemplates = $this->getPluginAlbumPageTemplates();
 
-        // Check if maintenance-mode plugin is active
-        $maintenancePluginActive = false;
-        try {
-            $stmt = $this->db->pdo()->prepare('SELECT is_active FROM plugin_status WHERE slug = ? AND is_installed = 1');
-            $stmt->execute(['maintenance-mode']);
-            $pluginStatus = $stmt->fetch(\PDO::FETCH_ASSOC);
-            $maintenancePluginActive = $pluginStatus && $pluginStatus['is_active'];
-        } catch (\Throwable) {
-            // Plugin table doesn't exist yet
-        }
+        $maintenancePluginActive = $this->maintenanceActive();
 
         // Check compression availability. Apache's own modules count too:
         // CompressionMiddleware defers to them when they are loaded.
@@ -129,6 +120,11 @@ class SettingsController extends BaseController
         if (!$this->validateCsrf($request)) {
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.csrf_invalid')];
             return $response->withHeader('Location', $this->redirect($destination))->withStatus(302);
+        }
+
+        if ($section === 'maintenance' && !$this->maintenanceActive()) {
+            $response->getBody()->write(trans('admin.settings.maintenance_inactive'));
+            return $response->withStatus(409);
         }
 
         $data = (array)$request->getParsedBody();
@@ -887,6 +883,17 @@ class SettingsController extends BaseController
      * Invalidate every page_cache entry (home, galleries, albums, taxonomies).
      * Never blocks the save: a cache failure is logged, not surfaced.
      */
+    private function maintenanceActive(): bool
+    {
+        try {
+            $stmt = $this->db->pdo()->prepare('SELECT is_active FROM plugin_status WHERE slug = ? AND is_installed = 1');
+            $stmt->execute(['maintenance-mode']);
+            return (bool) $stmt->fetchColumn();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     private function clearPageCache(SettingsService $svc): void
     {
         try {

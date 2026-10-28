@@ -2133,6 +2133,7 @@
     "admin.settings.display": "Display",
     "admin.settings.gallery_settings": "Gallery Settings",
     "admin.settings.protection": "Content Protection",
+    "admin.settings.maintenance_inactive": "Activate the Maintenance Mode plugin to configure this page.",
     "admin.settings.title": "Settings",
     "admin.settings.update_lensfun": "Update Database",
     "admin.settings.updating_lensfun": "Updating...",
