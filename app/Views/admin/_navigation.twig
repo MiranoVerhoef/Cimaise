@@ -1,7 +1,7 @@
 {# Render the compact sidebar immediately; JavaScript adds grouped page tools. #}
 {% set navigation_groups = [
   {id: 'dashboard', label: trans('admin.sidebar.dashboard'), icon: 'fa-tachometer-alt', url: '/admin', routes: ['/admin']},
-  {id: 'gallery', label: trans('admin.sidebar.gallery'), icon: 'fa-images', url: '/admin/media', routes: ['/admin/media']},
+  {id: 'gallery', label: trans('admin.sidebar.gallery'), icon: 'fa-images', url: '/admin/media', routes: ['/admin/media', '/admin/settings/gallery']},
   {id: 'albums', label: trans('admin.sidebar.albums'), icon: 'fa-layer-group', url: '/admin/albums', routes: ['/admin/albums', '/admin/collections', '/admin/categories', '/admin/tags']},
   {id: 'website', label: trans('admin.sidebar.website'), icon: 'fa-globe', url: '/admin/pages/home', routes: ['/admin/pages/home', '/admin/pages', '/admin/texts', '/admin/social', '/admin/seo', '/admin/privacy', '/admin/filter-settings']},
   {id: 'appearance', label: trans('admin.sidebar.appearance'), icon: 'fa-palette', url: '/admin/templates', routes: ['/admin/templates', '/admin/settings/display', '/admin/typography', '/admin/branding', '/admin/custom-templates']},

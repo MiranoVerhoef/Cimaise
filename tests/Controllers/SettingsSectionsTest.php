@@ -93,6 +93,21 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('maintenance.enabled'));
     }
 
+    public function testGallerySavePreservesSiteAndImageSettings(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/gallery')->withParsedBody([
+            'csrf' => 'sections-test', 'gallery_page_template' => 'hero', 'pagination_limit' => '7',
+            'site_title' => 'Ignore this', 'variants_async' => '',
+        ]);
+        $response = $this->controller()->section($request, new Response(), ['section' => 'gallery']);
+        self::assertSame('/admin/settings/gallery?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertSame('hero', $settings->get('gallery.page_template'));
+        self::assertSame(7, $settings->get('pagination.limit'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
