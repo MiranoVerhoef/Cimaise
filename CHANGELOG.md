@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Separate image-processing settings and tools into their own scoped page.
 - Docker installations show container update instructions and reject direct application updates.
 
 - Give Appearance > Site Logo its own page and save action, including light/dark logos and favicons.

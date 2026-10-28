@@ -203,10 +203,18 @@ const assert = require('node:assert/strict');
   });
   assert.equal(uploadedLogo.status(), 200, await uploadedLogo.text());
   await page.reload();
-  // The upload fixture uses tiny breakpoints for speed; settings require >=100.
+  // Processing settings own a separate page and must preserve other settings.
+  assert.equal(await page.locator('[name="bp_sm"]').count(), 0);
+  const siteTitleBeforeProcessing = await page.locator('[name="site_title"]').inputValue();
+  await page.goto('/admin/settings/images');
+  assert.equal(await page.locator('[name="site_title"], [name="maintenance_enabled"]').count(), 0);
   for (const [index, size] of ['sm', 'md', 'lg', 'xl', 'xxl'].entries()) {
     await page.locator(`[name="bp_${size}"]`).fill(String((index + 1) * 100));
   }
+  await saveForm('#settings-form');
+  await page.goto('/admin/settings');
+  assert.equal(await page.locator('[name="site_title"]').inputValue(), siteTitleBeforeProcessing);
+  console.log('PASS: Image Processing has independent controls and preserves general settings');
   const visitor = await browser.newContext({ baseURL: 'http://localhost:8080' });
   const maintenance = await visitor.newPage();
   assert.equal((await maintenance.goto('/')).status(), 200);

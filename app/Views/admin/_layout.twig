@@ -533,7 +533,10 @@
                 </div>
               </a>
 
-              <a href="{{ base_path }}/admin/settings" class="dropdown-item">
+              <a href="{{ base_path }}/admin/settings/images" class="sidebar-link" data-spa-link>
+              <i class="fas fa-images"></i><span class="nav-title">{{ trans('admin.settings.image_processing') }}</span>
+            </a>
+            <a href="{{ base_path }}/admin/settings" class="dropdown-item">
                 <i class="fas fa-cog"></i>
                 <div>
                   <div class="font-medium">{{ trans('admin.system.settings') }}</div>

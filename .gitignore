@@ -236,4 +236,5 @@ m8-after/
 # Standalone Appearance page save isolation
 !/tests/Controllers/BrandingSettingsTest.php
 
+!/tests/Controllers/SettingsSectionsTest.php
 !/tests/Support/DockerUpdatePolicyTest.php
