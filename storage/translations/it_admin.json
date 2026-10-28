@@ -2147,6 +2147,7 @@
     "admin.settings.display": "Aspetto",
     "admin.settings.gallery_settings": "Impostazioni galleria",
     "admin.settings.protection": "Protezione dei contenuti",
+    "admin.settings.maintenance_inactive": "Attiva il plugin Modalità manutenzione per configurare questa pagina.",
     "admin.settings.title": "Impostazioni",
     "admin.settings.update_lensfun": "Aggiorna Database",
     "admin.settings.updating_lensfun": "Aggiornamento...",

@@ -141,6 +141,25 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('maintenance.enabled'));
     }
 
+    public function testMaintenanceRequiresPluginAndPreservesOtherSettings(): void
+    {
+        $this->db->pdo()->exec("UPDATE plugin_status SET is_active = 0 WHERE slug = 'maintenance-mode'");
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/maintenance')->withParsedBody([
+            'csrf' => 'sections-test', 'maintenance_title' => 'Back soon', 'maintenance_message' => 'A short break',
+            'site_title' => 'Ignore this',
+        ]);
+        self::assertSame(409, $this->controller()->section($request, new Response(), ['section' => 'maintenance'])->getStatusCode());
+        self::assertTrue((new SettingsService($this->db))->get('maintenance.enabled'));
+        $this->db->pdo()->exec("UPDATE plugin_status SET is_active = 1 WHERE slug = 'maintenance-mode'");
+        $response = $this->controller()->section($request, new Response(), ['section' => 'maintenance']);
+        self::assertSame('/admin/settings/maintenance?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertFalse($settings->get('maintenance.enabled'));
+        self::assertSame('Back soon', $settings->get('maintenance.title'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
