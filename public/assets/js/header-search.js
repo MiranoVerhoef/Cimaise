@@ -71,7 +71,11 @@
         element.setAttribute('aria-expanded', 'true');
         element.querySelector('i')?.classList.replace('fa-search', 'fa-times');
       });
-      input.focus({ preventScroll: true });
+      // Global reduced-motion styles also transition inherited visibility. Wait
+      // until the field is painted before focusing, including a rapid close.
+      requestAnimationFrame(() => {
+        if (!panel.inert) input.focus({ preventScroll: true });
+      });
     };
     toggles.forEach(toggle => toggle.addEventListener('click', () => {
       if (panel.classList.contains('hidden')) open(toggle); else close(true);

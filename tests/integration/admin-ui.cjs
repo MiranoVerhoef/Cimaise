@@ -603,7 +603,7 @@ const assert = require('node:assert/strict');
       await searchToggle.click();
       const field = themedPage.locator('#header-search');
       await field.waitFor({ state: 'visible' });
-      assert.equal(await field.evaluate(element => element === document.activeElement), true);
+      await themedPage.waitForFunction(() => document.activeElement === document.getElementById('header-search'));
       const after = await row.boundingBox();
       const box = await field.boundingBox();
       assert.ok(Math.abs(before.height - after.height) < 1, `${template}: search must not grow the header`);
@@ -622,7 +622,7 @@ const assert = require('node:assert/strict');
       assert.equal(await field.inputValue(), 'existing search');
       await field.fill('');
       await themedPage.screenshot({ path: `/tmp/cimaise-search-${template}-${width}.png` });
-      await themedPage.mouse.click(width / 2, 950);
+      await themedPage.mouse.click(1, 1);
       assert.equal(await searchToggle.getAttribute('aria-expanded'), 'false');
     }
     await themedPage.setViewportSize({ width: 1440, height: 1000 });
