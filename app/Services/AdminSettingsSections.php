@@ -27,6 +27,11 @@ final class AdminSettingsSections
             'fields' => ['nsfw_global_warning', 'recaptcha_site_key', 'recaptcha_secret_key', 'recaptcha_enabled', 'disable_right_click'],
             'keys' => ['privacy.nsfw_global_warning', 'recaptcha.site_key', 'recaptcha.secret_key', 'recaptcha.enabled', 'frontend.disable_right_click'],
         ],
+        'performance' => [
+            'title' => 'admin.settings.performance',
+            'fields' => ['admin_debug_logs', 'compression_enabled', 'compression_type', 'compression_level', 'cache_enabled', 'static_cache_max_age', 'media_cache_max_age', 'html_cache_max_age'],
+            'keys' => ['admin.debug_logs', 'performance.compression_enabled', 'performance.compression_type', 'performance.compression_level', 'performance.cache_enabled', 'performance.static_cache_max_age', 'performance.media_cache_max_age', 'performance.html_cache_max_age'],
+        ],
     ];
 
     /** @return list<string> */

@@ -125,6 +125,22 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('image.variants_async'));
     }
 
+    public function testPerformanceSavePreservesOtherSections(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/performance')->withParsedBody([
+            'csrf' => 'sections-test', 'compression_type' => 'gzip', 'compression_enabled' => '1',
+            'html_cache_max_age' => '123', 'site_title' => 'Ignore this',
+        ]);
+        $response = $this->controller()->section($request, new Response(), ['section' => 'performance']);
+        self::assertSame('/admin/settings/performance?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertSame('gzip', $settings->get('performance.compression_type'));
+        self::assertSame(123, $settings->get('performance.html_cache_max_age'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+        self::assertTrue($settings->get('maintenance.enabled'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
