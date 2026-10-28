@@ -221,6 +221,11 @@ const assert = require('node:assert/strict');
   await saveForm('#settings-form');
   await page.goto('/admin/settings');
 
+  await page.goto('/admin/settings/protection');
+  assert.equal(await page.locator('[name="recaptcha_site_key"]').count(), 1);
+  assert.equal(await page.locator('[name="site_title"], [name="dark_mode"]').count(), 0);
+  await saveForm('#settings-form');
+  await page.goto('/admin/settings');
   const visitor = await browser.newContext({ baseURL: 'http://localhost:8080' });
   const maintenance = await visitor.newPage();
   assert.equal((await maintenance.goto('/')).status(), 200);
