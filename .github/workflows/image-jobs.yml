@@ -43,6 +43,9 @@ jobs:
       - name: Verify upgrade from the published upstream baseline
         run: |
           docker run --rm --network host --entrypoint php -e CIMAISE_DOCKER_IMAGE=cimaise:test -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker:ro -v /tmp/cimaise-test-vendor:/var/www/html/vendor:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test vendor/bin/phpunit -c phpunit.xml tests/Docker/ImageUpgradeTest.php
+      - name: Verify upgrade from the deployed test.9 baseline
+        run: |
+          docker run --rm --network host --entrypoint php -e CIMAISE_DOCKER_IMAGE=cimaise:test -e CIMAISE_DOCKER_BASELINE=ghcr.io/miranoverhoef/cimaise:1.4.26-test.9 -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker:ro -v /tmp/cimaise-test-vendor:/var/www/html/vendor:ro -v "$PWD/tests:/var/www/html/tests:ro" -v "$PWD/phpunit.xml:/var/www/html/phpunit.xml:ro" cimaise:test vendor/bin/phpunit -c phpunit.xml tests/Docker/ImageUpgradeTest.php
       - name: Verify upgrade from the published fork baseline
         run: |
           docker volume create cimaise-baseline-db
