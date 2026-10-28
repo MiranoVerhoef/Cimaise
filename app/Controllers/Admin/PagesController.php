@@ -422,24 +422,29 @@ class PagesController extends BaseController
         $svc->set('galleries.no_results_text', trim((string)($data['no_results_text'] ?? 'We couldn\'t find any galleries matching your current filters.')));
         $svc->set('galleries.view_button_text', trim((string)($data['view_button_text'] ?? 'View')));
 
-        // Save global page template
-        $pageTemplate = (string)($data['page_template'] ?? 'classic');
-        $allowedTemplates = ['classic', 'hero', 'magazine'];
-        try {
-            $customTemplates = Hooks::applyFilter('available_album_page_templates', []);
-            foreach ($customTemplates as $template) {
-                $value = $template['value'] ?? null;
-                if (is_string($value) && $value !== '') {
-                    $allowedTemplates[] = $value;
+        // Keep older complete editor forms compatible; the current editor
+        // owns the listing page only and must preserve the global album layout.
+        if (array_key_exists('page_template', $data)) {
+            // Save global page template
+            $pageTemplate = (string)($data['page_template'] ?? 'classic');
+            $allowedTemplates = ['classic', 'hero', 'magazine'];
+            try {
+                $customTemplates = Hooks::applyFilter('available_album_page_templates', []);
+                foreach ($customTemplates as $template) {
+                    $value = $template['value'] ?? null;
+                    if (is_string($value) && $value !== '') {
+                        $allowedTemplates[] = $value;
+                    }
                 }
+            } catch (\Throwable) {
+                // Ignore plugin errors; fallback to core templates.
             }
-        } catch (\Throwable) {
-            // Ignore plugin errors; fallback to core templates.
+            if (!in_array($pageTemplate, $allowedTemplates, true)) {
+                $pageTemplate = 'classic';
+            }
+            $svc->set('gallery.page_template', $pageTemplate);
+
         }
-        if (!in_array($pageTemplate, $allowedTemplates, true)) {
-            $pageTemplate = 'classic';
-        }
-        $svc->set('gallery.page_template', $pageTemplate);
 
         // /galleries listing template — whitelist is the single source of truth
         // in GalleriesController::PAGE_TEMPLATES; invalid values become classic.

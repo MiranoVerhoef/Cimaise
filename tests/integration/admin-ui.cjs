@@ -217,6 +217,11 @@ const assert = require('node:assert/strict');
   await page.goto('/admin/settings');
   assert.equal(await page.locator('[name="site_title"]').inputValue(), siteTitleBeforeProcessing);
   console.log('PASS: Image Processing has independent controls and preserves general settings');
+  await page.goto('/admin/pages/galleries');
+  assert.equal(await page.locator('[name="page_template"]').count(), 0);
+  assert.equal(await page.locator('#galleries-form a[href$="/admin/settings/gallery"]').count(), 1);
+  await saveForm('#galleries-form');
+
   await page.goto('/admin/settings/gallery');
   assert.equal(await page.locator('[name="pagination_limit"]').count(), 1);
   assert.equal(await page.locator('[name="site_title"], [name="bp_sm"]').count(), 0);
