@@ -219,7 +219,7 @@ const assert = require('node:assert/strict');
   console.log('PASS: Image Processing has independent controls and preserves general settings');
   await page.goto('/admin/pages/galleries');
   assert.equal(await page.locator('[name="page_template"]').count(), 0);
-  assert.equal(await page.locator('a[href$="/admin/settings/gallery"]').count(), 1);
+  assert.equal(await page.locator('#galleries-form a[href$="/admin/settings/gallery"]').count(), 1);
   await saveForm('#galleries-form');
 
   await page.goto('/admin/settings/gallery');
