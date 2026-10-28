@@ -108,6 +108,7 @@ const assert = require('node:assert/strict');
   assert.equal(await page.locator('#admin-section-tabs [aria-current="page"]').innerText(), 'Site Logo');
   assert.equal(await page.locator('#branding-form [name="logo_type"]').count(), 2);
   assert.equal(await page.locator('[name="bp_sm"], [name="maintenance_enabled"], [name="site_title"]').count(), 0);
+  await page.screenshot({ path: '/tmp/cimaise-branding-page.png', fullPage: true });
   page.off('request', countLogoDocumentLoads);
   await page.goto('/admin/settings#site-branding');
   await page.waitForURL('**/admin/branding');
