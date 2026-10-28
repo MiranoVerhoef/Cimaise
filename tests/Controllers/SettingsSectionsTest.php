@@ -185,6 +185,22 @@ final class SettingsSectionsTest extends TestCase
         self::assertSame('#123456', $settings->get('pwa.theme_color'));
     }
 
+    public function testGalleriesPageEditorPreservesTheGlobalAlbumLayout(): void
+    {
+        (new SettingsService($this->db))->set('gallery.page_template', 'hero');
+        $controller = new class($this->db, Twig::create(dirname(__DIR__, 2) . '/app/Views')) extends \App\Controllers\Admin\PagesController {
+            protected function ensureSession(): void {}
+            protected function getBasePath(): string { return ''; }
+        };
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/pages/galleries')->withParsedBody([
+            'csrf' => 'sections-test', 'galleries_title' => 'My galleries',
+        ]);
+        $controller->saveGalleries($request, new Response());
+        $settings = new SettingsService($this->db);
+        self::assertSame('hero', $settings->get('gallery.page_template'));
+        self::assertSame('My galleries', $settings->get('galleries.title'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
