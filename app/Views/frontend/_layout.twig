@@ -202,7 +202,7 @@
     <link href="{{ vite_asset('frontend.css') }}" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ base_path }}/assets/css/header-search.css?v={{ app_version }}">
-    <script defer src="{{ base_path }}/assets/js/header-search.js?v={{ app_version }}"></script>
+    <script nonce="{{ csp_nonce() }}" defer src="{{ base_path }}/assets/js/header-search.js?v={{ app_version }}"></script>
 
     <!-- Custom CSS (Frontend Only) -->
     {% if custom_css|default('') is not empty %}
@@ -666,9 +666,6 @@
             // 1. Menu Toggle
             const menuToggle = document.getElementById('mobile-menu-toggle');
             const menu = document.getElementById('mobile-menu');
-            const headerSearchPanel = document.getElementById('header-search-panel');
-            const headerSearchToggle = document.getElementById('header-search-toggle');
-            const mobileSearchToggle = document.getElementById('mobile-search-toggle');
             if (menuToggle && menu) {
                 // Pending close-animation timeout; cleared on every toggle so a
                 // rapid re-open can't let a stale timer re-hide the open menu
@@ -1165,7 +1162,6 @@
                 clearId: 'header-search-clear',
                 suggestionId: 'header-search-suggestions'
             });
-
         })();
 
         // Enhanced smooth animations with GSAP

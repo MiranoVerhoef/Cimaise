@@ -4,7 +4,7 @@
 {% include 'frontend/_lcp_preload.twig' %}
 <link rel="stylesheet" href="{{ base_path }}/assets/css/home-modern.css">
 <link rel="stylesheet" href="{{ base_path }}/assets/css/header-search.css?v={{ app_version }}">
-<script defer src="{{ base_path }}/assets/js/header-search.js?v={{ app_version }}"></script>
+<script nonce="{{ csp_nonce() }}" defer src="{{ base_path }}/assets/js/header-search.js?v={{ app_version }}"></script>
 <style nonce="{{ csp_nonce() }}">
   /* Fix mega menu duplicate text - second span should be hidden until hover */
   .mega-menu_text[aria-hidden="true"] {
@@ -871,8 +871,6 @@ document.addEventListener('DOMContentLoaded', function() {
     clearId: 'header-search-clear',
     suggestionId: 'header-search-suggestions'
   });
-
-
 });
 </script>
 <script nonce="{{ csp_nonce() }}">
