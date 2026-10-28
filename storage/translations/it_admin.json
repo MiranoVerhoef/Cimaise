@@ -2042,7 +2042,7 @@
     "admin.settings.logo_dark": "Logo per tema scuro (facoltativo)",
     "admin.settings.logo_dark_hint": "Sostituisce il logo standard nel tema scuro. Lascia vuoto per usare lo stesso logo in entrambi i temi. Le favicon usano il logo standard.",
     "admin.settings.logo_removed_info": "Logo rimosso (salva per applicare)",
-    "admin.settings.logo_text_hint": "Configura il titolo nel campo Titolo Sito qui sotto.",
+    "admin.settings.logo_text_hint": "Modifica il titolo del sito nelle Impostazioni.",
     "admin.settings.logo_text_info": "Il titolo del sito verrà mostrato come logo nell'header usando la tipografia selezionata.",
     "admin.settings.logo_type_image": "Logo immagine",
     "admin.settings.logo_type_text": "Titolo testuale",

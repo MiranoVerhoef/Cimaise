@@ -1965,7 +1965,7 @@
     "admin.settings.logo_formats": "PNG, JPG, WebP",
     "admin.settings.logo_hint": "Taille recommandée : 200x60 pixels. Le PNG transparent fonctionne mieux.",
     "admin.settings.logo_removed_info": "Logo supprimé (enregistrer pour appliquer)",
-    "admin.settings.logo_text_hint": "Configurez le titre dans le champ Titre du site ci-dessous.",
+    "admin.settings.logo_text_hint": "Modifiez le titre du site dans les Paramètres.",
     "admin.settings.logo_text_info": "Le titre du site sera affiché en logo d'en-tête en utilisant la typographie sélectionnée.",
     "admin.settings.logo_type_image": "Logo image",
     "admin.settings.logo_type_text": "Titre du texte",

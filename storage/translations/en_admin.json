@@ -2028,7 +2028,7 @@
     "admin.settings.logo_dark": "Dark mode logo (optional)",
     "admin.settings.logo_dark_hint": "Shown instead of the standard logo in dark mode. Leave empty to use the same logo in both themes. Favicons continue to use the standard logo.",
     "admin.settings.logo_removed_info": "Logo removed (save to apply)",
-    "admin.settings.logo_text_hint": "Configure the title in the Site Title field below.",
+    "admin.settings.logo_text_hint": "Change the site title in Settings.",
     "admin.settings.logo_text_info": "The site title will be displayed as the header logo using the selected typography.",
     "admin.settings.logo_type_image": "Image logo",
     "admin.settings.logo_type_text": "Text title",
