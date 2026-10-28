@@ -28,4 +28,15 @@ jobs:
           docker run --rm --entrypoint php "$IMAGE" -r 'echo "Published PHP ", PHP_VERSION, "\n"; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 && version_compare(PHP_VERSION, "8.5.12", ">=") ? 0 : 1);'
           test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$(git rev-parse HEAD)"
           test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.source" }}')" = "https://github.com/$REPO"
+          # Compare application sources and the new static search assets with the
+          # release checkout, rather than trusting image labels alone.
+          container=$(docker create "$IMAGE")
+          trap 'docker rm -v "$container" >/dev/null' EXIT
+          docker cp "$container:/var/www/html/app" /tmp/published-app
+          diff -qr app /tmp/published-app
+          for path in version.json public/assets/js/header-search.js public/assets/css/header-search.css; do
+            docker cp "$container:/var/www/html/$path" /tmp/published-file
+            cmp "$path" /tmp/published-file
+            rm /tmp/published-file
+          done
           docker buildx imagetools inspect "$IMAGE"
