@@ -232,3 +232,6 @@ m8-after/
 # Docker/PHP-FPM/Chromium integration checks (.github/workflows/image-jobs.yml)
 !/tests/integration/
 !/tests/integration/**
+
+# Standalone Appearance page save isolation
+!/tests/Controllers/BrandingSettingsTest.php

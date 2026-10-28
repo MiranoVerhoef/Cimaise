@@ -88,7 +88,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: admin-gallery-preview
-          path: /tmp/cimaise-admin-gallery.png
+          path: |
+            /tmp/cimaise-admin-gallery.png
+            /tmp/cimaise-branding-page.png
           if-no-files-found: ignore
       - name: Verify PHP-FPM HTTP upload and restart recovery
         run: |

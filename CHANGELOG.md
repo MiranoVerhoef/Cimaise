@@ -1,3 +1,8 @@
+## [Unreleased]
+
+- Give Appearance > Site Logo its own page and save action, including light/dark logos and favicons.
+- Remove branding controls from Settings, preserve independent saves and redirect old Site Logo bookmarks.
+
 ## [1.4.28-test.1] - 2026-10-28
 
 - Adopt upstream 1.4.28, which includes all improvements contributed in PR #142.
