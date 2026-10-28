@@ -4,6 +4,7 @@
 .has-inline-search > .search-header-actions { flex-shrink: 0; width: auto; }
 .global-head_layout.has-inline-search { align-items: center; gap: 24px; }
 .global-head_layout .head-logo_holder { flex: 0 0 auto; }
+.site-search-row .menu-btn { position: static; flex-shrink: 0; margin-left: 16px; }
 .site-search-row .modern-search-toggle {
     position: static; width: 44px; height: 44px; box-shadow: none;
 }
