@@ -610,6 +610,8 @@ const assert = require('node:assert/strict');
       const searchToggle = themedPage.locator('#header-search-toggle, #mobile-search-toggle').filter({ visible: true }).first();
       const row = searchToggle.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " site-search-row ")]');
       const before = await row.boundingBox();
+      const visibleHeaderControls = () => row.locator('a, button').filter({ visible: true }).evaluateAll(elements => elements.filter(element => !element.closest('#header-search-panel')).length);
+      const controlCount = await visibleHeaderControls();
       await searchToggle.click();
       const field = themedPage.locator('#header-search');
       await field.waitFor({ state: 'visible' });
@@ -618,7 +620,21 @@ const assert = require('node:assert/strict');
       const box = await field.boundingBox();
       assert.ok(Math.abs(before.height - after.height) < 1, `${template}: search must not grow the header`);
       assert.ok(box.width > 100 && box.x >= 0 && box.x + box.width <= width, `${template}: search fits the bar at ${width}px`);
-      assert.ok(box.y >= after.y && box.y + box.height <= after.y + after.height + 1);
+      const searchPanel = themedPage.locator('#header-search-panel');
+      const panelBox = await searchPanel.boundingBox();
+      assert.ok(panelBox.width <= 281, 'Search remains compact');
+      if (!(await searchPanel.evaluate(element => element.classList.contains('search-popover')))) {
+        assert.ok(box.y >= after.y && box.y + box.height <= after.y + after.height + 1);
+      }
+      assert.equal(await visibleHeaderControls(), controlCount, 'Opening search preserves visible navigation controls');
+      const controls = row.locator('a, button').filter({ visible: true });
+      for (const control of await controls.all()) {
+        if (await control.evaluate(element => !!element.closest('#header-search-panel'))) continue;
+        assert.equal(await control.evaluate(element => !!element.closest('[inert]')), false);
+        const bounds = await control.boundingBox();
+        assert.ok(bounds.x + bounds.width <= panelBox.x || bounds.x >= panelBox.x + panelBox.width || bounds.y + bounds.height <= panelBox.y || bounds.y >= panelBox.y + panelBox.height, 'Search must not cover header controls');
+      }
+      assert.equal(await row.locator('.search-brand-navigation').evaluate(element => getComputedStyle(element).visibility), 'visible');
       const suggestionResponse = themedPage.waitForResponse(response => response.url().includes('/galleries/filter?') && new URL(response.url()).searchParams.get('search') === 'existing search');
       await field.fill('existing search');
       const suggestions = await suggestionResponse;
