@@ -994,9 +994,9 @@
                     clearBtn.classList.toggle('hidden', input.value.trim().length === 0);
                 };
 
+                // Only a page-owned gallery filter should intercept full search.
                 const syncToFilters = () => {
-                    const filterInput = document.getElementById('layout-filter-search')
-                        || document.getElementById('filter-search');
+                    const filterInput = document.getElementById('filter-search');
                     if (!filterInput) return false;
                     filterInput.value = input.value;
                     if (typeof window.applyFiltersDebounced === 'function') {
@@ -1148,8 +1148,7 @@
                     });
                 }
 
-                const filterInput = document.getElementById('layout-filter-search')
-                    || document.getElementById('filter-search');
+                const filterInput = document.getElementById('filter-search');
                 if (filterInput && filterInput.value) {
                     input.value = filterInput.value;
                 }
