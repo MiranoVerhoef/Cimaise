@@ -193,6 +193,10 @@ const assert = require('node:assert/strict');
 
   await page.goto('/admin/settings');
   const csrf = await page.locator('#settings-form input[name="csrf"]').inputValue();
+  const blockedUpdate = await context.request.post('/admin/updates/perform', { form: { csrf, version: '99.0.0' } });
+  assert.equal(blockedUpdate.status(), 409);
+  assert.equal((await blockedUpdate.json()).code, 'docker_update_required');
+
   const uploadedLogo = await context.request.post('/admin/settings/logo-upload', {
     headers: { 'X-CSRF-Token': csrf },
     multipart: { file: { name: 'logo.webp', mimeType: 'image/webp', buffer: await webpLogo.body() } }

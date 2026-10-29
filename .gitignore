@@ -232,3 +232,5 @@ m8-after/
 # Docker/PHP-FPM/Chromium integration checks (.github/workflows/image-jobs.yml)
 !/tests/integration/
 !/tests/integration/**
+
+!/tests/Support/DockerUpdatePolicyTest.php
