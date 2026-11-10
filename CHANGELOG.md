@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [1.4.29-test.1] - 2026-11-10
+
+- Adopt upstream 1.4.29 with lighter pages, cached public HTML, fewer visitor sessions and faster media requests.
+- Avoid duplicate compression on Apache and remove unnecessary asset preloads.
+- Keep compact header search working with the extracted frontend script and retain the fork's settings and Docker update improvements.
+
 ## [1.4.28-test.3] - 2026-10-28
 
 - Keep header search compact (up to 240px inline) without hiding or disabling navigation, logos or action buttons.
