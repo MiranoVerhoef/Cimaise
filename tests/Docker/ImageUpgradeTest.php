@@ -207,7 +207,11 @@ PHP);
         }
         self::assertNotEmpty(preg_grep('/\.webp$/', $files), 'no WebP variant');
 
-        // Idle again: the worker must not keep a PHP process running.
-        self::assertSame('0', trim($this->exec('n=0; for p in /proc/[0-9]*; do c=$(tr "\0" " " < $p/cmdline 2>/dev/null); case "$c" in php\ *) n=$((n+1));; esac; done; echo $n')));
+        // The queue entry can disappear just before the worker process exits.
+        $this->waitFor(
+            fn (): bool => trim($this->exec('n=0; for p in /proc/[0-9]*; do c=$(tr "\0" " " < $p/cmdline 2>/dev/null); case "$c" in php\ *) n=$((n+1));; esac; done; echo $n')) === '0',
+            30,
+            'the worker kept a PHP process running after the queue drained'
+        );
     }
 }
