@@ -32,6 +32,11 @@ final class AdminSettingsSections
             'fields' => ['admin_debug_logs', 'compression_enabled', 'compression_type', 'compression_level', 'cache_enabled', 'static_cache_max_age', 'media_cache_max_age', 'html_cache_max_age'],
             'keys' => ['admin.debug_logs', 'performance.compression_enabled', 'performance.compression_type', 'performance.compression_level', 'performance.cache_enabled', 'performance.static_cache_max_age', 'performance.media_cache_max_age', 'performance.html_cache_max_age'],
         ],
+        'maintenance' => [
+            'title' => 'admin.maintenance.title',
+            'fields' => ['maintenance_enabled', 'maintenance_title', 'maintenance_message', 'maintenance_show_logo', 'maintenance_show_admin_login', 'maintenance_show_countdown'],
+            'keys' => ['maintenance.enabled', 'maintenance.title', 'maintenance.message', 'maintenance.show_logo', 'maintenance.show_admin_login', 'maintenance.show_countdown'],
+        ],
     ];
 
     /** @return list<string> */
