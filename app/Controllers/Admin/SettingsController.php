@@ -77,7 +77,9 @@ class SettingsController extends BaseController
             return $response->withHeader('Location', $this->redirect('/admin/branding'))->withStatus(302);
         }
         $svc = new SettingsService($this->db);
-        $svc->setMany($this->brandingChanges((array) $request->getParsedBody()));
+        $changes = $this->brandingChanges((array) $request->getParsedBody());
+        $this->addLogoVariants($svc, $changes);
+        $svc->setMany($changes);
         $this->clearPageCache($svc);
         $_SESSION['flash'][] = ['type' => 'success', 'message' => trans('admin.flash.settings_saved')];
         return $response->withHeader('Location', $this->redirect('/admin/branding') . '?saved=1')->withStatus(302);
@@ -97,7 +99,20 @@ class SettingsController extends BaseController
         if (array_key_exists('logo_type', $data)) {
             $changes['site.logo_type'] = in_array($data['logo_type'], ['text', 'image'], true) ? $data['logo_type'] : 'text';
         }
+        if (isset($data['logo_max_width'])) {
+            $changes['site.logo_max_width'] = max(0, min(960, (int) $data['logo_max_width']));
+        }
         return $changes;
+    }
+
+    /** @param array<string, mixed> $changes */
+    private function addLogoVariants(SettingsService $settings, array &$changes): void
+    {
+        $generator = new \App\Services\SiteLogoVariants();
+        foreach (['site.logo', 'site.logo_dark'] as $key) {
+            $path = array_key_exists($key, $changes) ? $changes[$key] : $settings->get($key);
+            $changes[$key . '_variants'] = $generator->generate(is_string($path) ? $path : null);
+        }
     }
 
     /** @param array<string, string> $args */
@@ -429,8 +444,19 @@ class SettingsController extends BaseController
                 throw new \RuntimeException('Unable to create log directory');
             }
             $logPath = $logDir . '/image_generation.log';
-            $cmd = 'nohup ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($consoleReal)
-                . ' images:generate --missing > ' . escapeshellarg($logPath) . ' 2>&1 &';
+            $replaceExisting = ((array) $request->getParsedBody())['replace_existing'] ?? '';
+            if ($replaceExisting === '1') {
+                $settings = new SettingsService($this->db);
+                $logoChanges = [];
+                $this->addLogoVariants($settings, $logoChanges);
+                $settings->setMany($logoChanges);
+                $this->clearPageCache($settings);
+            }
+            $phpCli = PHP_BINDIR . '/php';
+            $phpCli = is_executable($phpCli) ? $phpCli : 'php';
+            $cmd = 'nohup ' . escapeshellarg($phpCli) . ' ' . escapeshellarg($consoleReal)
+                . ($replaceExisting === '1' ? ' images:generate' : ' images:generate --missing')
+                . ' > ' . escapeshellarg($logPath) . ' 2>&1 &';
             // nosemgrep: reviewed — every command part is escaped (escapeshellarg)
             // and the only variable is the app's own bin/console path, validated
             // with realpath() to live under the app root. No user input reaches
