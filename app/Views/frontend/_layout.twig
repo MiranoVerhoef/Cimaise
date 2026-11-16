@@ -238,6 +238,8 @@
     {{ template_custom_css|raw }}
     {% endif %}
 
+    {% set album_grid_navigation = active_home_template|default(site_home_template|default('classic')) == 'album-grid' %}
+    {% if album_grid_navigation %}{% include 'frontend/_album_grid_navigation_styles.twig' %}{% endif %}
     {% block styles %}{% endblock %}
 </head>
 <body class="min-h-full bg-white text-black font-sans antialiased{% if admin_logged_in|default(false) %} has-admin-bar{% endif %}">
@@ -597,9 +599,14 @@
     </script>
 
     <!-- Main content -->
+    {% if album_grid_navigation %}
+    <div class="album-grid-shell">
+        {% include 'frontend/_album_grid_sidebar.twig' %}
+    {% endif %}
     <main id="main-content">
         {% block content %}{% endblock %}
     </main>
+    {% if album_grid_navigation %}</div>{% endif %}
 
     <!-- Footer -->
     <footer class="border-t border-neutral-200 mt-16">

@@ -17,7 +17,7 @@
        positioned cover, so its overflow-hidden actually clips the blurred
        NSFW/locked cover (blur(30px) + scale(1.1) otherwise bleeds a halo
        outside the card). #}
-    <a href="{{ album_url }}" class="relative block aspect-[3/2] overflow-hidden bg-neutral-100 rounded-sm" title="{{ seo_title|e('html_attr') }}">
+    <a href="{{ album_url }}" class="relative block aspect-[3/2] overflow-hidden bg-neutral-100 rounded-sm" title="{{ seo_title|e('html_attr') }}"{% if cover_only|default(false) %} aria-label="{{ album.title }}"{% endif %}>
     {% set show_nsfw_overlay = not ((nsfw_consent|default(false)) or (is_admin|default(false))) %}
     {% set is_locked = album.is_locked|default(false) %}
     {# NSFW albums use blur cover until user accepts gate (admins always see clear) #}
@@ -108,13 +108,13 @@
              - Mobile (640px+): 95vw
              - Mobile small: full width = 100vw #}
           {% if variants_avif %}
-            <source type="image/avif" srcset="{{ variants_avif|join(', ') }}" sizes="(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw">
+            <source type="image/avif" srcset="{{ variants_avif|join(', ') }}" sizes="{{ cover_sizes|default('(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw') }}">
           {% endif %}
           {% if variants_jxl %}
-            <source type="image/jxl" srcset="{{ variants_jxl|join(', ') }}" sizes="(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw">
+            <source type="image/jxl" srcset="{{ variants_jxl|join(', ') }}" sizes="{{ cover_sizes|default('(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw') }}">
           {% endif %}
           {% if variants_webp %}
-            <source type="image/webp" srcset="{{ variants_webp|join(', ') }}" sizes="(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw">
+            <source type="image/webp" srcset="{{ variants_webp|join(', ') }}" sizes="{{ cover_sizes|default('(min-width: 1280px) 45vw, (min-width: 1024px) 50vw, (min-width: 768px) 60vw, (min-width: 640px) 95vw, 100vw') }}">
           {% endif %}
 
           {# Security: never use original_path (points to /storage/originals/ which is not web-accessible) #}
@@ -138,6 +138,8 @@
                alt="{{ (album.cover.alt_text ?? album.cover_image.alt_text ?? album.title)|e }}"
                title="{{ seo_title|e('html_attr') }}"
                loading="{{ (lazy_load_images ?? true) ? 'lazy' : 'eager' }}"
+               {% if cover_fetch_priority|default(false) %}fetchpriority="high"{% endif %}
+               {% if cover_sizes is defined and variants_jpg %}srcset="{{ variants_jpg|join(', ') }}" sizes="{{ cover_sizes }}"{% endif %}
                decoding="async"
                class="block w-full h-full object-cover transition-transform duration-200 group-hover:scale-105">
         </picture>
@@ -188,10 +190,19 @@
       </div>
       {% endif %}
     {% endif %}
+    {% if cover_only|default(false) %}
+      <div class="album-cover-details">
+        <strong>{{ album.title }}</strong>
+        {% if album.shoot_date and (album.show_date ?? true) %}
+          <time datetime="{{ album.shoot_date }}">{{ album.shoot_date|date_format }}</time>
+        {% endif %}
+        {% if album.category_name %}<span class="text-sm">{{ album.category_name }}</span>{% endif %}
+      </div>
+    {% endif %}
   </a>
 
   {# Category Badge - positioned absolutely over the image #}
-  {% if album.category_name %}
+  {% if album.category_name and not cover_only|default(false) %}
   <div class="absolute top-2 left-2 z-20 pointer-events-auto">
     {% if album.category_slug %}
     <a href="{{ base_path }}/category/{{ album.category_slug }}" class="inline-flex items-center gap-2 text-xs font-medium px-2.5 py-1 rounded-full border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100 hover:text-black transition-colors" title="{{ album.category_name|e }}">
@@ -206,6 +217,7 @@
   {% endif %}
   </div>
 
+  {% if not cover_only|default(false) %}
   {# Text content area #}
   <div class="pt-3 pb-2">
     <h3 class="text-lg font-medium text-black group-hover:text-neutral-700 transition-colors">
@@ -230,4 +242,5 @@
     </p>
     {% endif %}
   </div>
+  {% endif %}
 </article>

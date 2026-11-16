@@ -1,0 +1,54 @@
+{% extends 'frontend/_layout.twig' %}
+
+{% block styles %}
+<style nonce="{{ csp_nonce() }}">
+  .album-grid-home { padding: .625rem 1rem 2rem; }
+  @media (min-width: 1024px) { .album-grid-home { padding-inline: 0; } }
+  .album-grid-covers { display: grid; gap: .625rem; grid-template-columns: minmax(0, 1fr); }
+  .album-grid-covers .album-card > div > a { aspect-ratio: 16 / 9; border-radius: .625rem; }
+  .album-cover-details {
+    position: absolute; inset: auto 0 0; z-index: 11;
+    display: grid; gap: .25rem; padding: 1.75rem 1rem .875rem;
+    color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.88));
+  }
+  .album-cover-details time { font-size: .85rem; }
+  @media (hover: hover) and (pointer: fine) {
+    .album-cover-details { opacity: 0; transform: translateY(.35rem); transition: opacity 160ms ease, transform 160ms ease; }
+    .album-grid-covers a:hover .album-cover-details,
+    .album-grid-covers a:focus-visible .album-cover-details { opacity: 1; transform: none; }
+  }
+  .album-grid-pagination { display: flex; gap: 1rem; margin-top: 1.5rem; }
+  .album-grid-pagination a:hover { text-decoration: underline; }
+  @media (min-width: 640px) {
+    .album-grid-covers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .album-cover-details { transition: none; transform: none; }
+    .album-grid-covers img { transition: none !important; transform: none !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ do_action('frontend_home_before', {base_path: base_path}) }}
+<div class="album-grid-home">
+  <h1 class="sr-only">{{ site_title|default('Portfolio') }}</h1>
+
+  <div>
+    <div class="album-grid-covers">
+      {% for album in albums %}
+        {% include 'frontend/_album_card.twig' with {cover_only: true, lazy_load_images: loop.index > 4, cover_fetch_priority: loop.first, cover_sizes: '(min-width: 1873px) 590px, (min-width: 1024px) 32vw, (min-width: 640px) calc(50vw - 21px), calc(100vw - 32px)'} %}
+      {% else %}
+        <p>{{ trans('filter.no_galleries_title') }}</p>
+      {% endfor %}
+    </div>
+    {% if album_page > 1 or has_more %}
+      {% set page_url = base_path ~ '/?' ~ (home_template_preview ? 'template=album-grid&' : '') ~ 'page=' %}
+      <nav class="album-grid-pagination" aria-label="{{ trans('nav.galleries') }}">
+        {% if album_page > 1 %}<a href="{{ page_url ~ (album_page - 1) }}" rel="prev">{{ trans('general.previous') }}</a>{% endif %}
+        {% if has_more %}<a href="{{ page_url ~ (album_page + 1) }}" rel="next">{{ trans('general.next') }}</a>{% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

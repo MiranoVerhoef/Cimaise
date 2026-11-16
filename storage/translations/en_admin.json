@@ -2694,6 +2694,12 @@
     "admin.sidebar.cache_sub": "Performance and cleanup",
     "admin.sidebar.updates_sub": "Check versions",
     "admin.albums.hide_from_home": "Hide from homepage",
-    "admin.albums.hide_from_home_help": "Password-protected albums are always hidden from the homepage."
+    "admin.albums.hide_from_home_help": "Password-protected albums are always hidden from the homepage.",
+    "admin.pages.home.template_album_grid": "Album Grid",
+    "admin.pages.home.album_grid_subtitle": "Album covers",
+    "admin.pages.home.template_album_grid_desc": "A side navigation column and a grid of album covers.",
+    "admin.pages.home.album_grid_navigation": "The sidebar follows you across desktop pages. On smaller screens, navigation is in the header.",
+    "admin.pages.home.album_grid_covers": "Each cover opens its album. The title and date appear on hover, keyboard focus, or directly on touchscreens.",
+    "admin.pages.home.album_grid_visibility": "Use Hide from homepage in an album’s settings to exclude it. Password-protected albums are always excluded."
   }
 }
