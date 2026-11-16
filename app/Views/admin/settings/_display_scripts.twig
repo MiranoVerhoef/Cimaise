@@ -1,0 +1,39 @@
+// PWA color handlers (IIFE for SPA navigation)
+(function initPwaHandlers() {
+  // PWA color picker sync
+  const colorPairs = [
+    { picker: 'pwa_theme_color', text: 'pwa_theme_color_text' },
+    { picker: 'pwa_background_color', text: 'pwa_background_color_text' }
+  ];
+
+  colorPairs.forEach(pair => {
+    const picker = document.getElementById(pair.picker);
+    const text = document.getElementById(pair.text);
+    if (picker && text) {
+      if (picker._colorBound) return;
+      picker._colorBound = true;
+      // Sync picker to text
+      picker.addEventListener('input', function() {
+        text.value = this.value.toUpperCase();
+      });
+      // Sync text to picker
+      text.addEventListener('input', function() {
+        const val = this.value.trim();
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          picker.value = val;
+        }
+      });
+      // Validate and normalize on blur
+      text.addEventListener('blur', function() {
+        let val = this.value.trim().toUpperCase();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          this.value = val;
+          picker.value = val;
+        } else {
+          this.value = picker.value.toUpperCase();
+        }
+      });
+    }
+  });
+})();
