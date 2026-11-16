@@ -60,6 +60,12 @@
                   <i class="fas fa-check-circle text-black"></i>
                 </div>
               </label>
+              <label class="relative flex flex-col cursor-pointer rounded-lg border-2 p-4 transition-all home-template-option {{ settings['home.template'] == 'album-grid' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300' }}" data-template="album-grid">
+                <input type="radio" name="home_template" value="album-grid" class="sr-only" {{ settings['home.template'] == 'album-grid' ? 'checked' : '' }}>
+                <span class="font-semibold text-gray-900">{{ trans('admin.pages.home.template_album_grid') }}</span>
+                <span class="mt-2 text-xs text-gray-600">{{ trans('admin.pages.home.template_album_grid_desc') }}</span>
+                <span class="absolute top-2 right-2 template-check {{ settings['home.template'] == 'album-grid' ? '' : 'hidden' }}"><i class="fas fa-check" aria-hidden="true"></i></span>
+              </label>
               <label class="relative flex flex-col cursor-pointer rounded-lg border-2 p-4 transition-all home-template-option {{ settings['home.template']|default('classic') == 'parallax' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300' }}" data-template="parallax">
                 <input type="radio" name="home_template" value="parallax" class="sr-only" {{ settings['home.template']|default('classic') == 'parallax' ? 'checked' : '' }}>
                 <div class="flex items-center gap-3 mb-2">

@@ -144,7 +144,7 @@ class PagesController extends BaseController
 
         // Home template selection. Keep in sync with PageController::home() $validTemplates / $templateMap.
         $homeTemplate = (string)($data['home_template'] ?? 'classic');
-        if (!in_array($homeTemplate, ['classic', 'modern', 'parallax', 'masonry', 'snap', 'gallery', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'], true)) {
+        if (!in_array($homeTemplate, ['classic', 'modern', 'album-grid', 'parallax', 'masonry', 'snap', 'gallery', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'], true)) {
             $homeTemplate = 'classic';
         }
         $svc->set('home.template', $homeTemplate);

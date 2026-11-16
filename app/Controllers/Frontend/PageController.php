@@ -511,7 +511,7 @@ class PageController extends BaseController
 
         // Allow template override via query parameter (for demo/preview)
         $queryParams = $request->getQueryParams();
-        $validTemplates = ['classic', 'modern', 'parallax', 'masonry', 'snap', 'gallery', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'];
+        $validTemplates = ['classic', 'modern', 'album-grid', 'parallax', 'masonry', 'snap', 'gallery', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'];
         $templateOverride = isset($queryParams['template']) && in_array($queryParams['template'], $validTemplates, true)
             ? $queryParams['template']
             : null;
@@ -520,7 +520,7 @@ class PageController extends BaseController
         // template override, no unlocked-album session — N1). This ensures cached
         // data matches what an anonymous, no-access visitor sees.
         $canUseCache = !$isAdmin && !$nsfwConsent && $templateOverride === null
-            && empty($_SESSION['album_access']);
+            && empty($_SESSION['album_access']) && !isset($queryParams['page']);
 
         // Try cache first for public view
         if ($canUseCache) {
@@ -611,22 +611,10 @@ class PageController extends BaseController
         // Pagination parameters (from settings)
         $perPage = (int) $svc->get('pagination.limit', 12);
 
-        // Home access scoping (mirrors HomeImageService). The home is a curated
-        // showcase, not a discovery listing: for non-admins password-protected
-        // albums are NEVER previewed (no blurred placeholder), and NSFW albums
-        // appear only once global consent is given. Doing this in SQL (not a
-        // post-fetch array_filter) means the LIMIT returns a full page of
-        // *eligible* albums — no under-fill when the most recent albums happen to
-        // be protected — and the count never leaks the number of hidden albums.
-        // Admins see everything; the album/category listing pages keep the
-        // lock + blur affordance (the right unlock/consent discovery UX there).
         $includeNsfw = $isAdmin || $nsfwConsent;
-        $accessSql = '';
-        if (!$isAdmin) {
-            $accessSql .= " AND (a.password_hash IS NULL OR a.password_hash = '')";
-            if (!$includeNsfw) {
-                $accessSql .= ' AND a.is_nsfw = 0';
-            }
+        $accessSql = (new \App\Services\HomeAlbumVisibility($this->db))->eligibleSql();
+        if (!$includeNsfw) {
+            $accessSql .= ' AND a.is_nsfw = 0';
         }
 
         // Total count of eligible published albums.
@@ -634,16 +622,21 @@ class PageController extends BaseController
         $countStmt->execute();
         $totalAlbums = (int) $countStmt->fetchColumn();
 
+        $albumPage = $homeTemplate === 'album-grid'
+            ? max(1, min((int) ($queryParams['page'] ?? 1), (int) ceil($totalAlbums / max(1, $perPage))))
+            : 1;
+
         // Latest eligible published albums.
         $stmt = $pdo->prepare('
             SELECT a.*, c.name as category_name, c.slug as category_slug
             FROM albums a
             JOIN categories c ON c.id = a.category_id
             WHERE a.is_published = 1' . $accessSql . '
-            ORDER BY a.published_at DESC
-            LIMIT :limit
+            ORDER BY a.published_at DESC, a.id DESC
+            LIMIT :limit OFFSET :offset
         ');
         $stmt->bindValue(':limit', $perPage, \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', ($albumPage - 1) * $perPage, \PDO::PARAM_INT);
         $stmt->execute();
         $albums = $stmt->fetchAll();
 
@@ -651,7 +644,7 @@ class PageController extends BaseController
         $albums = $this->filterAlbumsByAccess($albums, $isAdmin, $nsfwConsent);
 
         // Calculate pagination info
-        $hasMore = $totalAlbums > $perPage;
+        $hasMore = $totalAlbums > $albumPage * $perPage;
 
         // Get categories for navigation with hierarchy
         // Include NSFW albums in count if user has admin access or global NSFW consent
@@ -684,7 +677,12 @@ class PageController extends BaseController
         // templates are grid layouts like masonry, so they share this unique-image path
         // to avoid duplicate photos. Classic/modern/parallax/snap/gallery keep diversity.
         $gridTemplates = ['masonry', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'];
-        if (in_array($homeTemplate, $gridTemplates, true)) {
+        if ($homeTemplate === 'album-grid') {
+            $imageResult = ['images' => []];
+            $shownImageIds = $shownAlbumIds = [];
+            $totalImagesCount = 0;
+            $hasMoreImages = false;
+        } elseif (in_array($homeTemplate, $gridTemplates, true)) {
             // Masonry: load ALL unique images at once (no progressive loading, no looping/duplicates)
             // CSS columns reflow ALL items when appending, causing jarring visual shifts.
             // Loading everything upfront provides stable, predictable layout.
@@ -714,46 +712,48 @@ class PageController extends BaseController
         // Process images with responsive sources (batch to avoid N+1 queries)
         $allImages = $this->processImageSourcesBatch($imageResult['images']);
 
-        // Build categories dynamically from loaded images (not from NavigationService)
-        // This ensures categories only appear in filter if they have visible images
-        // (respects NSFW filtering, progressive loading limits, etc.)
-        $loadedCategorySlugs = [];
-        foreach ($allImages as $image) {
-            if (!empty($image['category_slugs'])) {
-                foreach (explode(',', (string) $image['category_slugs']) as $slug) {
-                    $slug = trim($slug);
-                    if ($slug !== '') {
-                        $loadedCategorySlugs[$slug] = true;
+        if ($homeTemplate !== 'album-grid') {
+            // Build categories dynamically from loaded images (not from NavigationService)
+            // This ensures categories only appear in filter if they have visible images
+            // (respects NSFW filtering, progressive loading limits, etc.)
+            $loadedCategorySlugs = [];
+            foreach ($allImages as $image) {
+                if (!empty($image['category_slugs'])) {
+                    foreach (explode(',', (string) $image['category_slugs']) as $slug) {
+                        $slug = trim($slug);
+                        if ($slug !== '') {
+                            $loadedCategorySlugs[$slug] = true;
+                        }
                     }
                 }
             }
-        }
 
-        // Filter categories to only include those with loaded images
-        $categories = array_filter($categories, fn ($cat) => isset($loadedCategorySlugs[$cat['slug']]));
-        $categories = array_values($categories); // Re-index array
+            // Filter categories to only include those with loaded images
+            $categories = array_filter($categories, fn ($cat) => isset($loadedCategorySlugs[$cat['slug']]));
+            $categories = array_values($categories); // Re-index array
 
-        // Also filter parent_categories for mega menu consistency
-        $parentCategories = array_filter($parentCategories, function ($parent) use ($loadedCategorySlugs) {
-            // Check if parent has loaded images
-            if (isset($loadedCategorySlugs[$parent['slug']])) {
-                return true;
-            }
-            // Check if any child has loaded images
-            foreach ($parent['children'] as $child) {
-                if (isset($loadedCategorySlugs[$child['slug']])) {
+            // Also filter parent_categories for mega menu consistency
+            $parentCategories = array_filter($parentCategories, function ($parent) use ($loadedCategorySlugs) {
+                // Check if parent has loaded images
+                if (isset($loadedCategorySlugs[$parent['slug']])) {
                     return true;
                 }
+                // Check if any child has loaded images
+                foreach ($parent['children'] as $child) {
+                    if (isset($loadedCategorySlugs[$child['slug']])) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            // Filter children within each parent category
+            foreach ($parentCategories as &$parent) {
+                $parent['children'] = array_filter($parent['children'], fn ($child) => isset($loadedCategorySlugs[$child['slug']]));
+                $parent['children'] = array_values($parent['children']);
             }
-            return false;
-        });
-        // Filter children within each parent category
-        foreach ($parentCategories as &$parent) {
-            $parent['children'] = array_filter($parent['children'], fn ($child) => isset($loadedCategorySlugs[$child['slug']]));
-            $parent['children'] = array_values($parent['children']);
-        }
-        unset($parent); // Break reference
-        $parentCategories = array_values($parentCategories); // Re-index array
+            unset($parent); // Break reference
+            $parentCategories = array_values($parentCategories);
+        } // Re-index array
 
         $siteDescription = (string) ($svc->get('site.description', '') ?? '');
         $seo = $this->buildSeo($request, 'Home', $siteDescription, null, $this->homePageTitle($svc));
@@ -761,6 +761,7 @@ class PageController extends BaseController
         // Select template based on home.template setting
         $templateMap = [
             'modern' => 'frontend/home_modern.twig',
+            'album-grid' => 'frontend/home_album_grid.twig',
             'parallax' => 'frontend/home_parallax.twig',
             'masonry' => 'frontend/home_masonry.twig',
             'snap' => 'frontend/home_snap.twig',
@@ -785,6 +786,8 @@ class PageController extends BaseController
             'tags' => $tags,
             'all_images' => $allImages,
             'has_more' => $hasMore,
+            'album_page' => $albumPage,
+            'home_template_preview' => $templateOverride !== null,
             'total_albums' => $totalAlbums,
             'home_settings' => $homeSettings,
             'galleries_slug' => $galleriesSlug,

@@ -1,0 +1,74 @@
+{% extends 'frontend/_layout.twig' %}
+
+{% block styles %}
+<style nonce="{{ csp_nonce() }}">
+  .album-grid-home { width: min(100% - 2rem, 103rem); margin: 0 auto; padding: .625rem 0 2rem; }
+  .album-grid-sidebar { display: none; }
+  .album-grid-covers { display: grid; gap: .625rem; grid-template-columns: minmax(0, 1fr); }
+  .album-grid-covers .album-card > div > a { aspect-ratio: 16 / 9; border-radius: .625rem; }
+  .album-grid-pagination { display: flex; gap: 1rem; margin-top: 1.5rem; }
+  .album-grid-sidebar a:hover, .album-grid-pagination a:hover { text-decoration: underline; }
+  @media (min-width: 640px) {
+    .album-grid-covers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    body:has(.album-grid-home) { background-color: #ededed; }
+    html.dark body:has(.album-grid-home) { background-color: var(--color-bg-primary, #171a1f); }
+    #main-header { display: none; }
+    .album-grid-home { width: min(88%, 103rem); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); align-items: start; gap: clamp(1.5rem, 4vw, 5rem); }
+    .album-grid-sidebar { display: grid; align-content: start; gap: clamp(2.5rem, 8vh, 7rem); position: sticky; top: 2rem; padding: 2.5rem 0 1rem; }
+    .album-grid-sidebar nav { display: grid; gap: .75rem; }
+    .album-grid-logo { width: 100%; max-width: 21rem; height: auto; max-height: 9rem; object-fit: contain; object-position: left; }
+    .album-grid-social { display: flex; flex-wrap: wrap; gap: 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .album-grid-covers img { transition: none !important; transform: none !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ do_action('frontend_home_before', {base_path: base_path}) }}
+<div class="album-grid-home">
+  <h1 class="sr-only">{{ site_title|default('Portfolio') }}</h1>
+  <aside class="album-grid-sidebar">
+    <a href="{{ base_path }}/" class="text-3xl font-semibold">
+      {% if logo_type == 'image' and site_logo %}
+        {% include 'frontend/_site_logo.twig' with {logo_class: 'album-grid-logo'} %}
+      {% else %}
+        {{ site_title|default('Portfolio') }}
+      {% endif %}
+    </a>
+    <nav aria-label="{{ trans('nav.galleries') }}">
+      <a href="{{ galleries_url|default(base_path ~ '/galleries') }}">{{ trans('nav.galleries') }}</a>
+      {% for category in parent_categories|default([]) %}
+        <a href="{{ base_path }}/category/{{ category.slug|e('url') }}">{{ category.name }}</a>
+      {% endfor %}
+      <a href="{% if about_url starts with '/' %}{{ base_path }}{% endif %}{{ about_url }}">{{ about_menu_label|default(trans('nav.about'), true) }}</a>
+    </nav>
+    {% if social_profiles|default([]) %}
+      <div class="album-grid-social">
+        {% for profile in social_profiles %}
+          <a href="{{ profile.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ profile.name }}"><i class="{{ profile.icon }}" aria-hidden="true"></i></a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </aside>
+  <div>
+    <div class="album-grid-covers">
+      {% for album in albums %}
+        {% include 'frontend/_album_card.twig' with {cover_only: true, lazy_load_images: loop.index > 2} %}
+      {% else %}
+        <p>{{ trans('filter.no_galleries_title') }}</p>
+      {% endfor %}
+    </div>
+    {% if album_page > 1 or has_more %}
+      {% set page_url = base_path ~ '/?' ~ (home_template_preview ? 'template=album-grid&' : '') ~ 'page=' %}
+      <nav class="album-grid-pagination" aria-label="{{ trans('nav.galleries') }}">
+        {% if album_page > 1 %}<a href="{{ page_url ~ (album_page - 1) }}" rel="prev">{{ trans('general.previous') }}</a>{% endif %}
+        {% if has_more %}<a href="{{ page_url ~ (album_page + 1) }}" rel="next">{{ trans('general.next') }}</a>{% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

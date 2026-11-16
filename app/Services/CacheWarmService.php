@@ -189,7 +189,7 @@ class CacheWarmService
         // the warm path). Filtering in SQL (not post-fetch) keeps the LIMIT page
         // full of eligible albums, stops the count leaking hidden albums, and
         // preserves data_hash parity with a request-built cache entry.
-        $accessSql = " AND (a.password_hash IS NULL OR a.password_hash = '') AND a.is_nsfw = 0";
+        $accessSql = (new HomeAlbumVisibility($this->db))->eligibleSql() . ' AND a.is_nsfw = 0';
 
         $countStmt = $pdo->prepare('SELECT COUNT(*) FROM albums a WHERE a.is_published = 1' . $accessSql);
         $countStmt->execute();
@@ -200,7 +200,7 @@ class CacheWarmService
             FROM albums a
             JOIN categories c ON c.id = a.category_id
             WHERE a.is_published = 1' . $accessSql . '
-            ORDER BY a.published_at DESC
+            ORDER BY a.published_at DESC, a.id DESC
             LIMIT :limit
         ');
         $stmt->bindValue(':limit', $perPage, \PDO::PARAM_INT);
@@ -238,7 +238,12 @@ class CacheWarmService
         // render: every full-grid template loads ALL unique images at once (no
         // progressive loading), with masonry_max_images applied only to masonry.
         $gridTemplates = ['masonry', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'];
-        if (in_array($homeTemplate, $gridTemplates, true)) {
+        if ($homeTemplate === 'album-grid') {
+            $imageResult = ['images' => []];
+            $shownImageIds = $shownAlbumIds = [];
+            $totalImagesCount = 0;
+            $hasMoreImages = false;
+        } elseif (in_array($homeTemplate, $gridTemplates, true)) {
             $masonryMaxImages = $homeTemplate === 'masonry' ? ($homeSettings['masonry_max_images'] ?? 0) : 0;
             $imageResult = $homeImageService->getAllImages($masonryMaxImages, $includeNsfw);
             $shownImageIds = array_column($imageResult['images'], 'id');
@@ -260,47 +265,50 @@ class CacheWarmService
         // Process images with responsive sources
         $allImages = $this->processImageSourcesBatch($imageResult['images']);
 
-        // Build categories dynamically from loaded images
-        $loadedCategorySlugs = [];
-        foreach ($allImages as $image) {
-            if (!empty($image['category_slugs'])) {
-                foreach (explode(',', (string) $image['category_slugs']) as $slug) {
-                    $slug = trim($slug);
-                    if ($slug !== '') {
-                        $loadedCategorySlugs[$slug] = true;
+        if ($homeTemplate !== 'album-grid') {
+            // Build categories dynamically from loaded images
+            $loadedCategorySlugs = [];
+            foreach ($allImages as $image) {
+                if (!empty($image['category_slugs'])) {
+                    foreach (explode(',', (string) $image['category_slugs']) as $slug) {
+                        $slug = trim($slug);
+                        if ($slug !== '') {
+                            $loadedCategorySlugs[$slug] = true;
+                        }
                     }
                 }
             }
-        }
 
-        // Filter categories to only include those with loaded images
-        $categories = array_filter($categories, fn ($cat) => isset($loadedCategorySlugs[$cat['slug']]));
-        $categories = array_values($categories);
+            // Filter categories to only include those with loaded images
+            $categories = array_filter($categories, fn ($cat) => isset($loadedCategorySlugs[$cat['slug']]));
+            $categories = array_values($categories);
 
-        // Filter parent_categories
-        $parentCategories = array_filter($parentCategories, function ($parent) use ($loadedCategorySlugs) {
-            if (isset($loadedCategorySlugs[$parent['slug']])) {
-                return true;
-            }
-            foreach ($parent['children'] as $child) {
-                if (isset($loadedCategorySlugs[$child['slug']])) {
+            // Filter parent_categories
+            $parentCategories = array_filter($parentCategories, function ($parent) use ($loadedCategorySlugs) {
+                if (isset($loadedCategorySlugs[$parent['slug']])) {
                     return true;
                 }
+                foreach ($parent['children'] as $child) {
+                    if (isset($loadedCategorySlugs[$child['slug']])) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            foreach ($parentCategories as &$parent) {
+                $parent['children'] = array_filter($parent['children'], fn ($child) => isset($loadedCategorySlugs[$child['slug']]));
+                $parent['children'] = array_values($parent['children']);
             }
-            return false;
-        });
-        foreach ($parentCategories as &$parent) {
-            $parent['children'] = array_filter($parent['children'], fn ($child) => isset($loadedCategorySlugs[$child['slug']]));
-            $parent['children'] = array_values($parent['children']);
+            unset($parent);
+            $parentCategories = array_values($parentCategories);
         }
-        unset($parent);
-        $parentCategories = array_values($parentCategories);
 
         // Select template file (keep in sync with PageController::home() — the grid
         // templates were missing here, so warming with e.g. 'editorial' active stored
         // the wrong template_file 'frontend/home.twig')
         $templateMap = [
             'modern' => 'frontend/home_modern.twig',
+            'album-grid' => 'frontend/home_album_grid.twig',
             'parallax' => 'frontend/home_parallax.twig',
             'masonry' => 'frontend/home_masonry.twig',
             'snap' => 'frontend/home_snap.twig',
@@ -325,6 +333,8 @@ class CacheWarmService
             'tags' => [],
             'all_images' => $allImages,
             'has_more' => $hasMore,
+            'album_page' => 1,
+            'home_template_preview' => false,
             'total_albums' => $totalAlbums,
             'home_settings' => $homeSettings,
             'galleries_slug' => $galleriesSlug,

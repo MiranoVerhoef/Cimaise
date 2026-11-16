@@ -17,7 +17,7 @@
        positioned cover, so its overflow-hidden actually clips the blurred
        NSFW/locked cover (blur(30px) + scale(1.1) otherwise bleeds a halo
        outside the card). #}
-    <a href="{{ album_url }}" class="relative block aspect-[3/2] overflow-hidden bg-neutral-100 rounded-sm" title="{{ seo_title|e('html_attr') }}">
+    <a href="{{ album_url }}" class="relative block aspect-[3/2] overflow-hidden bg-neutral-100 rounded-sm" title="{{ seo_title|e('html_attr') }}"{% if cover_only|default(false) %} aria-label="{{ album.title }}"{% endif %}>
     {% set show_nsfw_overlay = not ((nsfw_consent|default(false)) or (is_admin|default(false))) %}
     {% set is_locked = album.is_locked|default(false) %}
     {# NSFW albums use blur cover until user accepts gate (admins always see clear) #}
@@ -191,7 +191,7 @@
   </a>
 
   {# Category Badge - positioned absolutely over the image #}
-  {% if album.category_name %}
+  {% if album.category_name and not cover_only|default(false) %}
   <div class="absolute top-2 left-2 z-20 pointer-events-auto">
     {% if album.category_slug %}
     <a href="{{ base_path }}/category/{{ album.category_slug }}" class="inline-flex items-center gap-2 text-xs font-medium px-2.5 py-1 rounded-full border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100 hover:text-black transition-colors" title="{{ album.category_name|e }}">
@@ -206,6 +206,7 @@
   {% endif %}
   </div>
 
+  {% if not cover_only|default(false) %}
   {# Text content area #}
   <div class="pt-3 pb-2">
     <h3 class="text-lg font-medium text-black group-hover:text-neutral-700 transition-colors">
@@ -230,4 +231,5 @@
     </p>
     {% endif %}
   </div>
+  {% endif %}
 </article>

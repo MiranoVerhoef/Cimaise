@@ -568,6 +568,27 @@ const assert = require('node:assert/strict');
   await saveForm('form[action$="/admin/pages/about"]');
   console.log('PASS: renamed About permalink serves Contact, routes form validation back to Contact and retains legacy About URLs');
   console.log('PASS: changing the permalink again dynamically registers the new page/form URL and removes the previous custom URL');
+  await page.goto('/admin/pages/home');
+  await page.locator('[name="home_template"][value="album-grid"]').check({ force: true });
+  await saveForm('#home-form');
+  await themedPage.goto('/');
+  const homeTile = themedPage.locator('.album-grid-covers [data-album-id="1"] > div > a');
+  await homeTile.waitFor();
+  const homeAlbumUrl = await homeTile.getAttribute('href');
+  await page.goto('/admin/albums/1/edit');
+  await page.locator('[name="hide_from_home"]').check();
+  await saveForm('#album-form');
+  await themedPage.reload();
+  assert.equal(await homeTile.count(), 0);
+  assert.equal((await anonymous.request.get(homeAlbumUrl)).status(), 200);
+  await page.reload();
+  assert.equal(await page.locator('[name="hide_from_home"]').isChecked(), true);
+  await page.locator('[name="hide_from_home"]').uncheck();
+  await saveForm('#album-form');
+  await themedPage.reload();
+  await homeTile.waitFor();
+  console.log('PASS: Album Grid uses album links and honors homepage visibility changes without stale tiles');
+
   for (const template of ['classic', 'modern']) {
     await page.goto('/admin/pages/home');
     await page.locator(`[name="home_template"][value="${template}"]`).check({ force: true });
