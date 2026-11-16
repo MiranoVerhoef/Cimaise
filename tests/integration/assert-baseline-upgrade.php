@@ -24,6 +24,8 @@ $adaptedSources = [
     'app/Controllers/Admin/PagesController.php',
     // Homepage visibility changes the feed query. Check the retained Classic cap below.
     'app/Services/HomeImageService.php',
+    // Responsive sources preserve light and dark logo selection, verified in admin-ui.cjs.
+    'app/Views/frontend/_site_logo.twig',
 ];
 foreach ($snapshot['code'] as $file => $hash) {
     if (in_array($file, $adaptedSources, true)) {
