@@ -30,9 +30,20 @@ class AuthController extends BaseController
     /** Render the admin login form with a fresh CSRF token and any flash messages. */
     public function showLogin(Request $request, Response $response): Response
     {
-        // Redirect to dashboard if already logged in
+        // Redirect to dashboard only for a session that is still a valid admin
+        // session; a stale one (deactivated, password changed, or not yet bound
+        // to a credential fingerprint) is cleared so the form can be shown.
         if (isset($_SESSION['admin_id'])) {
-            return $response->withHeader('Location', $this->redirect('/admin'))->withStatus(302);
+            if (\App\Support\AdminSession::isCurrent()) {
+                return $response->withHeader('Location', $this->redirect('/admin'))->withStatus(302);
+            }
+            unset(
+                $_SESSION['admin_id'],
+                $_SESSION['admin_email'],
+                $_SESSION['admin_name'],
+                $_SESSION['admin_role'],
+                $_SESSION[\App\Support\AdminSession::FINGERPRINT_KEY]
+            );
         }
 
         // Ensure CSRF token exists for fresh sessions
@@ -138,6 +149,7 @@ class AuthController extends BaseController
         $_SESSION['admin_email'] = $user['email'];
         $_SESSION['admin_name'] = trim($user['first_name'] . ' ' . $user['last_name']);
         $_SESSION['admin_role'] = $user['role'];
+        \App\Support\AdminSession::bind((string) $user['password_hash']);
 
         // Let plugins observe a successful login (e.g. analytics-pro).
         \App\Support\Hooks::doAction('user_login_success', (int)$user['id'], [
@@ -146,7 +158,7 @@ class AuthController extends BaseController
 
         // Handle "Remember Me" functionality
         if ($rememberMe) {
-            $this->setRememberToken((int)$user['id']);
+            $this->setRememberToken((int)$user['id'], (string) $user['password_hash']);
         }
 
         // rotate CSRF after login
@@ -162,10 +174,14 @@ class AuthController extends BaseController
     }
 
     /**
-     * Generate and set remember token for persistent login
+     * Mint a remember-me token, store its SHA-256 hash and set the cookie —
+     * only if the account still has the password hash this login verified and
+     * is still an active admin (compare-and-set): a reset or deactivation that
+     * lands in between wins, and no cookie is sent.
+     *
+     * @return bool true when the token was stored and the cookie set
      */
-    /** Mint a remember-me token, store its SHA-256 hash, and set the cookie. */
-    private function setRememberToken(int $userId): void
+    private function setRememberToken(int $userId, string $verifiedPasswordHash): bool
     {
         try {
             // Generate secure random token (32 bytes = 64 hex chars)
@@ -180,13 +196,19 @@ class AuthController extends BaseController
 
             // Store hashed token in database
             $stmt = $this->db->pdo()->prepare(
-                'UPDATE users SET remember_token = :token, remember_token_expires_at = :expires WHERE id = :id'
+                "UPDATE users SET remember_token = :token, remember_token_expires_at = :expires
+                 WHERE id = :id AND password_hash = :password_hash AND is_active = 1 AND role = 'admin'"
             );
             $stmt->execute([
                 ':token' => $hashedToken,
                 ':expires' => $expiresAt,
-                ':id' => $userId
+                ':id' => $userId,
+                ':password_hash' => $verifiedPasswordHash,
             ]);
+            if ($stmt->rowCount() !== 1) {
+                Logger::info('Remember token not issued: credentials changed during login', ['user_id' => $userId], 'auth');
+                return false;
+            }
 
             // Set cookie with raw token (not hashed)
             setcookie('remember_token', $rawToken, [
@@ -198,12 +220,14 @@ class AuthController extends BaseController
             ]);
 
             Logger::info('Remember token set for user', ['user_id' => $userId], 'auth');
+            return true;
         } catch (\Throwable $e) {
             Logger::error('Failed to set remember token', [
                 'user_id' => $userId,
                 'error' => $e->getMessage()
             ], 'auth');
             // Don't throw - login should still succeed even if remember token fails
+            return false;
         }
     }
 
@@ -259,7 +283,10 @@ class AuthController extends BaseController
             setcookie(session_name(), '', ['expires' => time() - 42000, 'path' => $params['path'], 'domain' => $params['domain'], 'secure' => $params['secure'], 'httponly' => $params['httponly']]);
         }
         session_destroy();
-        return $response->withHeader('Location', $this->redirect('/admin/login'))->withStatus(302);
+        // Drop browser/service-worker caches that may hold pages rendered for
+        // this admin (protected albums viewed with admin bypass).
+        return $response->withHeader('Clear-Site-Data', '"cache"')
+            ->withHeader('Location', $this->redirect('/admin/login'))->withStatus(302);
     }
 
     /** Update the current admin's profile fields after CSRF validation. */
@@ -391,13 +418,18 @@ class AuthController extends BaseController
             $hashedPassword = password_hash($newPassword, PASSWORD_ARGON2ID);
             $now = $this->db->nowExpression();
             $stmt = $this->db->pdo()->prepare(
-                "UPDATE users SET password_hash = :password_hash, updated_at = {$now} WHERE id = :id"
+                // Revoke remember-me in the SAME statement: a stolen cookie must
+                // not be able to rotate itself onto the new hash in between.
+                "UPDATE users SET password_hash = :password_hash, remember_token = NULL, remember_token_expires_at = NULL, updated_at = {$now} WHERE id = :id"
             );
             $stmt->execute([
                 ':password_hash' => $hashedPassword,
                 ':id' => $_SESSION['admin_id']
             ]);
 
+            // Keep THIS session; every other session of the account no longer
+            // matches the new credential fingerprint and is logged out.
+            \App\Support\AdminSession::bind($hashedPassword);
             AuthMiddleware::invalidateVerification();
             // Revoke any persistent remember-me token so a previously stolen cookie
             // cannot survive a password change.
