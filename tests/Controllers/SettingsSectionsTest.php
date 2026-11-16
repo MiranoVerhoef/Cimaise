@@ -108,6 +108,23 @@ final class SettingsSectionsTest extends TestCase
         self::assertTrue($settings->get('image.variants_async'));
     }
 
+    public function testProtectionSavePreservesOtherSections(): void
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/protection')->withParsedBody([
+            'csrf' => 'sections-test', 'nsfw_global_warning' => '1', 'disable_right_click' => '1',
+            'recaptcha_site_key' => 'test_site', 'recaptcha_secret_key' => 'test_secret', 'recaptcha_enabled' => '1',
+            'site_title' => 'Ignore this',
+        ]);
+        $response = $this->controller()->section($request, new Response(), ['section' => 'protection']);
+        self::assertSame('/admin/settings/protection?saved=1', $response->getHeaderLine('Location'));
+        $settings = new SettingsService($this->db);
+        self::assertTrue($settings->get('privacy.nsfw_global_warning'));
+        self::assertTrue($settings->get('recaptcha.enabled'));
+        self::assertSame('test_secret', $settings->get('recaptcha.secret_key'));
+        self::assertSame('Preserved title', $settings->get('site.title'));
+        self::assertTrue($settings->get('image.variants_async'));
+    }
+
     public function testUnknownSectionsAreNotAccepted(): void
     {
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/admin/settings/unknown');
