@@ -22,6 +22,8 @@ $adaptedSources = [
     'app/Controllers/Admin/MediaController.php', 'app/Controllers/Admin/TypographyController.php',
     // The listing editor now preserves global album layouts; regression-tested separately.
     'app/Controllers/Admin/PagesController.php',
+    // Homepage visibility changes the feed query. Check the retained Classic cap below.
+    'app/Services/HomeImageService.php',
 ];
 foreach ($snapshot['code'] as $file => $hash) {
     if (in_array($file, $adaptedSources, true)) {
@@ -37,6 +39,10 @@ foreach ($snapshot['settings'] as $key => $value) {
 preserved($db->query('SELECT id, original_path, file_hash, width, height, mime FROM images ORDER BY id')->fetchAll(PDO::FETCH_ASSOC) === $snapshot['images'], 'image identities, original paths and metadata are unchanged');
 preserved((int)$db->query('SELECT show_equipment FROM albums WHERE id = 765432')->fetchColumn() === 0, 'hidden equipment stays hidden after migration');
 preserved($db->query('SELECT custom_cameras FROM albums WHERE id = 765432')->fetchColumn() === 'Retained camera', 'equipment metadata survives migration');
+$feed = (new App\Services\HomeImageService($db))->getInitialImages();
+$retainedPhotos = array_filter($feed['images'], static fn (array $image): bool => (int) $image['album_id'] === 765432);
+preserved(count($retainedPhotos) === 2, 'Classic homepage still honors the retained per-album photo limit');
+
 foreach ($snapshot['files'] as $file => $hash) {
     preserved(is_file($file) && hash_file('sha256', $file) === $hash, 'retained bytes: ' . basename($file));
 }
