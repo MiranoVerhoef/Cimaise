@@ -2708,6 +2708,12 @@
     "admin.sidebar.cache_sub": "Prestazioni e pulizia",
     "admin.sidebar.updates_sub": "Verifica versioni",
     "admin.albums.hide_from_home": "Nascondi dalla home page",
-    "admin.albums.hide_from_home_help": "Gli album protetti da password sono sempre nascosti dalla home page."
+    "admin.albums.hide_from_home_help": "Gli album protetti da password sono sempre nascosti dalla home page.",
+    "admin.pages.home.template_album_grid": "Griglia album",
+    "admin.pages.home.album_grid_subtitle": "Copertine degli album",
+    "admin.pages.home.template_album_grid_desc": "Un menu laterale e una griglia di copertine degli album.",
+    "admin.pages.home.album_grid_navigation": "La barra laterale resta visibile su desktop. Sugli schermi piccoli la navigazione è nell’intestazione.",
+    "admin.pages.home.album_grid_covers": "Ogni copertina apre il suo album. Titolo e data appaiono al passaggio del mouse, con il focus da tastiera o direttamente sugli schermi touch.",
+    "admin.pages.home.album_grid_visibility": "Usa Nascondi dalla home page nelle impostazioni dell’album. Gli album protetti da password sono sempre esclusi."
   }
 }

@@ -2694,6 +2694,12 @@
     "admin.settings.logo_dark": "Logo du mode sombre (facultatif)",
     "admin.settings.logo_dark_hint": "Affiché à la place du logo standard en mode sombre. Laissez vide pour utiliser le même logo dans les deux thèmes. Les favicons utilisent toujours le logo standard.",
     "admin.albums.hide_from_home": "Masquer de la page d’accueil",
-    "admin.albums.hide_from_home_help": "Les albums protégés par mot de passe sont toujours masqués de la page d’accueil."
+    "admin.albums.hide_from_home_help": "Les albums protégés par mot de passe sont toujours masqués de la page d’accueil.",
+    "admin.pages.home.template_album_grid": "Grille d’albums",
+    "admin.pages.home.album_grid_subtitle": "Couvertures d’albums",
+    "admin.pages.home.template_album_grid_desc": "Une navigation latérale et une grille de couvertures d’albums.",
+    "admin.pages.home.album_grid_navigation": "La barre latérale reste visible sur ordinateur. Sur les petits écrans, la navigation est dans l’en-tête.",
+    "admin.pages.home.album_grid_covers": "Chaque couverture ouvre son album. Le titre et la date s’affichent au survol, au focus clavier ou directement sur écran tactile.",
+    "admin.pages.home.album_grid_visibility": "Utilisez Masquer de la page d’accueil dans les réglages de l’album. Les albums protégés par mot de passe sont toujours exclus."
   }
 }

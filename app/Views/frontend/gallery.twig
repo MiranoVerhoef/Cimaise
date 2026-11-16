@@ -26,7 +26,7 @@
     font-weight: 500 !important;
 }
 </style>
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if album_grid_navigation %} album-grid-inner{% endif %}">
   {% include 'frontend/_breadcrumbs.twig' %}
   <div class="max-w-4xl mx-auto text-center pb-12">
     <div class="mt-4 mb-4 flex flex-wrap gap-2 justify-center" data-gsap="categories">
@@ -214,6 +214,16 @@
   {% elseif layout == 'magazine' %}
       <div id="images-gallery" class="mt-6" data-layout="magazine" data-hover-fade="{{ style.hover_fade is not defined or style.hover_fade ? '1' : '0' }}">
           {% include 'frontend/_gallery_magazine_content.twig' with { images: images, template_settings: template_settings, album: album } %}
+      </div>
+
+  {% elseif album_grid_navigation and (layout == 'grid' or template_settings.layout|default('') == 'masonry_fit') %}
+      <div id="images-gallery" class="album-grid-photo-rows pswp-gallery" data-layout="justified" data-hover-fade="0">
+        {% for image in images %}
+          {% set ratio = max(0.35, min(4, max(1, image.width|default(1)) / max(1, image.height|default(1)))) %}
+          <div class="album-grid-photo" style="--photo-ratio: {{ ratio }}">
+            {% include 'frontend/_gallery_item.twig' with {layout: 'masonry', style: {rounded: false, shadow: false, hover_scale: style.hover_scale ?? true}} %}
+          </div>
+        {% endfor %}
       </div>
 
   {# Dense Grid layout - CSS Grid with auto-flow dense (fills gaps automatically) #}

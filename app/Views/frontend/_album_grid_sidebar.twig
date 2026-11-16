@@ -1,0 +1,24 @@
+  <aside class="album-grid-sidebar">
+    <a href="{{ base_path }}/" class="text-3xl font-semibold">
+      {% if logo_type == 'image' and site_logo %}
+        {% include 'frontend/_site_logo.twig' with {logo_class: 'album-grid-logo', logo_responsive_size: 'min(21rem, 21vw)'} %}
+      {% else %}
+        {{ site_title|default('Portfolio') }}
+      {% endif %}
+    </a>
+    <nav aria-label="{{ trans('nav.galleries') }}">
+      <a href="{{ base_path }}/">{{ trans('nav.home') }}</a>
+      <a href="{{ galleries_url|default(base_path ~ '/galleries') }}">{{ trans('nav.galleries') }}</a>
+      <a href="{{ about_url|default(base_path ~ '/about') }}">{{ about_menu_label|default(trans('nav.about'), true) }}</a>
+      {% for category in parent_categories|default([]) %}
+        <a href="{{ base_path }}/category/{{ category.slug|e('url') }}">{{ category.name }}</a>
+      {% endfor %}
+    </nav>
+    {% if social_profiles|default([]) %}
+      <div class="album-grid-social">
+        {% for profile in social_profiles %}
+          <a href="{{ profile.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ profile.name }}"><i class="{{ profile.icon }}" aria-hidden="true"></i></a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </aside>
