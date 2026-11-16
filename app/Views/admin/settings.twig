@@ -4,7 +4,7 @@
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">{{ trans(settingsPageTitle) }}</h1>
-      <p class="text-gray-600 mt-1">{{ trans('admin.settings.description') }}</p>
+      <p class="text-gray-600 mt-1">{{ trans(settingsPage == 'general' ? 'admin.settings.general_description' : 'admin.settings.description') }}</p>
     </div>
   </div>
 
@@ -12,9 +12,6 @@
     <form method="post" action="{{ base_path }}/admin/settings{{ settingsPage == 'general' ? '' : '/' ~ settingsPage }}" id="settings-form" class="space-y-8">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="_settings_page" value="{{ settingsPage }}">
-    {# Default submit: HTML implicit submission (Enter in a text field) fires the
-       FIRST submit button in tree order. Without this, Enter triggered the
-       "Generate favicons" buttons (formaction) instead of saving the settings. #}
     <button type="submit" class="hidden" aria-hidden="true" tabindex="-1"></button>
     
     {% if settingsPage != 'general' %}
@@ -88,7 +85,9 @@
     </form>
 
     {# Hook for plugins to add standalone sections outside the form #}
+    {% if settingsPage == 'general' %}
     {{ hook('admin_settings_after_form', {'base_path': base_path, 'settings': public_settings, 'csp_nonce': csp_nonce()}) }}
+    {% endif %}
 
   </div>
 
@@ -117,276 +116,10 @@
     </div>
   </div>
 
+{% if settingsPage in ['images', 'gallery', 'display'] %}
 <script nonce="{{ csp_nonce() }}">
-// Image generation form handler - attached via addEventListener for CSP compliance
-// Use IIFE for immediate execution (SPA navigation doesn't fire DOMContentLoaded again)
-(function initSettingsPage() {
-  const btn = document.getElementById('generate-btn');
-  if (btn && !btn._bound) {
-    btn._bound = true;
-    btn.addEventListener('click', function() {
-
-      const confirmMessage = '{{ trans('admin.settings.confirm_generate')|e('js') }}';
-      if (!confirm(confirmMessage)) {
-        return;
-      }
-
-      // Show loading state
-      const icon = document.getElementById('generate-icon');
-      const text = document.getElementById('generate-text');
-      const status = document.getElementById('generate-status');
-      const result = document.getElementById('generate-result');
-
-      btn.disabled = true;
-      icon.className = 'fas fa-spinner fa-spin mr-2';
-      text.textContent = '{{ trans('admin.settings.generating')|e('js') }}';
-      status.classList.remove('hidden');
-      result.classList.add('hidden');
-
-      // Submit request via fetch (no nested form; reuse CSRF from settings-form)
-      const csrf = document.querySelector('#settings-form input[name=\"csrf\"]')?.value || '';
-      const endpoint = btn.getAttribute('data-endpoint') || '{{ base_path }}/admin/settings/generate-images';
-      const formData = new FormData();
-      formData.append('csrf', csrf);
-
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: formData
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        // Reset button state
-        btn.disabled = false;
-        icon.className = 'fas fa-images mr-2';
-        text.textContent = '{{ trans('admin.settings.generate_variants')|e('js') }}';
-        status.classList.add('hidden');
-
-        // Validate backend response
-        if (data.error || data.success === false) {
-          throw new Error(data.message || data.error || '{{ trans('admin.settings.generation_failed')|e('js') }}');
-        }
-
-        const message = data.message || '{{ trans('admin.settings.generate_started')|e('js') }}';
-        result.innerHTML = '<div class="text-xs text-accent-600 flex items-center"><i class="fas fa-info-circle mr-2"></i><span></span></div>';
-        const msgSpan = result.querySelector('span');
-        if (msgSpan) msgSpan.textContent = message;
-        result.classList.remove('hidden');
-
-        // Hide result after 10 seconds
-        setTimeout(() => {
-          result.classList.add('hidden');
-        }, 10000);
-      })
-      .catch(error => {
-        // Reset button state
-        btn.disabled = false;
-        icon.className = 'fas fa-images mr-2';
-        text.textContent = '{{ trans('admin.settings.generate_variants')|e('js') }}';
-        status.classList.add('hidden');
-
-        // Show error result (using textContent to avoid XSS)
-        result.textContent = '';
-        const errDiv = document.createElement('div');
-        errDiv.className = 'text-xs text-red-600 flex items-center';
-        const errIcon = document.createElement('i');
-        errIcon.className = 'fas fa-exclamation-circle mr-2';
-        const errSpan = document.createElement('span');
-        errSpan.textContent = '{{ trans('admin.settings.generate_error')|e('js') }}: ' + error.message;
-        errDiv.appendChild(errIcon);
-        errDiv.appendChild(errSpan);
-        result.appendChild(errDiv);
-        result.classList.remove('hidden');
-      });
-    });
-  }
-
-  // Lensfun database update handler
-  const lensfunBtn = document.getElementById('lensfun-btn');
-  if (lensfunBtn) {
-    lensfunBtn.addEventListener('click', function() {
-      const icon = document.getElementById('lensfun-icon');
-      const text = document.getElementById('lensfun-text');
-      const status = document.getElementById('lensfun-status');
-      const result = document.getElementById('lensfun-result');
-
-      // Show loading state
-      lensfunBtn.disabled = true;
-      icon.className = 'fas fa-spinner fa-spin mr-2';
-      text.textContent = '{{ trans('admin.settings.updating_lensfun')|default('Updating...')|e('js') }}';
-      status.classList.remove('hidden');
-      result.classList.add('hidden');
-
-      // Submit request via fetch
-      const csrf = document.querySelector('#settings-form input[name="csrf"]')?.value || '';
-      const formData = new FormData();
-      formData.append('csrf', csrf);
-
-      fetch('{{ base_path }}/admin/settings/update-lensfun', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: formData
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        // Reset button state
-        lensfunBtn.disabled = false;
-        icon.className = 'fas fa-download mr-2';
-        text.textContent = '{{ trans('admin.settings.update_lensfun')|default('Update Database')|e('js') }}';
-        status.classList.add('hidden');
-
-        if (data.error || data.success === false) {
-          throw new Error(data.message || data.error || 'Update failed');
-        }
-
-        // Show success result
-        const cameras = data.cameras || 0;
-        const lenses = data.lenses || 0;
-        const files = data.files || 0;
-        const message = `{{ trans('admin.settings.lensfun_updated')|default('Database updated:')|e('js') }} ${cameras} {{ trans('admin.settings.cameras')|default('cameras')|e('js') }}, ${lenses} {{ trans('admin.settings.lenses')|default('lenses')|e('js') }} (${files} {{ trans('admin.settings.files')|default('files')|e('js') }})`;
-
-        result.innerHTML = '<div class="text-xs text-green-600 flex items-center"><i class="fas fa-check-circle mr-2"></i><span></span></div>';
-        const msgSpan = result.querySelector('span');
-        if (msgSpan) msgSpan.textContent = message;
-        result.classList.remove('hidden');
-
-        // Hide result after 15 seconds
-        setTimeout(() => {
-          result.classList.add('hidden');
-        }, 15000);
-      })
-      .catch(error => {
-        // Reset button state
-        lensfunBtn.disabled = false;
-        icon.className = 'fas fa-download mr-2';
-        text.textContent = '{{ trans('admin.settings.update_lensfun')|default('Update Database')|e('js') }}';
-        status.classList.add('hidden');
-
-        // Show error result
-        result.innerHTML = '<div class="text-xs text-red-600 flex items-center"><i class="fas fa-exclamation-circle mr-2"></i><span></span></div>';
-        const errSpan = result.querySelector('span');
-        if (errSpan) errSpan.textContent = `{{ trans('admin.settings.lensfun_error')|default('Update failed')|e('js') }}: ${error.message}`;
-        result.classList.remove('hidden');
-      });
-    });
-  }
-})();
-
-// Handle page template changes for default template selector (IIFE for SPA navigation)
-(function initPageTemplateHandler() {
-  const pageTemplateRadios = document.querySelectorAll('input[name="gallery_page_template"]');
-  const defaultTemplateSelect = document.querySelector('select[name="default_template_id"]');
-
-  if (pageTemplateRadios.length > 0 && defaultTemplateSelect) {
-    // Add event listeners to all page template radios (avoid duplicate binding)
-    pageTemplateRadios.forEach(radio => {
-      if (radio._templateBound) return;
-      radio._templateBound = true;
-      radio.addEventListener('change', function() {
-        updateDefaultTemplateSelector(this.value);
-      });
-    });
-
-    // Set initial state based on currently selected radio
-    const selectedRadio = document.querySelector('input[name="gallery_page_template"]:checked');
-    if (selectedRadio) {
-      updateDefaultTemplateSelector(selectedRadio.value);
-    }
-  }
-})();
-
-function updateDefaultTemplateSelector(selectedValue) {
-  const defaultTemplateSelect = document.querySelector('select[name="default_template_id"]');
-  const defaultTemplateContainer = defaultTemplateSelect?.closest('.default-template-container');
-  
-  if (defaultTemplateSelect && defaultTemplateContainer) {
-    if (selectedValue === 'magazine') {
-      // Disable the selector
-      defaultTemplateSelect.disabled = true;
-      defaultTemplateSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
-      defaultTemplateContainer.classList.add('opacity-75');
-      
-      // Show disabled message
-      let msg = defaultTemplateContainer.querySelector('.template-disabled-message');
-      if (!msg) {
-        msg = document.createElement('div');
-        msg.className = 'template-disabled-message text-xs text-gray-500 mt-2 p-3 bg-gray-50 rounded border border-gray-200';
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-info-circle mr-1';
-        msg.appendChild(icon);
-        msg.appendChild(document.createTextNode('{{ trans('admin.settings.magazine_disables_default')|e('js') }}'));
-        defaultTemplateContainer.appendChild(msg);
-      }
-      msg.style.display = 'block';
-    } else {
-      // Enable the selector
-      defaultTemplateSelect.disabled = false;
-      defaultTemplateSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
-      defaultTemplateContainer.classList.remove('opacity-75');
-      
-      // Hide disabled message
-      const msg = defaultTemplateContainer.querySelector('.template-disabled-message');
-      if (msg) {
-        msg.style.display = 'none';
-      }
-    }
-  }
-}
-
-// PWA color handlers (IIFE for SPA navigation)
-(function initPwaHandlers() {
-  // PWA color picker sync
-  const colorPairs = [
-    { picker: 'pwa_theme_color', text: 'pwa_theme_color_text' },
-    { picker: 'pwa_background_color', text: 'pwa_background_color_text' }
-  ];
-
-  colorPairs.forEach(pair => {
-    const picker = document.getElementById(pair.picker);
-    const text = document.getElementById(pair.text);
-    if (picker && text) {
-      if (picker._colorBound) return;
-      picker._colorBound = true;
-      // Sync picker to text
-      picker.addEventListener('input', function() {
-        text.value = this.value.toUpperCase();
-      });
-      // Sync text to picker
-      text.addEventListener('input', function() {
-        const val = this.value.trim();
-        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-          picker.value = val;
-        }
-      });
-      // Validate and normalize on blur
-      text.addEventListener('blur', function() {
-        let val = this.value.trim().toUpperCase();
-        if (!val.startsWith('#')) val = '#' + val;
-        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-          this.value = val;
-          picker.value = val;
-        } else {
-          this.value = picker.value.toUpperCase();
-        }
-      });
-    }
-  });
-})();
+{% include 'admin/settings/_' ~ settingsPage ~ '_scripts.twig' %}
 </script>
+{% endif %}
+
 {% endblock %}

@@ -38,7 +38,10 @@
       const url = new URL(link.href, location.href);
       const route = normalize(url.pathname) + url.hash;
       // Unknown plugin menus remain available under System; metadata hooks keep their section.
-      const group = groups.find(item => item.routes.some(prefix => matches(route, prefix)))
+      const candidates = groups.flatMap(group => group.routes
+        .filter(prefix => matches(route, prefix))
+        .map(prefix => ({ group, length: prefix.length })));
+      const group = candidates.sort((a, b) => b.length - a.length)[0]?.group
         || groups.find(item => item.id === link.closest('[data-nav-fallback]')?.dataset.navFallback)
         || groups.find(item => item.id === 'system');
       link.classList.add('admin-section-tab');
