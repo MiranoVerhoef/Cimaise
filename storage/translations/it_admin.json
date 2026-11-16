@@ -2145,6 +2145,7 @@
     "admin.settings.timezone": "Fuso Orario",
     "admin.settings.image_processing": "Elaborazione immagini",
     "admin.settings.display": "Aspetto",
+    "admin.settings.gallery_settings": "Impostazioni galleria",
     "admin.settings.title": "Impostazioni",
     "admin.settings.update_lensfun": "Aggiorna Database",
     "admin.settings.updating_lensfun": "Aggiornamento...",
