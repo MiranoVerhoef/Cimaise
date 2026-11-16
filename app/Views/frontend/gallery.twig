@@ -216,7 +216,7 @@
           {% include 'frontend/_gallery_magazine_content.twig' with { images: images, template_settings: template_settings, album: album } %}
       </div>
 
-  {% elseif album_grid_navigation and layout == 'grid' %}
+  {% elseif album_grid_navigation and (layout == 'grid' or template_settings.layout|default('') == 'masonry_fit') %}
       <div id="images-gallery" class="album-grid-photo-rows pswp-gallery" data-layout="justified" data-hover-fade="0">
         {% for image in images %}
           {% set ratio = max(0.35, min(4, max(1, image.width|default(1)) / max(1, image.height|default(1)))) %}
