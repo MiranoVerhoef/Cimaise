@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [1.4.29-test.3] - 2026-11-16
+
+- Show Album Grid cover titles, shoot dates, and categories on hover, focus, and touch.
+- Add an Album Grid icon and information panel to the homepage template picker.
+- Keep Album Grid navigation in the same place across public pages and use landscape and portrait photo rows on standard album pages.
+
 ## [1.4.29-test.2] - 2026-11-16
 
 - Add the Album Grid homepage with a sticky sidebar and two columns of album covers.
