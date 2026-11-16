@@ -6,6 +6,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Services\SettingsService;
+use App\Services\AdminSettingsSections;
 use App\Support\Database;
 use App\Support\Hooks;
 use App\Support\Logger;
@@ -59,6 +60,8 @@ class SettingsController extends BaseController
         ];
 
         return $this->view->render($response, 'admin/settings.twig', [
+            'settingsPage' => $request->getAttribute('settings_section', 'general'),
+            'settingsPageTitle' => AdminSettingsSections::PAGES[$request->getAttribute('settings_section', '')]['title'] ?? 'admin.settings.title',
             'settings' => $settings,
             'templates' => $templates,
             'album_page_templates' => $albumPageTemplates,
@@ -106,15 +109,35 @@ class SettingsController extends BaseController
         return $changes;
     }
 
+    /** @param array<string, string> $args */
+    public function section(Request $request, Response $response, array $args): Response
+    {
+        $section = $args['section'] ?? '';
+        if (!isset(AdminSettingsSections::PAGES[$section])) {
+            return $response->withStatus(404);
+        }
+        $request = $request->withAttribute('settings_section', $section);
+        return $request->getMethod() === 'POST' ? $this->save($request, $response) : $this->show($request, $response);
+    }
+
     public function save(Request $request, Response $response): Response
     {
+        $section = (string) $request->getAttribute('settings_section', '');
+        $definition = AdminSettingsSections::PAGES[$section] ?? null;
+        $destination = '/admin/settings' . ($definition !== null ? '/' . $section : '');
         // CSRF validation
         if (!$this->validateCsrf($request)) {
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.csrf_invalid')];
-            return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($destination))->withStatus(302);
         }
 
         $data = (array)$request->getParsedBody();
+        $scopedGeneral = ($data['_settings_page'] ?? '') === 'general';
+        if ($definition !== null) {
+            $data = array_intersect_key($data, array_flip($definition['fields']));
+        } elseif ($scopedGeneral) {
+            $data = array_diff_key($data, array_flip(array_merge(AdminSettingsSections::movedFields(), ['site_logo', 'site_logo_dark', 'logo_type', 'favicon_source'])));
+        }
         $svc = new SettingsService($this->db);
         $changes = [];
 
@@ -160,7 +183,7 @@ class SettingsController extends BaseController
             $breakpoints['lg'] >= $breakpoints['xl'] ||
             $breakpoints['xl'] >= $breakpoints['xxl']) {
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.breakpoints_ascending_order')];
-            return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect($destination))->withStatus(302);
         }
 
         // default template - handle both empty string and actual values
@@ -216,7 +239,7 @@ class SettingsController extends BaseController
 
         // Date format setting
         $dateFormat = in_array($data['date_format'] ?? 'Y-m-d', ['Y-m-d', 'd-m-Y'], true)
-            ? $data['date_format']
+            ? ($data['date_format'] ?? 'Y-m-d')
             : 'Y-m-d';
         $changes['date.format'] = $dateFormat;
 
@@ -320,7 +343,7 @@ class SettingsController extends BaseController
         // Performance & Cache settings
         $changes['performance.compression_enabled'] = isset($data['compression_enabled']);
         $compressionType = in_array($data['compression_type'] ?? 'auto', ['auto', 'brotli', 'gzip'], true)
-            ? $data['compression_type']
+            ? ($data['compression_type'] ?? 'auto')
             : 'auto';
         $changes['performance.compression_type'] = $compressionType;
         $compressionLevel = max(0, min(11, (int)($data['compression_level'] ?? 6)));
@@ -346,6 +369,11 @@ class SettingsController extends BaseController
             $changes['maintenance.show_countdown'] = isset($data['maintenance_show_countdown']);
         }
 
+        if ($definition !== null) {
+            $changes = array_intersect_key($changes, array_flip($definition['keys']));
+        } elseif ($scopedGeneral) {
+            $changes = array_diff_key($changes, array_flip(AdminSettingsSections::movedKeys()));
+        }
         $svc->setMany($changes);
 
         // Page cache entries bake settings in: an album entry stores the resolved
@@ -356,7 +384,7 @@ class SettingsController extends BaseController
         $this->clearPageCache($svc);
 
         $_SESSION['flash'][] = ['type' => 'success','message' => trans('admin.flash.settings_saved')];
-        return $response->withHeader('Location', $this->redirect('/admin/settings') . '?saved=1')->withStatus(302);
+        return $response->withHeader('Location', $this->redirect($destination) . '?saved=1')->withStatus(302);
     }
 
     public function generateImages(Request $request, Response $response): Response
@@ -367,7 +395,7 @@ class SettingsController extends BaseController
                 return $this->csrfErrorJson($response);
             }
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.csrf_invalid')];
-            return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect('/admin/settings/images'))->withStatus(302);
         }
 
         try {
@@ -444,7 +472,7 @@ class SettingsController extends BaseController
             ];
         }
 
-        return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+        return $response->withHeader('Location', $this->redirect('/admin/settings/images'))->withStatus(302);
     }
 
     public function updateLensfun(Request $request, Response $response): Response
@@ -455,7 +483,7 @@ class SettingsController extends BaseController
                 return $this->csrfErrorJson($response);
             }
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.csrf_invalid')];
-            return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+            return $response->withHeader('Location', $this->redirect('/admin/settings/images'))->withStatus(302);
         }
 
         try {
@@ -549,7 +577,7 @@ class SettingsController extends BaseController
             $_SESSION['flash'][] = ['type' => 'danger', 'message' => trans('admin.flash.lensfun_failed') . ': ' . $e->getMessage()];
         }
 
-        return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
+        return $response->withHeader('Location', $this->redirect('/admin/settings/images'))->withStatus(302);
     }
 
     /**
