@@ -188,6 +188,15 @@
       </div>
       {% endif %}
     {% endif %}
+    {% if cover_only|default(false) %}
+      <div class="album-cover-details">
+        <strong>{{ album.title }}</strong>
+        {% if album.shoot_date and (album.show_date ?? true) %}
+          <time datetime="{{ album.shoot_date }}">{{ album.shoot_date|date_format }}</time>
+        {% endif %}
+        {% if album.category_name %}<span class="text-sm">{{ album.category_name }}</span>{% endif %}
+      </div>
+    {% endif %}
   </a>
 
   {# Category Badge - positioned absolutely over the image #}

@@ -333,6 +333,7 @@ class CacheWarmService
             'tags' => [],
             'all_images' => $allImages,
             'has_more' => $hasMore,
+            'active_home_template' => $homeTemplate,
             'album_page' => 1,
             'home_template_preview' => false,
             'total_albums' => $totalAlbums,

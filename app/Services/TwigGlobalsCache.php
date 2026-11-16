@@ -23,7 +23,7 @@ class TwigGlobalsCache
      * globals changes (new/renamed keys), so deployed caches with the old shape
      * are never served to templates expecting the new key.
      */
-    private const CACHE_KEY_PREFIX = 'twig_globals:v6:';
+    private const CACHE_KEY_PREFIX = 'twig_globals:v7:';
     private const TTL = 300; // 5 minutes
 
     /**
@@ -85,6 +85,7 @@ class TwigGlobalsCache
 
                 // Site identity
                 'site_title' => $siteTitle,
+                'site_home_template' => (string) $settings->get('home.template', 'classic'),
                 'site_logo' => $settings->get('site.logo'),
                 'site_logo_dark' => $settings->get('site.logo_dark'),
                 'logo_type' => (string) ($settings->get('site.logo_type', 'text') ?? 'text'),

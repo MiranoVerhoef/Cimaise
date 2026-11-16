@@ -62,9 +62,17 @@
               </label>
               <label class="relative flex flex-col cursor-pointer rounded-lg border-2 p-4 transition-all home-template-option {{ settings['home.template'] == 'album-grid' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300' }}" data-template="album-grid">
                 <input type="radio" name="home_template" value="album-grid" class="sr-only" {{ settings['home.template'] == 'album-grid' ? 'checked' : '' }}>
-                <span class="font-semibold text-gray-900">{{ trans('admin.pages.home.template_album_grid') }}</span>
-                <span class="mt-2 text-xs text-gray-600">{{ trans('admin.pages.home.template_album_grid_desc') }}</span>
-                <span class="absolute top-2 right-2 template-check {{ settings['home.template'] == 'album-grid' ? '' : 'hidden' }}"><i class="fas fa-check" aria-hidden="true"></i></span>
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background-color:#1c322d">
+                    <i class="fas fa-th-large text-white text-sm" aria-hidden="true"></i>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-900">{{ trans('admin.pages.home.template_album_grid') }}</span>
+                    <span class="block text-xs text-gray-500">{{ trans('admin.pages.home.album_grid_subtitle') }}</span>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-600">{{ trans('admin.pages.home.template_album_grid_desc') }}</p>
+                <span class="absolute top-2 right-2 template-check {{ settings['home.template'] == 'album-grid' ? '' : 'hidden' }}"><i class="fas fa-check-circle text-black" aria-hidden="true"></i></span>
               </label>
               <label class="relative flex flex-col cursor-pointer rounded-lg border-2 p-4 transition-all home-template-option {{ settings['home.template']|default('classic') == 'parallax' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300' }}" data-template="parallax">
                 <input type="radio" name="home_template" value="parallax" class="sr-only" {{ settings['home.template']|default('classic') == 'parallax' ? 'checked' : '' }}>
@@ -466,6 +474,17 @@
         </div>
       </div>
 
+      <div id="album-grid-home-info" class="card {{ settings['home.template'] != 'album-grid' ? 'hidden' : '' }}">
+        <div class="p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">{{ trans('admin.pages.home.template_album_grid') }}</h3>
+          <ul class="text-sm text-gray-600 space-y-2">
+            <li class="flex items-start"><i class="fas fa-bars text-gray-400 mr-2 mt-1" aria-hidden="true"></i>{{ trans('admin.pages.home.album_grid_navigation') }}</li>
+            <li class="flex items-start"><i class="fas fa-image text-gray-400 mr-2 mt-1" aria-hidden="true"></i>{{ trans('admin.pages.home.album_grid_covers') }}</li>
+            <li class="flex items-start"><i class="fas fa-eye-slash text-gray-400 mr-2 mt-1" aria-hidden="true"></i>{{ trans('admin.pages.home.album_grid_visibility') }}</li>
+          </ul>
+        </div>
+      </div>
+
       <!-- Parallax Home Info -->
       <div id="parallax-home-info" class="card {{ settings['home.template']|default('classic') != 'parallax' ? 'hidden' : '' }}">
         <div class="p-6">
@@ -604,6 +623,7 @@
       const classicSettings = document.getElementById('classic-home-settings');
       const masonrySettings = document.getElementById('masonry-home-settings');
       const classicInfo = document.getElementById('classic-home-info');
+      const albumGridInfo = document.getElementById('album-grid-home-info');
       const modernInfo = document.getElementById('modern-home-info');
       const parallaxInfo = document.getElementById('parallax-home-info');
       const masonryInfo = document.getElementById('masonry-home-info');
@@ -645,6 +665,7 @@
           if (heroToggle) heroToggle.classList.toggle('hidden', template !== 'classic');
           if (masonrySettings) masonrySettings.classList.toggle('hidden', template !== 'masonry');
           if (classicInfo) classicInfo.classList.toggle('hidden', template !== 'classic');
+          if (albumGridInfo) albumGridInfo.classList.toggle('hidden', template !== 'album-grid');
           if (modernInfo) modernInfo.classList.toggle('hidden', template !== 'modern');
           if (parallaxInfo) parallaxInfo.classList.toggle('hidden', template !== 'parallax');
           if (masonryInfo) masonryInfo.classList.toggle('hidden', template !== 'masonry');
