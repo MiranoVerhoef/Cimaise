@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [1.4.29-test.2] - 2026-11-16
+
+- Add the Album Grid homepage with a sticky sidebar and two columns of album covers.
+- Add an album setting to hide it from the homepage. Password-protected albums are always excluded.
+- Fade between public pages in supporting browsers and respect reduced-motion preferences.
+- Match the admin top bar to the green sidebar in both themes.
+
 ## [1.4.29-test.1] - 2026-11-10
 
 - Adopt upstream 1.4.29 with lighter pages, cached public HTML, fewer visitor sessions and faster media requests.
