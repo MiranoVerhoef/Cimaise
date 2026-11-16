@@ -786,6 +786,7 @@ class PageController extends BaseController
             'tags' => $tags,
             'all_images' => $allImages,
             'has_more' => $hasMore,
+            'active_home_template' => $homeTemplate,
             'album_page' => $albumPage,
             'home_template_preview' => $templateOverride !== null,
             'total_albums' => $totalAlbums,
