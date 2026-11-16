@@ -1,0 +1,184 @@
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Image Formats -->
+      <div class="card">
+        <div class="p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-image mr-3 text-gray-600"></i>
+            {{ trans('admin.settings.image_formats') }}
+          </h3>
+
+          <div class="space-y-4 mb-6">
+            <label class="flex items-center">
+              <input type="checkbox" name="fmt_avif" id="fmt_avif" class="rounded border-gray-300 text-black focus:ring-black" {% if settings['image.formats'].avif %}checked{% endif %}>
+              <span class="ml-3 text-sm text-gray-700">
+                <strong>AVIF</strong> - {{ trans('admin.settings.avif_desc') }}
+              </span>
+            </label>
+
+            <label class="flex items-center">
+              <input type="checkbox" name="fmt_webp" id="fmt_webp" class="rounded border-gray-300 text-black focus:ring-black" {% if settings['image.formats'].webp %}checked{% endif %}>
+              <span class="ml-3 text-sm text-gray-700">
+                <strong>WebP</strong> - {{ trans('admin.settings.webp_desc') }}
+              </span>
+            </label>
+
+            <label class="flex items-center">
+              <input type="checkbox" name="fmt_jpg" id="fmt_jpg" class="rounded border-gray-300 text-black focus:ring-black" {% if settings['image.formats'].jpg %}checked{% endif %}>
+              <span class="ml-3 text-sm text-gray-700">
+                <strong>JPEG</strong> - {{ trans('admin.settings.jpg_desc') }}
+              </span>
+            </label>
+
+            <label class="flex items-center">
+              <input type="checkbox" name="fmt_jxl" id="fmt_jxl" class="rounded border-gray-300 text-black focus:ring-black" {% if settings['image.formats'].jxl|default(false) %}checked{% endif %}>
+              <span class="ml-3 text-sm text-gray-700">
+                <strong>JPEG-XL</strong> - {{ trans('admin.settings.jxl_desc') }}
+              </span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.avif_quality') }}</label>
+              <input type="number" name="q_avif" min="1" max="100" value="{{ settings['image.quality'].avif }}" class="form-input">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.webp_quality') }}</label>
+              <input type="number" name="q_webp" min="1" max="100" value="{{ settings['image.quality'].webp }}" class="form-input">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.jpg_quality') }}</label>
+              <input type="number" name="q_jpg" min="1" max="100" value="{{ settings['image.quality'].jpg }}" class="form-input">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.jxl_quality') }}</label>
+              <input type="number" name="q_jxl" min="1" max="100" value="{{ settings['image.quality'].jxl|default(60) }}" class="form-input">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakpoints & Preview -->
+      <div class="card">
+        <div class="p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-desktop mr-3 text-gray-600"></i>
+            {{ trans('admin.settings.breakpoints') }}
+          </h3>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{ trans('admin.settings.preview_width') }}</label>
+              <input type="number" name="preview_w" value="{{ settings['image.preview'].width }}" class="form-input">
+              <p class="text-xs text-gray-500 mt-1">{{ trans('admin.settings.preview_width_hint') }}</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-900 mb-3">{{ trans('admin.settings.responsive_breakpoints') }}</label>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">{{ trans('admin.settings.breakpoint_sm') }}</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" name="bp_sm" min="100" max="2000" value="{{ settings['image.breakpoints'].sm|default(400) }}" class="form-input text-sm" placeholder="400">
+                    <span class="text-xs text-gray-500">px</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">{{ trans('admin.settings.breakpoint_md') }}</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" name="bp_md" min="100" max="2000" value="{{ settings['image.breakpoints'].md|default(800) }}" class="form-input text-sm" placeholder="800">
+                    <span class="text-xs text-gray-500">px</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">{{ trans('admin.settings.breakpoint_lg') }}</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" name="bp_lg" min="100" max="3000" value="{{ settings['image.breakpoints'].lg|default(1200) }}" class="form-input text-sm" placeholder="1200">
+                    <span class="text-xs text-gray-500">px</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">{{ trans('admin.settings.breakpoint_xl') }}</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" name="bp_xl" min="100" max="4000" value="{{ settings['image.breakpoints'].xl|default(1600) }}" class="form-input text-sm" placeholder="1600">
+                    <span class="text-xs text-gray-500">px</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">{{ trans('admin.settings.breakpoint_xxl') }}</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" name="bp_xxl" min="100" max="5000" value="{{ settings['image.breakpoints'].xxl|default(2000) }}" class="form-input text-sm" placeholder="2000">
+                    <span class="text-xs text-gray-500">px</span>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-3">
+                <i class="fas fa-info-circle mr-1"></i>{{ trans('admin.settings.breakpoints_hint') }}
+              </p>
+            </div>
+
+            <label class="flex items-start">
+              <input type="checkbox" name="variants_async" class="rounded border-gray-300 text-black focus:ring-black mt-1" {% if settings['image.variants_async'] ?? true %}checked{% endif %}>
+              <span class="ml-3 text-sm text-gray-700">
+                <span class="font-medium">{{ trans('admin.settings.variants_async') }}</span>
+                <span class="block text-xs text-gray-500 mt-1">{{ trans('admin.settings.variants_async_desc') }}</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Generation Form -->
+    <div class="card mb-6">
+      <div class="p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <i class="fas fa-images mr-3 text-gray-600"></i>
+          {{ trans('admin.settings.generate_variants') }}
+        </h3>
+        <p class="text-sm text-gray-600 mb-4">{{ trans('admin.settings.generate_variants_desc') }}</p>
+
+        <div id="generate-images" class="border-t border-gray-200 pt-4">
+          <button id="generate-btn" type="button" class="btn-secondary" data-endpoint="{{ base_path }}/admin/settings/generate-images">
+            <i id="generate-icon" class="fas fa-images mr-2"></i>
+            <span id="generate-text">{{ trans('admin.settings.generate_variants') }}</span>
+          </button>
+          <div id="generate-status" class="mt-2 hidden">
+            <div class="text-xs text-accent-600 flex items-center">
+              <i class="fas fa-spinner fa-spin mr-2"></i>
+              <span>{{ trans('admin.settings.generation_in_progress') }}</span>
+            </div>
+          </div>
+          <div id="generate-result" class="mt-2 hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lensfun Database -->
+    <div class="card mb-6">
+      <div class="p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <i class="fas fa-camera-retro mr-3 text-gray-600"></i>
+          {{ trans('admin.settings.lensfun_database')|default('Lensfun Database') }}
+        </h3>
+        <p class="text-sm text-gray-600 mb-4">{{ trans('admin.settings.lensfun_desc')|default('Camera and lens database from lensfun.github.io for EXIF autocomplete.') }}</p>
+
+        <div id="lensfun-update" class="border-t border-gray-200 pt-4">
+          <button id="lensfun-btn" type="button" class="btn-secondary">
+            <i id="lensfun-icon" class="fas fa-download mr-2"></i>
+            <span id="lensfun-text">{{ trans('admin.settings.update_lensfun')|default('Update Database') }}</span>
+          </button>
+          <div id="lensfun-status" class="mt-2 hidden">
+            <div class="text-xs text-accent-600 flex items-center">
+              <i class="fas fa-spinner fa-spin mr-2"></i>
+              <span>{{ trans('admin.settings.downloading')|default('Downloading...') }}</span>
+            </div>
+          </div>
+          <div id="lensfun-result" class="mt-2 hidden"></div>
+          <p class="text-xs text-gray-500 mt-3">
+            <i class="fas fa-info-circle mr-1"></i>
+            {{ trans('admin.settings.lensfun_source')|default('Source: github.com/lensfun/lensfun') }}
+          </p>
+        </div>
+      </div>
+    </div>
