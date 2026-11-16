@@ -6,7 +6,10 @@
     btn._bound = true;
     btn.addEventListener('click', function() {
 
-      const confirmMessage = '{{ trans('admin.settings.confirm_generate')|e('js') }}';
+      const replaceExisting = document.getElementById('replace-existing-variants')?.checked;
+      const confirmMessage = replaceExisting
+        ? '{{ trans('admin.settings.confirm_replace_variants')|e('js') }}'
+        : '{{ trans('admin.settings.confirm_generate')|e('js') }}';
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -28,6 +31,7 @@
       const endpoint = btn.getAttribute('data-endpoint') || '{{ base_path }}/admin/settings/generate-images';
       const formData = new FormData();
       formData.append('csrf', csrf);
+      if (replaceExisting) formData.append('replace_existing', '1');
 
       fetch(endpoint, {
         method: 'POST',

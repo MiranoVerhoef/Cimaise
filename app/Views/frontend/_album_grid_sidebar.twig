@@ -1,7 +1,7 @@
   <aside class="album-grid-sidebar">
     <a href="{{ base_path }}/" class="text-3xl font-semibold">
       {% if logo_type == 'image' and site_logo %}
-        {% include 'frontend/_site_logo.twig' with {logo_class: 'album-grid-logo'} %}
+        {% include 'frontend/_site_logo.twig' with {logo_class: 'album-grid-logo', logo_responsive_size: 'min(21rem, 21vw)'} %}
       {% else %}
         {{ site_title|default('Portfolio') }}
       {% endif %}

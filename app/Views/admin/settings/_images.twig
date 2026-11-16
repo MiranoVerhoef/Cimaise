@@ -139,6 +139,11 @@
         <p class="text-sm text-gray-600 mb-4">{{ trans('admin.settings.generate_variants_desc') }}</p>
 
         <div id="generate-images" class="border-t border-gray-200 pt-4">
+          <label class="flex items-center gap-2 mb-3">
+            <input id="replace-existing-variants" type="checkbox">
+            <span class="text-sm">{{ trans('admin.settings.replace_existing_variants') }}</span>
+          </label>
+          <p class="text-xs text-gray-500 mb-3">{{ trans('admin.settings.replace_existing_variants_hint') }}</p>
           <button id="generate-btn" type="button" class="btn-secondary" data-endpoint="{{ base_path }}/admin/settings/generate-images">
             <i id="generate-icon" class="fas fa-images mr-2"></i>
             <span id="generate-text">{{ trans('admin.settings.generate_variants') }}</span>

@@ -37,7 +37,7 @@
   <div>
     <div class="album-grid-covers">
       {% for album in albums %}
-        {% include 'frontend/_album_card.twig' with {cover_only: true, lazy_load_images: loop.index > 2} %}
+        {% include 'frontend/_album_card.twig' with {cover_only: true, lazy_load_images: loop.index > 4, cover_fetch_priority: loop.first, cover_sizes: '(min-width: 1873px) 590px, (min-width: 1024px) 32vw, (min-width: 640px) calc(50vw - 21px), calc(100vw - 32px)'} %}
       {% else %}
         <p>{{ trans('filter.no_galleries_title') }}</p>
       {% endfor %}

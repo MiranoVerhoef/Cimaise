@@ -2710,6 +2710,11 @@
     "admin.albums.storage_help": "Originaux existants et versions générées. Les fichiers partagés sont comptés une seule fois par album ; n’additionnez pas les totaux des albums pour mesurer l’espace disque global.",
     "admin.pages.about.menu_label": "Nom de la page dans la navigation",
     "admin.pages.about.menu_label_hint": "Par exemple Contact. Laissez vide pour utiliser le libellé traduit « À propos » ; le titre de la page et le permalien restent indépendants.",
+    "admin.settings.logo_max_width": "Largeur maximale du logo (px)",
+    "admin.settings.logo_max_width_hint": "Utilisez 0 pour la largeur du modèle. L’enregistrement crée aussi des fichiers plus petits pour les logos clair et sombre.",
+    "admin.settings.replace_existing_variants": "Régénérer les variantes existantes",
+    "admin.settings.replace_existing_variants_hint": "Enregistrez les réglages d’image, puis lancez la génération pour les appliquer aux photos existantes. Des copies plus petites des logos importés sont aussi créées.",
+    "admin.settings.confirm_replace_variants": "Régénérer les variantes existantes avec les réglages enregistrés ? Une grande photothèque peut prendre du temps.",
     "admin.settings.logo_dark": "Logo du mode sombre (facultatif)",
     "admin.settings.logo_dark_hint": "Affiché à la place du logo standard en mode sombre. Laissez vide pour utiliser le même logo dans les deux thèmes. Les favicons utilisent toujours le logo standard."
   }

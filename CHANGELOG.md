@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [1.4.29-test.4] - 2026-11-16
+
+- Add a public site logo width setting and generate smaller WebP copies of uploaded light and dark logos.
+- Add an option to rebuild existing photo variants using the saved image processing settings.
+- Load the first Album Grid covers eagerly and request sizes that match the layout.
+
 ## [1.4.29-test.3] - 2026-11-16
 
 - Show Album Grid cover titles, shoot dates, and categories on hover, focus, and touch.
