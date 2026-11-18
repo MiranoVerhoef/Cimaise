@@ -16,6 +16,7 @@
   let savedSnapshot = JSON.stringify(initial);
   let history = [JSON.stringify(initial)];
   let historyIndex = 0;
+  let versions = boot.versions || [];
   let saving = false;
   let pickerType = null;
   let pickerIds = new Set();
@@ -41,6 +42,8 @@
   const list = document.getElementById('layout-block-list');
   const status = document.getElementById('layout-editor-status');
   const picker = document.getElementById('layout-photo-picker');
+  const historyDialog = document.getElementById('layout-history-dialog');
+  const historyError = document.getElementById('layout-history-error');
   const search = document.getElementById('layout-photo-search');
   const photos = boot.images.map(photo => ({...photo, id: Number(photo.id)}));
   const remaining = document.getElementById('layout-remaining');
@@ -104,6 +107,8 @@
     action('redo').disabled = saving || historyIndex === history.length - 1;
     action('default').disabled = saving || !customPublished;
     action('draft').disabled = saving;
+    action('history').disabled = saving;
+    document.getElementById('layout-history-list').inert = saving;
     action('publish').disabled = saving;
     showStatus(dirty() ? labels.unsaved : customPublished ? labels.custom_status : labels.default_status);
     preview();
@@ -176,9 +181,41 @@
     search.focus();
   }
 
-  async function save(mode) {
+  function showHistory() {
+    const list = document.getElementById('layout-history-list');
+    document.getElementById('layout-history-empty').hidden = versions.length > 0;
+    historyError.hidden = true;
+    list.replaceChildren();
+    versions.forEach((version, index) => {
+      const row = document.createElement('li');
+      const details = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = labels.version_number.replace('{number}', version.revision)
+        + ' · ' + labels['version_' + version.kind];
+      details.append(name);
+      if (version.saved_at) {
+        const time = document.createElement('time');
+        time.dateTime = version.saved_at.replace(' ', 'T') + 'Z';
+        time.textContent = new Date(time.dateTime).toLocaleString(document.documentElement.lang || undefined);
+        details.append(time);
+      }
+      const restore = document.createElement('button');
+      restore.type = 'button';
+      restore.dataset.action = 'restore-version';
+      restore.dataset.versionIndex = index;
+      restore.textContent = labels.restore;
+      restore.setAttribute('aria-label', labels.restore + ': ' + name.textContent);
+      row.append(details, restore);
+      list.append(row);
+    });
+    historyDialog.showModal();
+  }
+
+  async function save(mode, version = null) {
     if (saving) return;
     if (mode === 'default' && !confirm(labels.default_confirm)) return;
+    if (mode === 'restore' && dirty() && !confirm(labels.restore_confirm)) return;
+    historyError.hidden = true;
     saving = true;
     refresh();
     showStatus(labels.saving);
@@ -189,11 +226,12 @@
       const response = await fetch(root.dataset.endpoint, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': token.token},
-        body: JSON.stringify({csrf: token.token, action: mode, revision, layout}),
+        body: JSON.stringify({csrf: token.token, action: mode, revision, ...(version ? {version} : {layout})}),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Unable to save the layout.');
       revision = payload.revision;
+      versions = payload.history;
       if (mode !== 'default') {
         layout = payload.layout;
         savedSnapshot = JSON.stringify(layout);
@@ -204,11 +242,20 @@
       if (mode === 'default') customPublished = false;
       saving = false;
       refresh();
-      showStatus(mode === 'publish' ? labels.published : mode === 'draft' ? labels.saved : labels.default_status);
+      if (mode === 'restore') {
+        historyDialog.close();
+        showStatus(labels.restored);
+      } else {
+        showStatus(mode === 'publish' ? labels.published : mode === 'draft' ? labels.saved : labels.default_status);
+      }
     } catch (error) {
       saving = false;
       refresh();
       showStatus(error.message, true);
+      if (mode === 'restore' && historyDialog.open) {
+        historyError.textContent = error.message;
+        historyError.hidden = false;
+      }
     }
   }
 
@@ -234,6 +281,12 @@
     }
     const mode = button.dataset.action;
     if (['draft', 'publish', 'default'].includes(mode)) { save(mode); return; }
+    if (mode === 'history') { showHistory(); return; }
+    if (mode === 'close-history') { historyDialog.close(); return; }
+    if (mode === 'restore-version') {
+      save('restore', versions[Number(button.dataset.versionIndex)]);
+      return;
+    }
     if (mode === 'undo' || mode === 'redo') {
       historyIndex += mode === 'undo' ? -1 : 1;
       layout = JSON.parse(history[historyIndex]);
