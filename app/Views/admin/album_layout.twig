@@ -1,0 +1,80 @@
+{% extends 'admin/_layout.twig' %}
+{% block title %}{{ trans('admin.layout.edit') }} — {{ album.title }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ base_path }}/assets/css/album-layout-editor.css?v={{ app_version }}">
+<div id="album-layout-editor" data-endpoint="{{ base_path }}/admin/albums/{{ album.id }}/layout">
+  <header class="layout-editor-toolbar">
+    <div><a href="{{ base_path }}/admin/albums/{{ album.id }}/edit">← {{ trans('admin.layout.back') }}</a><h1>{{ album.title }}</h1></div>
+    <div class="layout-editor-actions">
+      <button type="button" data-action="undo" disabled>{{ trans('admin.layout.undo') }}</button>
+      <button type="button" data-action="redo" disabled>{{ trans('admin.layout.redo') }}</button>
+      <button type="button" data-action="default">{{ trans('admin.layout.use_default') }}</button>
+      <button type="button" data-action="draft">{{ trans('admin.layout.save_draft') }}</button>
+      <button type="button" data-action="publish" class="layout-primary">{{ trans('admin.layout.publish') }}</button>
+    </div>
+  </header>
+  <p id="layout-editor-status" role="status" aria-live="polite"></p>
+  <div class="layout-editor-workspace">
+    <aside class="layout-editor-sidebar" aria-label="{{ trans('admin.layout.controls') }}">
+      <h2>{{ trans('admin.layout.blocks') }}</h2>
+      <div class="layout-add-buttons">
+        <button type="button" data-add="photo">+ {{ trans('admin.layout.photo') }}</button>
+        <button type="button" data-add="grid">+ {{ trans('admin.layout.grid') }}</button>
+        <button type="button" data-add="text">+ {{ trans('admin.layout.text') }}</button>
+      </div>
+      <ol id="layout-block-list" aria-label="{{ trans('admin.layout.blocks') }}"></ol>
+      <label class="layout-checkbox"><input type="checkbox" id="layout-remaining"> {{ trans('admin.layout.include_remaining') }}</label>
+      <p class="layout-help">{{ trans('admin.layout.remaining_help') }}</p>
+      <div id="layout-block-controls" hidden>
+        <h2 id="layout-selected-heading"></h2>
+        <div class="layout-editor-actions">
+          <button type="button" data-action="up" aria-label="{{ trans('admin.layout.up') }}">↑</button>
+          <button type="button" data-action="down" aria-label="{{ trans('admin.layout.down') }}">↓</button>
+          <button type="button" data-action="remove">{{ trans('admin.layout.remove') }}</button>
+        </div>
+        <label>{{ trans('admin.layout.width') }} <output id="layout-width-value"></output><input data-prop="width" type="range" min="10" max="100" step="1"></label>
+        <label>{{ trans('admin.layout.max_width') }}<input data-prop="max_width" type="number" min="0" max="3840" step="1"></label>
+        <p class="layout-help">{{ trans('admin.layout.max_width_help') }}</p>
+        <label>{{ trans('admin.layout.alignment') }}<select data-prop="align">
+          <option value="left">{{ trans('admin.layout.left') }}</option>
+          <option value="center">{{ trans('admin.layout.center') }}</option>
+          <option value="right">{{ trans('admin.layout.right') }}</option>
+        </select></label>
+        <div class="layout-spacing">
+          <label>{{ trans('admin.layout.top') }}<input data-prop="top" type="number" min="0" max="500"></label>
+          <label>{{ trans('admin.layout.bottom') }}<input data-prop="bottom" type="number" min="0" max="500"></label>
+        </div>
+        <div id="layout-grid-controls">
+          <label>{{ trans('admin.layout.columns') }}<input data-prop="columns" type="number" min="1" max="8"></label>
+          <label>{{ trans('admin.layout.gap') }}<input data-prop="gap" type="number" min="0" max="100"></label>
+        </div>
+        <button type="button" data-action="choose" id="layout-choose">{{ trans('admin.layout.choose_photos') }}</button>
+        <label id="layout-text-control">{{ trans('admin.layout.text') }}<textarea data-prop="text" rows="8" maxlength="20000"></textarea></label>
+      </div>
+    </aside>
+    <section class="layout-editor-canvas" aria-label="{{ trans('admin.layout.preview') }}">
+      <div class="layout-preview-toolbar">
+        <button type="button" data-device="desktop" aria-pressed="true">{{ trans('admin.layout.desktop') }}</button>
+        <button type="button" data-device="tablet" aria-pressed="false">{{ trans('admin.layout.tablet') }}</button>
+        <button type="button" data-device="mobile" aria-pressed="false">{{ trans('admin.layout.mobile') }}</button>
+      </div>
+      <iframe id="layout-preview" title="{{ trans('admin.layout.preview') }}" src="{{ base_path }}/album/{{ album.slug }}?layout_preview=draft"></iframe>
+    </section>
+  </div>
+  <dialog id="layout-photo-picker" aria-labelledby="layout-picker-heading">
+    <header><h2 id="layout-picker-heading">{{ trans('admin.layout.choose_photos') }}</h2><button type="button" data-action="cancel-picker">{{ trans('admin.layout.cancel') }}</button></header>
+    <input id="layout-photo-search" type="search" placeholder="{{ trans('admin.layout.search') }}" aria-label="{{ trans('admin.layout.search') }}">
+    <p class="layout-help">{{ trans('admin.layout.library_help') }} <a href="{{ base_path }}/admin/albums/{{ album.id }}/edit">{{ trans('admin.layout.upload') }}</a></p>
+    <div id="layout-picker-photos"></div>
+    <footer><span id="layout-picker-count" role="status"></span><button type="button" class="layout-primary" data-action="apply-picker">{{ trans('admin.layout.apply') }}</button></footer>
+  </dialog>
+  <script id="layout-editor-data" type="application/json" nonce="{{ csp_nonce() }}">{{ {state: layout_state, images: layout_images, basePath: base_path, labels: {
+    photo: trans('admin.layout.photo'), grid: trans('admin.layout.grid'), text: trans('admin.layout.text'),
+    default_status: trans('admin.layout.default_status'), custom_status: trans('admin.layout.custom_status'),
+    unsaved: trans('admin.layout.unsaved'), saved: trans('admin.layout.saved'), published: trans('admin.layout.published'),
+    saving: trans('admin.layout.saving'), default_confirm: trans('admin.layout.default_confirm'),
+    selected: trans('admin.layout.selected')
+  }}|json_encode(15)|raw }}</script>
+</div>
+<script nonce="{{ csp_nonce() }}" defer src="{{ base_path }}/assets/js/album-layout-editor.js?v={{ app_version }}"></script>
+{% endblock %}

@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add an optional visual album editor with photo, grid and text blocks, live previews, drafts and publishing. Normal uploads keep the default gallery workflow.
+
 ## [1.4.30-test.1] - 2026-11-16
 
 - Adopt upstream Cimaise 1.4.30 and retain the fork’s Album Grid, responsive logos, image regeneration and admin settings.

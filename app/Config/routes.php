@@ -1344,6 +1344,15 @@ return function (App $app, array $container) {
         $resp->getBody()->write('Service Unavailable');
         return $resp;
     });
+    $app->map(['GET', 'POST'], '/admin/albums/{id}/layout', function (Request $request, Response $response, array $args) use ($container) {
+        $controller = new \App\Controllers\Admin\AlbumLayoutController($container['db'], Twig::fromRequest($request));
+        return $request->getMethod() === 'POST'
+            ? $controller->save($request, $response, $args)
+            : $controller->edit($request, $response, $args);
+    })->add($container['db'] ? new AuthMiddleware($container['db']) : function ($request, $handler) {
+        return new \Slim\Psr7\Response(503);
+    });
+
     $app->get('/admin/albums/{id}/edit', function (Request $request, Response $response, array $args) use ($container) {
         $controller = new \App\Controllers\Admin\AlbumsController($container['db'], Twig::fromRequest($request));
         return $controller->edit($request, $response, $args);

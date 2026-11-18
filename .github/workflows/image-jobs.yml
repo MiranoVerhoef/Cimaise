@@ -83,6 +83,7 @@ jobs:
           /tmp/cimaise-browser-tests/node_modules/.bin/playwright install --with-deps chromium
           docker exec -u www-data cimaise-apache touch /var/www/html/storage/image-jobs/999.job
           NODE_PATH=/tmp/cimaise-browser-tests/node_modules node tests/integration/admin-ui.cjs
+          NODE_PATH=/tmp/cimaise-browser-tests/node_modules node tests/integration/album-layout-ui.cjs
       - name: Upload admin screenshot
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -90,6 +91,7 @@ jobs:
           name: admin-gallery-preview
           path: |
             /tmp/cimaise-admin-gallery.png
+            /tmp/cimaise-album-layout-*.png
             /tmp/cimaise-branding-page.png
             /tmp/cimaise-settings-*.png
             /tmp/cimaise-search-*.png

@@ -1,0 +1,14 @@
+<div class="album-layout-grid" style="--block-gap: {{ photo_gap }}px">
+  {% for row in photos|batch(columns) %}
+    <div class="album-layout-row">
+      {% for image in row %}
+        <div class="album-layout-cell" style="flex-grow: {{ max(0.1, min(10, image.width / max(1, image.height))) }}">
+          {% include 'frontend/_gallery_item.twig' with {
+            layout: 'masonry', style: {rounded: false, shadow: false, hover_scale: false},
+            layout_image_sizes: photo_sizes
+          } %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
