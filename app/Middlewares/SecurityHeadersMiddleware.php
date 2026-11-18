@@ -80,7 +80,6 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
         // The controller marks only an authenticated, non-cacheable draft preview.
         // Allow that document inside the same site's admin editor.
         $layoutPreview = $response->getHeaderLine('X-Cimaise-Layout-Preview') === '1';
-        $response = $response->withoutHeader('X-Cimaise-Layout-Preview');
         if ($layoutPreview) {
             $csp = str_replace("frame-ancestors 'none'", "frame-ancestors 'self'", $csp);
         }
