@@ -9,6 +9,7 @@
       <a href="{{ base_path }}/album/{{ album.slug }}" target="_blank" rel="noopener">{{ trans('admin.albums.view_page') }}</a>
       <button type="button" data-action="undo" disabled>{{ trans('admin.layout.undo') }}</button>
       <button type="button" data-action="redo" disabled>{{ trans('admin.layout.redo') }}</button>
+      <button type="button" data-action="history">{{ trans('admin.layout.history') }}</button>
       <button type="button" data-action="default">{{ trans('admin.layout.use_default') }}</button>
       <button type="button" data-action="draft">{{ trans('admin.layout.save_draft') }}</button>
       <button type="button" data-action="publish" class="layout-primary">{{ trans('admin.layout.publish') }}</button>
@@ -89,11 +90,25 @@
     <div id="layout-picker-photos"></div>
     <footer><span id="layout-picker-count" role="status"></span><button type="button" class="layout-primary" data-action="apply-picker">{{ trans('admin.layout.apply') }}</button></footer>
   </dialog>
-  <script id="layout-editor-data" type="application/json" nonce="{{ csp_nonce() }}">{{ {state: layout_state, images: layout_images, basePath: base_path, labels: {
+  <dialog id="layout-history-dialog" aria-labelledby="layout-history-heading">
+    <header>
+      <h2 id="layout-history-heading">{{ trans('admin.layout.history') }}</h2>
+      <button type="button" data-action="close-history">{{ trans('admin.layout.cancel') }}</button>
+    </header>
+    <p class="layout-help">{{ trans('admin.layout.history_help') }}</p>
+    <p id="layout-history-empty" hidden>{{ trans('admin.layout.history_empty') }}</p>
+    <ol id="layout-history-list"></ol>
+    <p id="layout-history-error" role="alert" hidden></p>
+  </dialog>
+  <script id="layout-editor-data" type="application/json" nonce="{{ csp_nonce() }}">{{ {state: layout_state, versions: layout_history, images: layout_images, basePath: base_path, labels: {
     photo: trans('admin.layout.photo'), grid: trans('admin.layout.grid'), text: trans('admin.layout.text'),
     default_status: trans('admin.layout.default_status'), custom_status: trans('admin.layout.custom_status'),
     unsaved: trans('admin.layout.unsaved'), saved: trans('admin.layout.saved'), published: trans('admin.layout.published'),
     saving: trans('admin.layout.saving'), default_confirm: trans('admin.layout.default_confirm'),
+    restore: trans('admin.layout.restore'), restored: trans('admin.layout.restored'),
+    restore_confirm: trans('admin.layout.restore_confirm'), version_number: trans('admin.layout.version_number'),
+    version_draft: trans('admin.layout.version_draft'), version_publish: trans('admin.layout.version_publish'),
+    version_restore: trans('admin.layout.version_restore'),
     selected: trans('admin.layout.selected'), move_photo_help: trans('admin.layout.move_photo_help')
   }}|json_encode(15)|raw }}</script>
 </div>

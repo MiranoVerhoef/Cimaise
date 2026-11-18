@@ -43,6 +43,7 @@ final class AlbumLayoutController extends BaseController
         return $this->view->render($response->withHeader('Cache-Control', 'no-store'), 'admin/album_layout.twig', [
             'album' => $album,
             'layout_state' => $service->state((int) $album['id']),
+            'layout_history' => $service->history((int) $album['id']),
             'layout_images' => $this->images((int) $album['id']),
         ]);
     }
@@ -62,16 +63,29 @@ final class AlbumLayoutController extends BaseController
             return $this->jsonResponse($response, ['error' => 'Invalid save request.'], 422);
         }
         $service = new AlbumLayoutService($this->db);
+        $action = $body['action'];
         try {
             $layout = null;
-            if ($body['action'] !== 'default') {
-                if (!is_array($body['layout'] ?? null) || strlen(json_encode($body['layout'], JSON_THROW_ON_ERROR)) > 262144) {
-                    throw new InvalidArgumentException('Layout is missing or too large.');
-                }
+            if ($action !== 'default') {
                 $ids = array_map('intval', array_column($this->images($albumId), 'id'));
-                $layout = $service->normalize($body['layout'], $ids);
+                if ($action === 'restore') {
+                    $version = $body['version'] ?? null;
+                    if (!is_array($version) || !is_int($version['revision'] ?? null) || !is_string($version['kind'] ?? null)) {
+                        throw new InvalidArgumentException('Select a layout version.');
+                    }
+                    $snapshot = $service->snapshot($albumId, $version['revision'], $version['kind']);
+                    if ($snapshot === null) {
+                        return $this->jsonResponse($response, ['error' => 'This layout version is no longer available.'], 404);
+                    }
+                    $layout = $service->normalize($service->removeMissingPhotos($snapshot, $ids), $ids);
+                } else {
+                    if (!is_array($body['layout'] ?? null) || strlen(json_encode($body['layout'], JSON_THROW_ON_ERROR)) > 262144) {
+                        throw new InvalidArgumentException('Layout is missing or too large.');
+                    }
+                    $layout = $service->normalize($body['layout'], $ids);
+                }
             }
-            $revision = $service->save($albumId, $body['revision'], $layout, $body['action']);
+            $revision = $service->save($albumId, $body['revision'], $layout, $action);
         } catch (InvalidArgumentException $error) {
             return $this->jsonResponse($response, ['error' => $error->getMessage()], 422);
         } catch (\RuntimeException $error) {
@@ -80,11 +94,12 @@ final class AlbumLayoutController extends BaseController
             }
             return $this->jsonResponse($response, ['error' => $error->getMessage()], 409);
         }
-        if ($body['action'] !== 'draft') {
+        if (in_array($action, ['publish', 'default'], true)) {
             // Publishing must replace stale HTML on the very next visitor request.
             (new PageCacheService(new SettingsService($this->db), $this->db))->clearAll();
         }
-        return $this->jsonResponse($response, ['ok' => true, 'revision' => $revision, 'layout' => $layout])
+        return $this->jsonResponse($response, ['ok' => true, 'revision' => $revision, 'layout' => $layout,
+            'history' => $service->history($albumId)])
             ->withHeader('Cache-Control', 'no-store');
     }
 }

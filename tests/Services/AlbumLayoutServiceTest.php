@@ -33,7 +33,7 @@ final class AlbumLayoutServiceTest extends TestCase
 
     public function testOldInstallationUsesDefaultWithoutCreatingTables(): void
     {
-        $this->db->pdo()->exec('DROP TABLE album_layouts');
+        $this->db->pdo()->exec('DROP TABLE album_layout_versions; DROP TABLE album_layouts');
         self::assertNull($this->layouts->state(81)['published']);
         self::assertFalse($this->db->query("SELECT name FROM sqlite_master WHERE name='album_layouts'")->fetchColumn());
         $this->layouts->initialize(81);
@@ -70,6 +70,42 @@ final class AlbumLayoutServiceTest extends TestCase
             self::assertSame(409, $error->getCode());
         }
         self::assertSame($this->layout(), $this->layouts->state(81)['published']);
+    }
+
+    public function testVersionsPreserveExistingLayoutsAndRestoreOnlyTheDraft(): void
+    {
+        $layout = $this->layout();
+        $this->layouts->initialize(81);
+        $initial = json_encode($layout, JSON_THROW_ON_ERROR);
+        $this->db->execute('UPDATE album_layouts SET revision = 4, draft_json = ?, published_json = ? WHERE album_id = 81', [$initial, $initial]);
+        // Simulate an upgrade from an earlier prerelease at the same migration checkpoint.
+        $this->db->pdo()->exec('DROP TABLE album_layout_versions');
+        $this->layouts->initialize(81);
+        $new = $layout;
+        $new['blocks'][1]['text'] = 'New layout';
+        $this->layouts->save(81, 4, $new, 'publish');
+
+        self::assertSame([5, 4], array_column($this->layouts->history(81), 'revision'));
+        self::assertNull($this->layouts->snapshot(82, 4, 'publish'));
+        $snapshot = $this->layouts->snapshot(81, 4, 'publish');
+        self::assertSame($layout, $snapshot);
+        $restored = $this->layouts->normalize($this->layouts->removeMissingPhotos($snapshot, [11, 12]), [11, 12]);
+        $this->layouts->save(81, 5, $restored, 'restore');
+        self::assertSame($restored, $this->layouts->state(81)['draft']);
+        self::assertSame($new, $this->layouts->state(81)['published']);
+        self::assertSame([12], $restored['blocks'][2]['images']);
+        self::assertSame('restore', $this->layouts->history(81)[0]['kind']);
+    }
+
+    public function testVersionRetentionKeepsTwentySnapshots(): void
+    {
+        $this->layouts->initialize(81);
+        for ($i = 0; $i < 22; ++$i) {
+            $this->layouts->save(81, $i, $this->layout(), 'draft');
+        }
+
+        self::assertSame(range(22, 3), array_column($this->layouts->history(81), 'revision'));
+        self::assertNull($this->layouts->snapshot(81, 2, 'draft'));
     }
 
     public function testRowSplitSurvivesSaveAndOnlyAppliesToPhotoPairs(): void
