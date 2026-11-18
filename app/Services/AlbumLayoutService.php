@@ -20,8 +20,16 @@ final class AlbumLayoutService
     public function initialize(int $albumId): void
     {
         $engine = $this->db->isSqlite() ? 'sqlite' : 'mysql';
-        $sql = file_get_contents(dirname(__DIR__, 2) . "/database/migrations/migrate_1.4.31_{$engine}.sql");
-        $this->db->pdo()->exec((string) $sql);
+        // Docker keeps shipped migrations outside the mountable database directory.
+        $migration = "migrate_1.4.31_{$engine}.sql";
+        $path = is_file('/usr/share/cimaise/migrations/' . $migration)
+            ? '/usr/share/cimaise/migrations/' . $migration
+            : dirname(__DIR__, 2) . '/database/migrations/' . $migration;
+        $sql = file_get_contents($path);
+        if ($sql === false) {
+            throw new RuntimeException('Album layout migration is unavailable.');
+        }
+        $this->db->pdo()->exec($sql);
         $this->db->execute($this->db->insertIgnoreKeyword() . ' INTO album_layouts (album_id) VALUES (?)', [$albumId]);
     }
 
