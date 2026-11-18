@@ -275,3 +275,5 @@ m8-after/
 !/tests/Controllers/SettingsSectionsTest.php
 !/tests/Support/DockerUpdatePolicyTest.php
 !/tests/Services/HomeAlbumVisibilityTest.php
+
+!tests/Services/AlbumLayoutServiceTest.php

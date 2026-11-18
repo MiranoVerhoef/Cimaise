@@ -77,12 +77,19 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
                  . "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
         }
 
+        // The controller marks only an authenticated, non-cacheable draft preview.
+        // Allow that document inside the same site's admin editor.
+        $layoutPreview = $response->getHeaderLine('X-Cimaise-Layout-Preview') === '1';
+        if ($layoutPreview) {
+            $csp = str_replace("frame-ancestors 'none'", "frame-ancestors 'self'", $csp);
+        }
+
         // SECURITY: Only add HSTS if connection is HTTPS (avoid breaking HTTP dev environments)
         $isHttps = CookieHelper::isHttps();
 
         $response = $response
             ->withHeader('X-Content-Type-Options', 'nosniff')
-            ->withHeader('X-Frame-Options', 'DENY')
+            ->withHeader('X-Frame-Options', $layoutPreview ? 'SAMEORIGIN' : 'DENY')
             ->withHeader('X-XSS-Protection', '1; mode=block')
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
             ->withHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), fullscreen=(self)')

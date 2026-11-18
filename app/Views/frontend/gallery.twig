@@ -193,7 +193,9 @@
   {% set hover_class = style.hover_scale ? 'group-hover:scale-105' : '' %}
 
   {# Custom gallery template (uploaded) #}
-  {% if custom_template_twig %}
+  {% if album_layout|default(null) is not null %}
+      {% include 'frontend/_album_layout.twig' %}
+  {% elseif custom_template_twig %}
       <div id="images-gallery" class="pswp-gallery" data-layout="custom">
           {% include custom_template_twig %}
       </div>
@@ -691,7 +693,7 @@
       </div>
   {% endif %}
 
-{% if images|length == 0 %}
+{% if images|length == 0 and album_layout is empty %}
   <div class="text-center py-20">
       <h2 class="text-2xl font-light text-neutral-600 mb-4">{{ trans('album.empty') }}</h2>
       <p class="text-neutral-500">{{ trans('album.empty_message') }}</p>
@@ -710,4 +712,7 @@
 
 {% block scripts %}
 {% include 'frontend/_gallery_runtime.twig' %}
+{% if album_layout_preview|default(false) %}
+<script nonce="{{ csp_nonce() }}" defer src="{{ base_path }}/assets/js/album-layout-preview.js?v={{ app_version }}"></script>
+{% endif %}
 {% endblock %}

@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add an optional visual album editor with photo, grid and text blocks, drafts and publishing. Normal uploads retain the default gallery workflow.
+
 ## [1.4.31-test.1] - 2026-11-18
 
 - Adopt upstream 1.4.31 and its improvements to the merged fork contributions.

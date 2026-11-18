@@ -106,8 +106,11 @@
 <IfModule mod_headers.c>
     Header always unset X-Content-Type-Options
     Header always set X-Content-Type-Options "nosniff"
+    Header onsuccess unset X-Frame-Options
     Header always unset X-Frame-Options
     Header always set X-Frame-Options "DENY"
+    # Only the authenticated editor response carries this preview marker.
+    Header always set X-Frame-Options "SAMEORIGIN" "expr=resp('X-Cimaise-Layout-Preview') == '1'"
     Header always unset X-XSS-Protection
     Header always set X-XSS-Protection "1; mode=block"
 </IfModule>

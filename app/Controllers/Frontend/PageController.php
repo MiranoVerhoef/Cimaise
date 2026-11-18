@@ -1641,6 +1641,19 @@ class PageController extends BaseController
             default => 'frontend/gallery.twig',
         };
 
+        $layoutService = new \App\Services\AlbumLayoutService($this->db);
+        $layoutState = $layoutService->state((int) $album['id']);
+        $layoutPreview = $isAdmin && ($request->getQueryParams()['layout_preview'] ?? '') === 'draft';
+        $albumLayout = $layoutPreview
+            ? ($layoutState['draft'] ?? $layoutState['published'] ?? ['version' => 1, 'blocks' => [], 'include_remaining' => true])
+            : $layoutState['published'];
+        if ($albumLayout !== null) {
+            $twigTemplate = 'frontend/gallery.twig';
+            $availableTemplates = [];
+            $templateSettings['layout'] = 'album_blocks';
+        }
+        $resolvedLayout = $albumLayout !== null ? $layoutService->resolve($albumLayout, $images) : null;
+
         $pageCustomCss = '';
         $pageCustomJs = '';
         if ($customPageTemplateId && class_exists(\CustomTemplatesPro\Services\TemplateIntegrationService::class)) {
@@ -1744,8 +1757,16 @@ class PageController extends BaseController
             'layout_mode' => (string) ($settingsServiceForPage->get('home.masonry_layout_mode', 'fullwidth') ?? 'fullwidth'),
         ];
 
+        if ($layoutPreview) {
+            $response = $response->withHeader('X-Cimaise-Layout-Preview', '1')
+                ->withHeader('Cache-Control', 'private, no-store')
+                ->withHeader('X-Robots-Tag', 'noindex, nofollow');
+        }
+
         // Cacheable data (excludes session-specific vars: csrf, is_admin, nsfw_consent)
         $cacheableData = [
+            'album_layout' => $resolvedLayout,
+            'album_layout_preview' => $layoutPreview,
             'album' => $galleryMeta,
             'images' => $images,
             'template_name' => $template['name'] ?? '',
@@ -1813,6 +1834,9 @@ class PageController extends BaseController
         // revalidation; CacheMiddleware honours an existing private/no-cache.
         if (!empty($album['password_hash']) || !empty($album['is_nsfw'])) {
             $rendered = $rendered->withHeader('Cache-Control', 'private, no-cache, must-revalidate');
+        }
+        if ($layoutPreview) {
+            $rendered = $rendered->withHeader('Cache-Control', 'private, no-store');
         }
 
         return $rendered;

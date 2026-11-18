@@ -1,0 +1,41 @@
+#album-layout-editor { color: var(--color-text-primary, #18322c); background: var(--color-bg-primary, #f6f3ed); }
+.layout-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem; border-bottom: 1px solid var(--color-border, #d4d9d5); }
+.layout-editor-toolbar h1 { font-family: var(--font-headings, Georgia, serif); font-size: 1.6rem; margin-top: .5rem; }
+.layout-editor-actions, .layout-add-buttons, .layout-preview-toolbar { display: flex; gap: .5rem; flex-wrap: wrap; }
+#album-layout-editor button { border: 1px solid var(--color-border, #c9d1cb); border-radius: .4rem; padding: .5rem .75rem; background: var(--color-bg-secondary, #fff); color: var(--color-text-primary, #18322c); cursor: pointer; }
+#album-layout-editor button:hover { border-color: #739d89; }
+#album-layout-editor button:focus-visible, #album-layout-editor input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+#album-layout-editor button:disabled { opacity: .45; cursor: default; }
+#album-layout-editor .layout-primary { background: #1c322d; color: #fff; }
+#layout-editor-status { padding: .5rem 1.25rem; min-height: 2.5rem; }
+#layout-editor-status[data-error] { color: #b91c1c; }
+.layout-editor-workspace { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 75vh; }
+.layout-editor-sidebar { padding: 1rem; border-right: 1px solid var(--color-border, #d4d9d5); max-height: 80vh; overflow: auto; }
+.layout-editor-sidebar h2 { margin: .75rem 0; font-weight: 600; }
+.layout-editor-sidebar label:not(.layout-checkbox) { display: block; margin: .9rem 0; font-size: .875rem; }
+.layout-editor-sidebar input:not([type=checkbox]), .layout-editor-sidebar select, .layout-editor-sidebar textarea, #layout-photo-search { display: block; width: 100%; margin-top: .4rem; padding: .45rem; border: 1px solid #becac2; border-radius: .3rem; background: var(--color-bg-secondary, #fff); color: inherit; }
+.layout-editor-sidebar input[type=range] { padding: 0; accent-color: #31594b; }
+.layout-spacing { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.layout-help { font-size: .8rem; opacity: .8; margin: .6rem 0; line-height: 1.5; }
+.layout-checkbox { display: flex; gap: .5rem; align-items: start; font-size: .875rem; margin-top: 1rem; }
+#layout-block-list { margin-top: 1rem; }
+#layout-block-list li { margin-bottom: .4rem; }
+#layout-block-list button { text-align: left; width: 100%; }
+#layout-block-list button[aria-pressed=true] { box-shadow: inset 3px 0 #31594b; background: #e3ece6; color: #18322c; }
+.layout-editor-canvas { background: #dfe4df; padding: .75rem; min-width: 0; overflow: auto; }
+.layout-preview-toolbar { justify-content: center; margin-bottom: .75rem; }
+#layout-preview-viewport { width: 100%; height: 74vh; overflow: hidden; position: relative; }
+#layout-preview { display: block; border: 0; background: #fff; transform-origin: top left; position: relative; }
+#layout-photo-picker { width: min(850px, 92vw); max-height: 86vh; border: 1px solid #becac2; border-radius: .65rem; padding: 1.25rem; background: var(--color-bg-primary, #fff); color: var(--color-text-primary, #18322c); }
+#layout-photo-picker::backdrop { background: #10231acc; }
+#layout-photo-picker header, #layout-photo-picker footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+#layout-photo-picker footer { padding-top: 1rem; }
+#layout-picker-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; max-height: 50vh; overflow: auto; }
+#layout-picker-photos label { position: relative; padding: .35rem; border: 2px solid transparent; cursor: pointer; border-radius: .35rem; }
+#layout-picker-photos label:has(input:checked) { border-color: #2563eb; background: #dbeafe; color: #18322c; }
+#layout-picker-photos img { width: 100%; height: 100px; object-fit: contain; background: #cbd5ce; }
+#layout-picker-photos span { font-size: .75rem; display: block; overflow-wrap: anywhere; }
+#layout-picker-photos input { position: absolute; top: .55rem; left: .55rem; }
+@media (max-width: 900px) { .layout-editor-workspace { grid-template-columns: 1fr; } .layout-editor-sidebar { max-height: 50vh; border-right: 0; } }
+
+#album-layout-editor [hidden] { display: none !important; }

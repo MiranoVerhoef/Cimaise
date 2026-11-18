@@ -93,7 +93,7 @@
         {% endif %}
       {% endfor %}
 
-      {% set sizes_attr = '(min-width: 1200px) 33vw, (min-width: 768px) 50vw, 100vw' %}
+      {% set sizes_attr = layout_image_sizes|default('(min-width: 1200px) 33vw, (min-width: 768px) 50vw, 100vw') %}
 
       {% if variants_avif %}
         <source type="image/avif" srcset="{{ variants_avif|join(', ') }}" sizes="{{ sizes_attr }}">

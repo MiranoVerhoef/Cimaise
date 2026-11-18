@@ -1,0 +1,26 @@
+.album-layout { width: 100%; }
+.album-layout-block {
+  width: var(--block-width, 100%); max-width: var(--block-max, 100%);
+  margin: var(--block-top, 0px) var(--block-right, auto) var(--block-bottom, 20px) var(--block-left, auto);
+}
+.album-layout-grid {
+  display: grid; gap: var(--block-gap, 8px);
+}
+.album-layout-row { display: flex; gap: var(--block-gap, 8px); align-items: start; }
+.album-layout-cell { flex-basis: 0; min-width: 0; }
+.album-layout-photo { width: 100%;
+}
+.album-layout .gallery-link, .album-layout picture, .album-layout img { display: block; width: 100%; }
+.album-layout img { height: auto; }
+.album-layout-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.album-layout-block[data-selected] { outline: 2px solid #2563eb; outline-offset: 4px; }
+html[data-layout-editing] .album-layout-block { cursor: pointer; min-height: 2rem; }
+html[data-layout-editing] .album-layout-block:hover { outline: 2px dashed #2563eb; outline-offset: 4px; }
+@media (max-width: 639px) {
+  .album-layout-block { width: 100%; }
+  .album-layout-row { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
+
+.layout-insert-control { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; padding: .75rem 0; }
+.layout-insert-control button { color: #1d4ed8; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 1rem; padding: .25rem .75rem; font-size: .8rem; cursor: pointer; }
+.layout-insert-control button:hover, .layout-insert-control button:focus-visible { background: #dbeafe; outline: 2px solid #2563eb; outline-offset: 2px; }
