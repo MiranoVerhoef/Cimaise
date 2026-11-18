@@ -60,13 +60,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install client tools
+      - name: Set up database clients
+        timeout-minutes: 2
+        env:
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
         run: |
-          sudo apt-get update -qq
-          if [ "$DBKIND" = "sqlite" ]; then
+          echo "MYSQL_CONTAINER=$MYSQL_CONTAINER" >> "$GITHUB_ENV"
+          if [ "$DBKIND" = "sqlite" ] && ! command -v sqlite3 >/dev/null; then
+            sudo apt-get update -qq
             sudo apt-get install -y -qq sqlite3
-          else
-            sudo apt-get install -y -qq mysql-client jq unzip
           fi
 
       - name: Resolve baseline schema
@@ -106,7 +108,7 @@ jobs:
           if [ "$DBKIND" = "sqlite" ]; then
             sqlite3 /tmp/cimaise.db < "$SCHEMA"
           else
-            mysql -h 127.0.0.1 -u root "$MYSQL_DB" < "$SCHEMA"
+            docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" mysql -u root "$MYSQL_DB" < "$SCHEMA"
           fi
 
       - name: Apply branch migrations (idempotent-tolerant)
@@ -132,7 +134,7 @@ jobs:
               # sqlite3 continues past errors; capture stderr to inspect.
               err=$(sqlite3 /tmp/cimaise.db < "$f" 2>&1 1>/dev/null || true)
             else
-              err=$(mysql --force -h 127.0.0.1 -u root "$MYSQL_DB" < "$f" 2>&1 1>/dev/null || true)
+              err=$(docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" mysql --force -u root "$MYSQL_DB" < "$f" 2>&1 1>/dev/null || true)
             fi
             if [ -n "$err" ]; then
               # Drop blank lines, then any line matching the idempotent allow-list.
@@ -152,20 +154,20 @@ jobs:
           fail=0
           if [ "$DBKIND" = "sqlite" ]; then
             q() { sqlite3 /tmp/cimaise.db "$1"; }
-            tcount=$(q "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('collections','collection_images');")
+            tcount=$(q "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('collections','collection_images','album_layout_versions');")
             # plugin_analytics_pro_schema (not plugin_image_ratings_schema):
             # the 1.4.18 migration deliberately DELETEs the retired-plugin
             # markers, so asserting on them fails on any up-to-date chain.
             scount=$(q "SELECT COUNT(*) FROM settings WHERE key IN ('search_fts_schema','plugin_analytics_pro_schema');")
             icount=$(q "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('idx_analytics_pageviews_type_viewed','idx_analytics_events_type_occurred');")
           else
-            q() { mysql -N -h 127.0.0.1 -u root "$MYSQL_DB" -e "$1"; }
-            tcount=$(q "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$MYSQL_DB' AND table_name IN ('collections','collection_images');")
+            q() { docker exec -e MYSQL_PWD "$MYSQL_CONTAINER" mysql -N -u root "$MYSQL_DB" -e "$1"; }
+            tcount=$(q "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$MYSQL_DB' AND table_name IN ('collections','collection_images','album_layout_versions');")
             scount=$(q "SELECT COUNT(*) FROM settings WHERE \`key\` IN ('search_fts_schema','plugin_analytics_pro_schema');")
             icount=$(q "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='$MYSQL_DB' AND index_name IN ('idx_analytics_pageviews_type_viewed','idx_analytics_events_type_occurred');")
           fi
-          echo "tables(collections,collection_images)=$tcount  settings_markers=$scount  analytics_indexes=$icount"
-          [ "$tcount" -eq 2 ] || { echo "MISSING 1.4.0 collections tables"; fail=1; }
+          echo "tables(collections,collection_images,album_layout_versions)=$tcount  settings_markers=$scount  analytics_indexes=$icount"
+          [ "$tcount" -eq 3 ] || { echo "MISSING collections or album layout history tables"; fail=1; }
           [ "$scount" -ge 2 ] || { echo "MISSING 1.2.0/1.3.0 marker settings"; fail=1; }
           [ "$icount" -ge 1 ] || { echo "MISSING 1.2.0 analytics indexes"; fail=1; }
           exit $fail
