@@ -20,6 +20,19 @@
   let pickerIds = new Set();
   let dragged = null;
   const frame = document.getElementById('layout-preview');
+  const viewport = document.getElementById('layout-preview-viewport');
+  function resizePreview() {
+    const width = {desktop: 1440, tablet: 768, mobile: 390}[frame.dataset.device || 'desktop'];
+    const scale = Math.min(1, viewport.clientWidth / width);
+    if (scale <= 0) return;
+    frame.style.width = width + 'px';
+    frame.style.height = Math.ceil(viewport.clientHeight / scale) + 'px';
+    frame.style.transform = 'scale(' + scale + ')';
+    frame.style.left = Math.max(0, (viewport.clientWidth - width * scale) / 2) + 'px';
+  }
+  const resizeObserver = new ResizeObserver(resizePreview);
+  resizeObserver.observe(viewport);
+  events.signal.addEventListener('abort', () => resizeObserver.disconnect());
   const controls = document.getElementById('layout-block-controls');
   const list = document.getElementById('layout-block-list');
   const status = document.getElementById('layout-editor-status');
@@ -195,6 +208,7 @@
     }
     if (button.dataset.device) {
       frame.dataset.device = button.dataset.device;
+      resizePreview();
       root.querySelectorAll('[data-device]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
       return;
     }

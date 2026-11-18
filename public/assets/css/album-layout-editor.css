@@ -24,9 +24,8 @@
 #layout-block-list button[aria-pressed=true] { box-shadow: inset 3px 0 #31594b; background: #e3ece6; color: #18322c; }
 .layout-editor-canvas { background: #dfe4df; padding: .75rem; min-width: 0; overflow: auto; }
 .layout-preview-toolbar { justify-content: center; margin-bottom: .75rem; }
-#layout-preview { display: block; width: 100%; height: 74vh; border: 0; background: #fff; margin-inline: auto; transition: width 160ms ease; }
-#layout-preview[data-device=tablet] { width: 768px; max-width: 100%; }
-#layout-preview[data-device=mobile] { width: 390px; max-width: 100%; }
+#layout-preview-viewport { width: 100%; height: 74vh; overflow: hidden; position: relative; }
+#layout-preview { display: block; border: 0; background: #fff; transform-origin: top left; position: relative; }
 #layout-photo-picker { width: min(850px, 92vw); max-height: 86vh; border: 1px solid #becac2; border-radius: .65rem; padding: 1.25rem; background: var(--color-bg-primary, #fff); color: var(--color-text-primary, #18322c); }
 #layout-photo-picker::backdrop { background: #10231acc; }
 #layout-photo-picker header, #layout-photo-picker footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -38,6 +37,5 @@
 #layout-picker-photos span { font-size: .75rem; display: block; overflow-wrap: anywhere; }
 #layout-picker-photos input { position: absolute; top: .55rem; left: .55rem; }
 @media (max-width: 900px) { .layout-editor-workspace { grid-template-columns: 1fr; } .layout-editor-sidebar { max-height: 50vh; border-right: 0; } }
-@media (prefers-reduced-motion: reduce) { #layout-preview { transition: none; } }
 
 #album-layout-editor [hidden] { display: none !important; }
