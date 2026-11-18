@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [1.4.31-test.3] - 2026-11-18
+
+- Shift photos into place in the preview while dragging. Drop to keep the order or press Escape to cancel.
+- Keep the last 20 saved layouts per album. Restore a version as a private draft before publishing.
+
 ## [1.4.31-test.2] - 2026-11-18
 
 - Select a two-photo row in the album preview to choose automatic, equal, 30/70 or 70/30 widths.
