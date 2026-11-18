@@ -23,11 +23,13 @@ final class AlbumLayoutController extends BaseController
 
     private function images(int $albumId): array
     {
-        return $this->db->query("SELECT i.id, i.width, i.height, i.alt_text, i.caption,
-            (SELECT v.path FROM image_variants v WHERE v.image_id = i.id
-             ORDER BY CASE v.variant WHEN 'sm' THEN 0 ELSE 1 END,
-                      CASE v.format WHEN 'jpg' THEN 0 ELSE 1 END LIMIT 1) AS preview
-            FROM images i WHERE i.album_id = ? ORDER BY i.sort_order, i.id", [$albumId])->fetchAll();
+        $images = $this->db->query('SELECT id, width, height, alt_text, caption
+            FROM images WHERE album_id = ? ORDER BY sort_order, id', [$albumId])->fetchAll();
+        foreach ($images as &$image) {
+            $image['preview'] = '/admin/media/images/' . $image['id'] . '/variants/sm.jpg';
+        }
+        unset($image);
+        return $images;
     }
 
     public function edit(Request $request, Response $response, array $args): Response
