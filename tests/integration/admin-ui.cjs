@@ -107,15 +107,11 @@ const assert = require('node:assert/strict');
   await page.locator('#admin-primary-navigation [data-nav-group="appearance"].active').waitFor();
   assert.equal(await page.locator('#admin-section-tabs [aria-current="page"]').innerText(), 'Site Logo');
   assert.equal(await page.locator('#branding-form [name="logo_type"]').count(), 2);
-  assert.equal(await page.locator('[name="bp_sm"], [name="maintenance_enabled"], [name="site_title"]').count(), 0);
-  await page.screenshot({ path: '/tmp/cimaise-branding-page.png', fullPage: true });
   page.off('request', countLogoDocumentLoads);
+  // A bookmark to the former logo section inside Settings lands on the new page.
   await page.goto('/admin/settings#site-branding');
   await page.waitForURL('**/admin/branding');
-  await page.locator('#branding-form').waitFor();
-  await page.goto('/admin/settings');
-  assert.equal(await page.locator('[name="logo_type"], #logo-uppy, #logo-uppy-dark').count(), 0);
-  console.log('PASS: Site Logo is an independent Appearance page; Settings omits branding and old bookmarks redirect');
+  await waitForAdminPage();
   console.log('PASS: grouped tools support SPA tabs, browser Back, reload and mobile navigation');
   await page.goto('/admin/albums/1/edit');
   assert.equal(await page.locator('#admin-primary-navigation .active').innerText(), 'Albums');

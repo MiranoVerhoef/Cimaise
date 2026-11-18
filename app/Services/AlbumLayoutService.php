@@ -20,7 +20,7 @@ final class AlbumLayoutService
     public function initialize(int $albumId): void
     {
         $engine = $this->db->isSqlite() ? 'sqlite' : 'mysql';
-        $sql = file_get_contents(dirname(__DIR__, 2) . "/database/migrations/migrate_1.4.30_{$engine}.sql");
+        $sql = file_get_contents(dirname(__DIR__, 2) . "/database/migrations/migrate_1.4.31_{$engine}.sql");
         $this->db->pdo()->exec((string) $sql);
         $this->db->execute($this->db->insertIgnoreKeyword() . ' INTO album_layouts (album_id) VALUES (?)', [$albumId]);
     }

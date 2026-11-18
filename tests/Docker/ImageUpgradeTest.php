@@ -154,6 +154,7 @@ PHP);
         $this->docker(['exec', '-i', '-u', 'www-data', $this->name, 'sh', '-c', 'cat > /tmp/schema-check.php'], <<<'PHP'
 <?php
 $image = json_decode((string) file_get_contents('/var/www/html/version.json'), true)['version'];
+$image = explode('-', $image, 2)[0];
 $newest = '0';
 foreach (glob('/usr/share/cimaise/migrations/migrate_*_sqlite.sql') ?: [] as $file) {
     $version = preg_replace('/^migrate_(.+)_sqlite\.sql$/', '$1', basename($file));
