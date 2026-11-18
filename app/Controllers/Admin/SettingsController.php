@@ -77,9 +77,7 @@ class SettingsController extends BaseController
             return $response->withHeader('Location', $this->redirect('/admin/branding'))->withStatus(302);
         }
         $svc = new SettingsService($this->db);
-        $changes = $this->brandingChanges((array) $request->getParsedBody());
-        $this->addLogoVariants($svc, $changes);
-        $svc->setMany($changes);
+        $svc->setMany($this->brandingChanges((array) $request->getParsedBody()));
         $this->clearPageCache($svc);
         $_SESSION['flash'][] = ['type' => 'success', 'message' => trans('admin.flash.settings_saved')];
         return $response->withHeader('Location', $this->redirect('/admin/branding') . '?saved=1')->withStatus(302);
@@ -99,20 +97,18 @@ class SettingsController extends BaseController
         if (array_key_exists('logo_type', $data)) {
             $changes['site.logo_type'] = in_array($data['logo_type'], ['text', 'image'], true) ? $data['logo_type'] : 'text';
         }
-        if (isset($data['logo_max_width'])) {
+        if (array_key_exists('logo_max_width', $data)) {
             $changes['site.logo_max_width'] = max(0, min(960, (int) $data['logo_max_width']));
+            // Responsive copies follow the logos being saved (or the stored
+            // ones when this form did not post them).
+            $svc = new SettingsService($this->db);
+            $logoVariants = new \App\Services\SiteLogoVariants();
+            foreach (['site.logo', 'site.logo_dark'] as $key) {
+                $path = array_key_exists($key, $changes) ? $changes[$key] : $svc->get($key);
+                $changes[$key . '_variants'] = $logoVariants->generate(is_string($path) ? $path : null);
+            }
         }
         return $changes;
-    }
-
-    /** @param array<string, mixed> $changes */
-    private function addLogoVariants(SettingsService $settings, array &$changes): void
-    {
-        $generator = new \App\Services\SiteLogoVariants();
-        foreach (['site.logo', 'site.logo_dark'] as $key) {
-            $path = array_key_exists($key, $changes) ? $changes[$key] : $settings->get($key);
-            $changes[$key . '_variants'] = $generator->generate(is_string($path) ? $path : null);
-        }
     }
 
     /** @param array<string, string> $args */
@@ -444,19 +440,32 @@ class SettingsController extends BaseController
                 throw new \RuntimeException('Unable to create log directory');
             }
             $logPath = $logDir . '/image_generation.log';
-            $replaceExisting = ((array) $request->getParsedBody())['replace_existing'] ?? '';
-            if ($replaceExisting === '1') {
-                $settings = new SettingsService($this->db);
-                $logoChanges = [];
-                $this->addLogoVariants($settings, $logoChanges);
-                $settings->setMany($logoChanges);
-                $this->clearPageCache($settings);
+            // A run is already going: tell the admin instead of starting a
+            // child that would only bail out. Checked before the log is
+            // touched, so the running job's log stays intact.
+            if (\App\Tasks\ImagesGenerateCommand::isRunning()) {
+                if ($this->isAjaxRequest($request)) {
+                    $payload = json_encode([
+                        'success' => false,
+                        'error' => trans('admin.flash.image_generation_running'),
+                    ]);
+                    $response->getBody()->write($payload !== false ? $payload : '{"success":false}');
+                    // 200 so the settings page shows this message rather than a bare HTTP error.
+                    return $response->withHeader('Content-Type', 'application/json');
+                }
+                $_SESSION['flash'][] = ['type' => 'warning', 'message' => trans('admin.flash.image_generation_running')];
+                return $response->withHeader('Location', $this->redirect('/admin/settings'))->withStatus(302);
             }
+            // Append, never truncate here: if a second run slips past the
+            // check above, its refusal note is appended to the running job's
+            // log. The child empties the log itself once it holds the lock.
+            $replaceExisting = ((array) $request->getParsedBody())['replace_existing'] ?? '';
             $phpCli = PHP_BINDIR . '/php';
             $phpCli = is_executable($phpCli) ? $phpCli : 'php';
             $cmd = 'nohup ' . escapeshellarg($phpCli) . ' ' . escapeshellarg($consoleReal)
                 . ($replaceExisting === '1' ? ' images:generate' : ' images:generate --missing')
-                . ' > ' . escapeshellarg($logPath) . ' 2>&1 &';
+                . ' --reset-log=' . escapeshellarg($logPath)
+                . ' >> ' . escapeshellarg($logPath) . ' 2>&1 &';
             // nosemgrep: reviewed — every command part is escaped (escapeshellarg)
             // and the only variable is the app's own bin/console path, validated
             // with realpath() to live under the app root. No user input reaches
@@ -803,28 +812,72 @@ class SettingsController extends BaseController
         $relativePath = '/' . $filename;
         $absolutePath = $publicPath . $relativePath;
 
-        // Remove old favicon source files. The names come from a fixed
-        // whitelist, but we still resolve the real path and require it to stay
-        // inside /public before deleting (defence in depth against traversal).
-        $publicReal = realpath($publicPath);
-        foreach (['png', 'jpg', 'webp'] as $oldExt) {
-            $oldFile = realpath($publicPath . '/favicon-source.' . $oldExt);
-            if ($oldFile === false || $publicReal === false) {
-                continue;
-            }
-            if (str_starts_with($oldFile, $publicReal . DIRECTORY_SEPARATOR) && is_file($oldFile)) {
-                // nosemgrep: path is realpath()-resolved and confined to /public,
-                // built from a fixed extension whitelist; no user input.
-                @unlink($oldFile); // nosemgrep
-            }
+        // Validate on a temporary file in the same directory first: strip
+        // EXIF/GPS/XMP (the file is served directly from /public) and enforce
+        // the pixel cap. The previous source is removed only once the new one
+        // is known good, so a rejected upload never leaves the setting
+        // pointing at a deleted file.
+        $tmpPath = $publicPath . '/.favicon-source-upload-' . bin2hex(random_bytes(8)) . '.' . $ext;
+        try {
+            $file->moveTo($tmpPath);
+        } catch (\Throwable) {
+            @unlink($tmpPath);
+            $response->getBody()->write(json_encode(['error' => 'Failed to store the uploaded file.']));
+            return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+        }
+        if (!\App\Support\ImageMetadataStripper::stripInPlace($tmpPath)) {
+            @unlink($tmpPath);
+            $response->getBody()->write(json_encode(['error' => 'Invalid image file or resolution too high.']));
+            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
         }
 
-        // Save file
-        $file->moveTo($absolutePath);
+        // Rename, setting update and cleanup run under one global lock: two
+        // concurrent uploads in different formats could otherwise delete the
+        // file the other one just saved and pointed the setting at.
+        $lockDir = dirname(__DIR__, 3) . '/storage/tmp';
+        $lock = @fopen($lockDir . '/favicon-source.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if ($lock !== false) {
+                fclose($lock);
+            }
+            @unlink($tmpPath);
+            $response->getBody()->write(json_encode(['error' => 'Failed to store the uploaded file.']));
+            return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+        }
+        try {
+            if (!@rename($tmpPath, $absolutePath)) {
+                @unlink($tmpPath);
+                $response->getBody()->write(json_encode(['error' => 'Failed to store the uploaded file.']));
+                return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+            }
 
-        // Save setting
-        $svc = new SettingsService($this->db);
-        $svc->set('site.favicon_source', $relativePath);
+            // Save setting
+            $svc = new SettingsService($this->db);
+            $svc->set('site.favicon_source', $relativePath);
+
+            // Only now that the new source is in place and the setting points at
+            // it, remove the other-format sources. The names come from a fixed
+            // whitelist, but we still resolve the real path and require it to stay
+            // inside /public before deleting (defence in depth against traversal).
+            $publicReal = realpath($publicPath);
+            foreach (['png', 'jpg', 'webp'] as $oldExt) {
+                if ($oldExt === $ext) {
+                    continue; // this is the file the rename above just replaced
+                }
+                $oldFile = realpath($publicPath . '/favicon-source.' . $oldExt);
+                if ($oldFile === false || $publicReal === false) {
+                    continue;
+                }
+                if (str_starts_with($oldFile, $publicReal . DIRECTORY_SEPARATOR) && is_file($oldFile)) {
+                    // nosemgrep: path is realpath()-resolved and confined to /public,
+                    // built from a fixed extension whitelist; no user input.
+                    @unlink($oldFile); // nosemgrep
+                }
+            }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
 
         $response->getBody()->write(json_encode([
             'ok' => true,

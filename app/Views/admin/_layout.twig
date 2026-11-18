@@ -117,15 +117,30 @@
       background-color: #1c322d;
       border-color: #16271f;
     }
+    /* Only the bar's own controls turn light: the user dropdown panel stays
+       white, so its items (Logout included) keep their dark/red text. */
     #admin-header h1, #admin-header .fa-camera,
-    #admin-header button, #admin-header a[target="_blank"],
+    #admin-header button:not(.dropdown-item), #admin-header a[target="_blank"],
     html.dark #admin-header h1, html.dark #admin-header .fa-camera {
       color: #f8f3ee;
     }
-    #admin-header button:hover, #admin-header a[target="_blank"]:hover {
+    #admin-header button:not(.dropdown-item):hover, #admin-header a[target="_blank"]:hover {
       color: #fff;
       background-color: rgba(248, 243, 238, 0.1);
     }
+    /* The avatar initials/icon in the bar follow the light button text. */
+    #admin-header .dropdown > button .user-avatar { color: inherit; }
+    /* Header logo: capped so the hamburger and the logo fit at 320px; a light
+       logo without a dark variant sits on a white plate in both themes (a
+       dedicated class, since html.dark .bg-white is repainted dark). */
+    #admin-header .admin-logo { max-width: 40vw; object-fit: contain; }
+    @media (min-width: 640px) { #admin-header .admin-logo { max-width: 14rem; } }
+    #admin-header .admin-logo-plate { background-color: #fff; border-radius: 0.25rem; padding: 0 0.25rem; }
+    /* Dark theme: the user dropdown panel was still white while the dark
+       theme turned its item titles light, leaving them unreadable. */
+    html.dark #admin-header .dropdown-content { background-color: var(--color-bg-secondary); border-color: var(--color-border); }
+    html.dark #admin-header .dropdown-item { color: var(--color-text-primary); border-color: var(--color-border); }
+    html.dark #admin-header .dropdown-item:hover { background-color: var(--color-bg-tertiary); }
     #admin-header .dropdown > button .text-gray-500,
     #admin-header [title][class*="text-gray-400"] { color: #c3d4ca; }
     html.dark #page-content .text-gray-900 { color: var(--color-text-primary); }
@@ -422,9 +437,9 @@
             <i class="fas fa-bars"></i>
           </button>
           
-          {% if logo_type == 'image' and site_logo %}
+          {% if logo_type == 'image' and (site_logo or site_logo_dark) %}
             {% set admin_logo = site_logo_dark|default(site_logo, true) %}
-            <img src="{% if admin_logo starts with '/' %}{{ base_path }}{% endif %}{{ admin_logo }}" alt="{{ site_title|default('Cimaise')|e }}" class="h-7 w-auto mr-3 shrink-0{% if not site_logo_dark %} bg-white rounded px-1{% endif %}">
+            <img src="{% if admin_logo starts with '/' %}{{ base_path }}{% endif %}{{ admin_logo }}" alt="{{ site_title|default('Cimaise')|e }}" class="admin-logo h-7 w-auto mr-3 shrink-0{% if not site_logo_dark %} admin-logo-plate{% endif %}">
           {% else %}
             <i class="fas fa-camera text-2xl text-black mr-3 shrink-0"></i>
             <h1 class="font-serif text-xl sm:text-2xl font-medium text-black tracking-tight truncate min-w-0">{{ site_title|default('Cimaise') }}</h1>
@@ -440,6 +455,7 @@
           </button>
 
           <!-- Frontend Link -->
+          {# nosemgrep: generic.html-templates.security.var-in-href.var-in-href -- base_path is dirname(SCRIPT_NAME): empty or an absolute path, never a URL scheme #}
           <a href="{{ base_path }}/" target="_blank" class="min-h-[44px] px-2 rounded-md text-gray-600 hover:text-black transition-colors flex items-center space-x-2" title="{{ trans('admin.header.view_frontend') }}">
             <i class="fas fa-external-link-alt"></i>
             <span class="hidden md:inline text-sm">{{ trans('admin.header.frontend') }}</span>
