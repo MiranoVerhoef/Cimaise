@@ -661,12 +661,13 @@ const assert = require('node:assert/strict');
       if (!(await searchPanel.evaluate(element => element.classList.contains('search-popover')))) {
         assert.ok(box.y >= after.y && box.y + box.height <= after.y + after.height + 1);
       }
-      assert.equal(await visibleHeaderControls(), controlCount, 'Opening search preserves visible navigation controls');
-      const controls = row.locator('a, button').filter({ visible: true });
-      for (const control of await controls.all()) {
-        if (await control.evaluate(element => !!element.closest('#header-search-panel'))) continue;
-        assert.equal(await control.evaluate(element => !!element.closest('[inert]')), false);
-        const bounds = await control.boundingBox();
+      const controls = await row.locator('a, button').filter({ visible: true }).evaluateAll(elements =>
+        elements.filter(element => !element.closest('#header-search-panel')).map(element => ({
+          inert: Boolean(element.closest('[inert]')), bounds: element.getBoundingClientRect().toJSON(),
+        })));
+      assert.equal(controls.length, controlCount, 'Opening search preserves visible navigation controls');
+      for (const {inert, bounds} of controls) {
+        assert.equal(inert, false);
         assert.ok(bounds.x + bounds.width <= panelBox.x || bounds.x >= panelBox.x + panelBox.width || bounds.y + bounds.height <= panelBox.y || bounds.y >= panelBox.y + panelBox.height, 'Search must not cover header controls');
       }
       assert.equal(await row.locator('.search-brand-navigation').evaluate(element => getComputedStyle(element).visibility), 'visible');
