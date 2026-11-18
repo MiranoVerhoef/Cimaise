@@ -28,8 +28,23 @@
     }
   }
 
-  function render(layout, selected) {
+  function insertionPoint(after, labels) {
+    const bar = document.createElement('div');
+    bar.className = 'layout-insert-control';
+    for (const type of ['photo', 'grid', 'text']) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.layoutInsert = type;
+      button.dataset.after = after || '';
+      button.textContent = '+ ' + labels[type];
+      bar.append(button);
+    }
+    return bar;
+  }
+
+  function render(layout, selected, labels) {
     gallery.replaceChildren();
+    gallery.append(insertionPoint(null, labels));
     const used = new Set();
     for (const block of layout.blocks) {
       const section = document.createElement('section');
@@ -57,7 +72,7 @@
         appendPhotos(content, ids, block.type === 'photo' ? 1 : block.columns, block.gap);
         section.append(content);
       }
-      gallery.append(section);
+      gallery.append(section, insertionPoint(block.id, labels));
     }
     if (layout.include_remaining) {
       const section = document.createElement('section');
@@ -72,10 +87,16 @@
 
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'cimaise-layout-update') return;
-    render(event.data.layout, event.data.selected);
+    render(event.data.layout, event.data.selected, event.data.labels);
   });
   gallery.addEventListener('click', event => {
     event.preventDefault();
+    event.stopImmediatePropagation();
+    const insert = event.target.closest('[data-layout-insert]');
+    if (insert) {
+      window.parent.postMessage({type: 'cimaise-layout-insert', blockType: insert.dataset.layoutInsert, after: insert.dataset.after}, location.origin);
+      return;
+    }
     const block = event.target.closest('[data-layout-block]');
     if (block) window.parent.postMessage({type: 'cimaise-layout-select', id: block.dataset.layoutBlock}, location.origin);
   }, true);
@@ -84,6 +105,7 @@
     const block = event.target.closest('[data-layout-block]');
     if (block) {
       event.preventDefault();
+      event.stopImmediatePropagation();
       window.parent.postMessage({type: 'cimaise-layout-select', id: block.dataset.layoutBlock}, location.origin);
     }
   });

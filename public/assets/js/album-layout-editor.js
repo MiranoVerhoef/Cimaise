@@ -37,7 +37,7 @@
   }
 
   function preview() {
-    frame.contentWindow?.postMessage({type: 'cimaise-layout-update', layout, selected}, location.origin);
+    frame.contentWindow?.postMessage({type: 'cimaise-layout-update', layout, selected, labels}, location.origin);
   }
 
   function refresh() {
@@ -90,16 +90,18 @@
     refresh();
   }
 
-  function insert(block) {
-    const index = layout.blocks.findIndex(item => item.id === selected);
+  function insert(block, after = selected) {
+    const index = layout.blocks.findIndex(item => item.id === after);
     layout.blocks.splice(index + 1, 0, block);
     selected = block.id;
     remember();
   }
 
   function newBlock(type, images = []) {
+    const randomBytes = crypto.getRandomValues(new Uint8Array(16));
+    const id = Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
     return {
-      id: crypto.randomUUID(), type, images,
+      id, type, images,
       width: 100, max_width: 0, align: 'center', top: 0, bottom: 20,
       columns: 3, gap: 8, text: '',
     };
@@ -131,9 +133,10 @@
     action('apply-picker').disabled = pickerIds.size === 0;
   }
 
-  function openPicker(type, existing = false) {
+  function openPicker(type, existing = false, after = selected) {
     pickerType = type;
     picker.dataset.existing = String(existing);
+    picker.dataset.after = after || '';
     pickerIds = new Set(existing ? current().images : []);
     search.value = '';
     renderPicker();
@@ -210,7 +213,7 @@
       if (picker.dataset.existing === 'true') {
         current().images = ids;
         remember();
-      } else insert(newBlock(pickerType, ids));
+      } else insert(newBlock(pickerType, ids), picker.dataset.after);
       picker.close();
     } else if (mode === 'remove' && current()) {
       layout.blocks = layout.blocks.filter(block => block.id !== selected);
@@ -271,6 +274,10 @@
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
     if (event.data?.type === 'cimaise-layout-ready') preview();
+    if (event.data?.type === 'cimaise-layout-insert' && !saving && ['photo', 'grid', 'text'].includes(event.data.blockType)) {
+      if (event.data.blockType === 'text') insert(newBlock('text'), event.data.after);
+      else openPicker(event.data.blockType, false, event.data.after);
+    }
     if (event.data?.type === 'cimaise-layout-select' && layout.blocks.some(block => block.id === event.data.id)) {
       selected = event.data.id;
       refresh();

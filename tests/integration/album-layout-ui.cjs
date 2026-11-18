@@ -53,6 +53,9 @@ const assert = require('node:assert/strict');
   await page.locator('a[href$="/layout"]').click();
   const frame = page.frameLocator('#layout-preview');
   await frame.locator('#layout-preview-templates').waitFor({state: 'attached'});
+  const previewResponse = await context.request.get('/album/visual-layout-fixture?layout_preview=draft');
+  assert.equal(previewResponse.headers()['x-frame-options'], 'SAMEORIGIN');
+  assert.match(previewResponse.headers()['cache-control'], /no-store/);
   const visitor = await browser.newContext({baseURL: 'http://localhost:8080'});
   const publicPage = await visitor.newPage();
   await publicPage.goto('/album/visual-layout-fixture');
@@ -65,7 +68,7 @@ const assert = require('node:assert/strict');
   }
   await choose('photo', 0);
   await choose('grid', 1);
-  await page.locator('[data-add="text"]').click();
+  await frame.locator('[data-layout-insert="text"]').last().click();
   await page.locator('[data-prop="text"]').fill('A personal story <script>window.badLayout = true</script>');
   await page.locator('[data-prop="text"]').blur();
   assert.equal(await frame.locator('.album-layout-text').innerText(), 'A personal story <script>window.badLayout = true</script>');

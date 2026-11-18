@@ -1835,6 +1835,9 @@ class PageController extends BaseController
         if (!empty($album['password_hash']) || !empty($album['is_nsfw'])) {
             $rendered = $rendered->withHeader('Cache-Control', 'private, no-cache, must-revalidate');
         }
+        if ($layoutPreview) {
+            $rendered = $rendered->withHeader('Cache-Control', 'private, no-store');
+        }
 
         return $rendered;
     }
