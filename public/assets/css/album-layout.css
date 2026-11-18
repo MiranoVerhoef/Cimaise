@@ -12,6 +12,17 @@
 }
 .album-layout .gallery-link, .album-layout picture, .album-layout img { display: block; width: 100%; }
 .album-layout img { height: auto; }
+html[data-layout-editing] [data-layout-row]:hover { outline: 1px dashed #2563eb; outline-offset: 2px; }
+html[data-layout-editing] [data-row-selected] { outline: 2px solid #2563eb; outline-offset: 2px; }
+html[data-layout-editing] [data-layout-image] .gallery-link { cursor: grab; }
+@media (min-width: 640px) {
+  .album-layout-row[data-row-fill] { aspect-ratio: var(--row-ratio); align-items: stretch; }
+  [data-row-fill] .album-layout-cell { position: relative; }
+  [data-row-fill] .gallery-link, [data-row-fill] .gallery-link > div,
+  [data-row-fill] picture, [data-row-fill] img { height: 100%; }
+  [data-row-fill] .gallery-link { position: absolute; inset: 0; }
+  .album-layout [data-row-fill] img { height: 100%; object-fit: cover; }
+}
 .album-layout-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
 .album-layout-block[data-selected] { outline: 2px solid #2563eb; outline-offset: 4px; }
 html[data-layout-editing] .album-layout-block { cursor: pointer; min-height: 2rem; }

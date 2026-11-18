@@ -1,8 +1,16 @@
 <div class="album-layout-grid" style="--block-gap: {{ photo_gap }}px">
   {% for row in photos|batch(columns) %}
-    <div class="album-layout-row">
+    {% set options = row|length == 2 ? row_options[loop.index0]|default(null) : null %}
+    {% set ratios = row|map(image => max(0.1, min(10, image.width / max(1, image.height)))) %}
+    {% set row_ratio = 0 %}
+    {% for ratio in ratios %}{% set row_ratio = row_ratio + ratio %}{% endfor %}
+    {% set weights = {'equal': [50, 50], '30-70': [30, 70], '70-30': [70, 30]}[options.split|default('')] ?? ratios %}
+    {% set total_weight = options ? 100 : row_ratio %}
+    <div class="album-layout-row"{% if options.fill|default(false) %} data-row-fill style="--row-ratio: {{ row_ratio }}"{% endif %}>
       {% for image in row %}
-        <div class="album-layout-cell" style="flex-grow: {{ max(0.1, min(10, image.width / max(1, image.height))) }}">
+        {% set weight = weights[loop.index0] %}
+        {% set photo_sizes = '(max-width: 639px) 100vw, ' ~ max(1, (photo_width * weight / total_weight)|round) ~ 'vw' %}
+        <div class="album-layout-cell" style="flex-grow: {{ weight }}">
           {% include 'frontend/_gallery_item.twig' with {
             layout: 'masonry', style: {rounded: false, shadow: false, hover_scale: false},
             layout_image_sizes: photo_sizes

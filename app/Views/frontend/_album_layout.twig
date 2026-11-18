@@ -8,14 +8,14 @@
       {% else %}
         {% include 'frontend/_album_layout_photos.twig' with {
           photos: block.photos, columns: block.type == 'photo' ? 1 : block.columns,
-          photo_gap: block.gap, photo_sizes: '(max-width: 639px) 100vw, ' ~ (block.width / (block.type == 'grid' ? block.columns : 1))|round ~ 'vw'
+          photo_gap: block.gap, photo_width: block.width, row_options: block.rows|default([])
         } %}
       {% endif %}
     </section>
   {% endfor %}
   {% if album_layout.remaining %}
     <section class="album-layout-block" data-layout-remaining>
-      {% include 'frontend/_album_layout_photos.twig' with {photos: album_layout.remaining, columns: 3, photo_gap: 8, photo_sizes: '(max-width: 639px) 100vw, 50vw'} %}
+      {% include 'frontend/_album_layout_photos.twig' with {photos: album_layout.remaining, columns: 3, photo_gap: 8, photo_width: 100, row_options: []} %}
     </section>
   {% endif %}
 </div>

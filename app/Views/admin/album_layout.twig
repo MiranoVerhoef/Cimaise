@@ -33,6 +33,25 @@
           <button type="button" data-action="down" aria-label="{{ trans('admin.layout.down') }}">↓</button>
           <button type="button" data-action="remove">{{ trans('admin.layout.remove') }}</button>
         </div>
+        <p class="layout-help">{{ trans('admin.layout.row_help') }}</p>
+        <fieldset id="layout-row-controls" hidden>
+          <legend>{{ trans('admin.layout.row') }} <output id="layout-row-number"></output></legend>
+          <label>{{ trans('admin.layout.split') }}
+            <select id="layout-row-split">
+              <option value="auto">{{ trans('admin.layout.split_auto') }}</option>
+              <option value="equal">{{ trans('admin.layout.split_equal') }}</option>
+              <option value="30-70">30 / 70</option>
+              <option value="70-30">70 / 30</option>
+            </select>
+          </label>
+          <label>{{ trans('admin.layout.fit') }}
+            <select id="layout-row-fit">
+              <option value="whole">{{ trans('admin.layout.whole') }}</option>
+              <option value="fill">{{ trans('admin.layout.fill') }}</option>
+            </select>
+          </label>
+          <p class="layout-help">{{ trans('admin.layout.move_photo_help') }}</p>
+        </fieldset>
         <label>{{ trans('admin.layout.width') }} <output id="layout-width-value"></output><input data-prop="width" type="range" min="10" max="100" step="1"></label>
         <label>{{ trans('admin.layout.max_width') }}<input data-prop="max_width" type="number" min="0" max="3840" step="1"></label>
         <p class="layout-help">{{ trans('admin.layout.max_width_help') }}</p>
@@ -75,7 +94,7 @@
     default_status: trans('admin.layout.default_status'), custom_status: trans('admin.layout.custom_status'),
     unsaved: trans('admin.layout.unsaved'), saved: trans('admin.layout.saved'), published: trans('admin.layout.published'),
     saving: trans('admin.layout.saving'), default_confirm: trans('admin.layout.default_confirm'),
-    selected: trans('admin.layout.selected')
+    selected: trans('admin.layout.selected'), move_photo_help: trans('admin.layout.move_photo_help')
   }}|json_encode(15)|raw }}</script>
 </div>
 <script nonce="{{ csp_nonce() }}" defer src="{{ base_path }}/assets/js/album-layout-editor.js?v={{ app_version }}"></script>

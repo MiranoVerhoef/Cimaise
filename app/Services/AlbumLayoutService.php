@@ -97,6 +97,23 @@ final class AlbumLayoutService
                 $item['images'] = array_values(array_unique($images));
                 $item['columns'] = $this->integer($block, 'columns', 3, 1, 8);
                 $item['gap'] = $this->integer($block, 'gap', 8, 0, 100);
+                if ($block['type'] === 'grid') {
+                    $rows = $block['rows'] ?? [];
+                    if (!is_array($rows) || count($rows) > 1000) {
+                        throw new InvalidArgumentException('Invalid grid rows.');
+                    }
+                    foreach ($rows as $row => $options) {
+                        if (!is_int($row) || $row < 0 || !is_array($options)
+                            || !in_array($options['split'] ?? null, ['equal', '30-70', '70-30'], true)
+                            || !is_bool($options['fill'] ?? null)) {
+                            throw new InvalidArgumentException('Invalid row layout.');
+                        }
+                        $remaining = count($item['images']) - $row * $item['columns'];
+                        if (min($item['columns'], $remaining) === 2) {
+                            $item['rows'][$row] = ['split' => $options['split'], 'fill' => $options['fill']];
+                        }
+                    }
+                }
             }
             $result[] = $item;
         }

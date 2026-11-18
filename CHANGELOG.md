@@ -1,9 +1,14 @@
 ## [Unreleased]
 
-- Add an optional visual album editor with photo, grid and text blocks, drafts and publishing. Normal uploads retain the default gallery workflow.
+## [1.4.31-test.2] - 2026-11-18
+
+- Select a two-photo row in the album preview to choose automatic, equal, 30/70 or 70/30 widths.
+- Keep the whole photo or fill the row with a centered crop. Photos stack on phones.
+- Reorder photos within a grid by dragging or using the keyboard. Hide admin controls from the album preview.
 
 ## [1.4.31-test.1] - 2026-11-18
 
+- Add an optional visual album editor with photo, grid and text blocks, drafts and publishing. Normal uploads retain the default gallery workflow.
 - Adopt upstream 1.4.31 and its improvements to the merged fork contributions.
 - Retain Album Grid and the dedicated settings pages.
 

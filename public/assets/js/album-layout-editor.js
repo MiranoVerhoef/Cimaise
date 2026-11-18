@@ -12,6 +12,7 @@
   let revision = boot.state.revision;
   let customPublished = Boolean(boot.state.published);
   let selected = layout.blocks[0]?.id || null;
+  let selectedRow = null;
   let savedSnapshot = JSON.stringify(initial);
   let history = [JSON.stringify(initial)];
   let historyIndex = 0;
@@ -34,6 +35,9 @@
   resizeObserver.observe(viewport);
   events.signal.addEventListener('abort', () => resizeObserver.disconnect());
   const controls = document.getElementById('layout-block-controls');
+  const rowControls = document.getElementById('layout-row-controls');
+  const rowSplit = document.getElementById('layout-row-split');
+  const rowFit = document.getElementById('layout-row-fit');
   const list = document.getElementById('layout-block-list');
   const status = document.getElementById('layout-editor-status');
   const picker = document.getElementById('layout-photo-picker');
@@ -42,6 +46,13 @@
   const remaining = document.getElementById('layout-remaining');
   const action = name => root.querySelector('[data-action="' + name + '"]');
   const current = () => layout.blocks.find(block => block.id === selected);
+  const rowAvailable = () => {
+    const block = current();
+    if (selectedRow === null || block?.type !== 'grid') return false;
+    const remainingPhotos = block.images.filter(id => photoIds.has(id)).length - selectedRow * block.columns;
+    return Math.min(block.columns, remainingPhotos) === 2;
+  };
+  const photoIds = new Set(photos.map(photo => photo.id));
   const dirty = () => JSON.stringify(layout) !== savedSnapshot;
 
   function showStatus(message, error = false) {
@@ -50,7 +61,7 @@
   }
 
   function preview() {
-    frame.contentWindow?.postMessage({type: 'cimaise-layout-update', layout, selected, labels}, location.origin);
+    frame.contentWindow?.postMessage({type: 'cimaise-layout-update', layout, selected, selectedRow, labels}, location.origin);
   }
 
   function refresh() {
@@ -82,6 +93,12 @@
       action('up').disabled = layout.blocks[0].id === selected;
       action('down').disabled = layout.blocks.at(-1).id === selected;
     }
+    rowControls.hidden = !rowAvailable();
+    const row = block?.rows?.[selectedRow];
+    document.getElementById('layout-row-number').textContent = selectedRow + 1;
+    rowSplit.value = row?.split || 'auto';
+    rowFit.value = row?.fill ? 'fill' : 'whole';
+    rowFit.disabled = rowSplit.value === 'auto';
     remaining.checked = layout.include_remaining;
     action('undo').disabled = saving || historyIndex === 0;
     action('redo').disabled = saving || historyIndex === history.length - 1;
@@ -107,6 +124,7 @@
     const index = layout.blocks.findIndex(item => item.id === after);
     layout.blocks.splice(index + 1, 0, block);
     selected = block.id;
+    selectedRow = null;
     remember();
   }
 
@@ -199,6 +217,7 @@
     if (!button || saving) return;
     if (button.dataset.select) {
       selected = button.dataset.select;
+      selectedRow = null;
       refresh();
       return;
     }
@@ -255,6 +274,17 @@
     showStatus(labels.unsaved);
     preview();
   });
+  rowControls.addEventListener('change', event => {
+    event.stopPropagation();
+    if (!rowAvailable()) return;
+    const block = current();
+    // JSON may represent an existing set of rows as either an array or an object.
+    block.rows = {...block.rows};
+    if (rowSplit.value === 'auto') delete block.rows[selectedRow];
+    else block.rows[selectedRow] = {split: rowSplit.value, fill: rowFit.value === 'fill'};
+    if (!Object.keys(block.rows).length) delete block.rows;
+    remember();
+  });
   controls.addEventListener('change', remember);
   remaining.addEventListener('change', () => { layout.include_remaining = remaining.checked; remember(); });
   search.addEventListener('input', renderPicker);
@@ -301,9 +331,27 @@
       if (event.data.blockType === 'text') insert(newBlock('text'), event.data.after);
       else openPicker(event.data.blockType, false, event.data.after);
     }
-    if (event.data?.type === 'cimaise-layout-select' && layout.blocks.some(block => block.id === event.data.id)) {
-      selected = event.data.id;
+    if (saving) return;
+    const {type, id, row, photo, target, offset} = event.data || {};
+    const block = layout.blocks.find(item => item.id === id);
+    if (!block) return;
+    if (type === 'cimaise-layout-select') {
+      selected = id;
+      selectedRow = Number.isInteger(row) && row >= 0 ? row : null;
       refresh();
+    } else if (type === 'cimaise-layout-move-photo' && block.type === 'grid') {
+      const visible = block.images.filter(imageId => photoIds.has(imageId));
+      const index = visible.indexOf(photo);
+      const destination = target === undefined ? index + offset : visible.indexOf(target);
+      if (index < 0 || !Number.isInteger(destination) || destination < 0
+        || destination >= visible.length || index === destination) return;
+      const from = block.images.indexOf(photo);
+      const to = block.images.indexOf(visible[destination]);
+      block.images.splice(from, 1);
+      block.images.splice(to, 0, photo);
+      selected = id;
+      selectedRow = Math.floor(destination / block.columns);
+      remember();
     }
   }, {signal: events.signal});
   window.addEventListener('beforeunload', event => {
