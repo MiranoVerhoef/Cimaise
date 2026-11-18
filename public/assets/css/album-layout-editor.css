@@ -18,6 +18,8 @@
 .layout-spacing { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
 .layout-help { font-size: .8rem; opacity: .8; margin: .6rem 0; line-height: 1.5; }
 .layout-checkbox { display: flex; gap: .5rem; align-items: start; font-size: .875rem; margin-top: 1rem; }
+#layout-row-controls { border: 1px solid var(--color-border, #c9d1cb); border-radius: .4rem; padding: 0 .75rem; margin: .75rem 0; }
+#layout-row-controls legend { padding: 0 .35rem; font-weight: 600; }
 #layout-block-list { margin-top: 1rem; }
 #layout-block-list li { margin-bottom: .4rem; }
 #layout-block-list button { text-align: left; width: 100%; }

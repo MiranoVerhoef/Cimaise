@@ -72,6 +72,25 @@ final class AlbumLayoutServiceTest extends TestCase
         self::assertSame($this->layout(), $this->layouts->state(81)['published']);
     }
 
+    public function testRowSplitSurvivesSaveAndOnlyAppliesToPhotoPairs(): void
+    {
+        $input = ['blocks' => [[
+            'id' => 'grid', 'type' => 'grid', 'images' => [11, 12, 13, 14, 15],
+            'columns' => 3, 'rows' => [
+                0 => ['split' => 'equal', 'fill' => false],
+                1 => ['split' => '30-70', 'fill' => true],
+            ],
+        ]]];
+        $layout = $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
+        $this->layouts->initialize(81);
+        $this->layouts->save(81, 0, $layout, 'publish');
+        self::assertSame([1 => ['split' => '30-70', 'fill' => true]],
+            $this->layouts->state(81)['published']['blocks'][0]['rows']);
+        $input['blocks'][0]['rows'][1]['split'] = 'arbitrary';
+        $this->expectException(InvalidArgumentException::class);
+        $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
+    }
+
     public function testUnauthorizedImageAndInvalidCssAreRejected(): void
     {
         foreach ([

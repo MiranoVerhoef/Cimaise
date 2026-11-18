@@ -246,10 +246,10 @@
     {% if album_grid_navigation %}{% include 'frontend/_album_grid_navigation_styles.twig' %}{% endif %}
     {% block styles %}{% endblock %}
 </head>
-<body class="min-h-full bg-white text-black font-sans antialiased{% if admin_logged_in|default(false) %} has-admin-bar{% endif %}">
+<body class="min-h-full bg-white text-black font-sans antialiased{% if admin_logged_in|default(false) and not album_layout_preview|default(false) %} has-admin-bar{% endif %}">
     {# Keyboard/screen-reader users: jump past header + nav straight to content #}
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10000] focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg">{{ trans('nav.skip_to_content', {}, 'Skip to content') }}</a>
-    {% include 'frontend/_admin_topbar.twig' %}
+    {% if not album_layout_preview|default(false) %}{% include 'frontend/_admin_topbar.twig' %}{% endif %}
     <div id="pswp-open-overlay" aria-hidden="true"></div>
 
     {# Centralized category filtering logic - used in desktop mega-menu, mobile menu, and JS data #}
@@ -370,7 +370,7 @@
 
                 <!-- Right Side Actions -->
                 <div class="flex items-center gap-4">
-                    {% if is_admin %}
+                    {% if is_admin and not album_layout_preview|default(false) %}
                     <!-- Admin Dashboard Button -->
                     <a href="{{ base_path }}/admin" class="flex items-center gap-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-700 transition-colors duration-200 py-2 px-4 rounded-md">
                         <i class="fas fa-cog text-xs"></i>
@@ -450,7 +450,7 @@
 
                     {{ hook('frontend_nav_after_about', {'base_path': base_path, 'location': 'mobile', 'csp_nonce': csp_nonce()}) }}
 
-                    {% if is_admin %}
+                    {% if is_admin and not album_layout_preview|default(false) %}
                     <a href="{{ base_path }}/admin" class="block text-sm font-medium text-white bg-gray-900 hover:bg-gray-700 rounded-md p-3 transition-colors duration-200">
                         <i class="fas fa-cog mr-2"></i>Admin Dashboard
                     </a>
