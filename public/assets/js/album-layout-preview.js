@@ -78,6 +78,8 @@
       const section = document.createElement('section');
       section.className = 'album-layout-block';
       section.dataset.layoutRemaining = '';
+      section.tabIndex = 0;
+      section.setAttribute('aria-label', labels.grid);
       const content = document.createElement('div');
       appendPhotos(content, Array.from(photos.keys()).filter(id => !used.has(id)), 3, 8);
       section.append(content);
@@ -97,11 +99,21 @@
       window.parent.postMessage({type: 'cimaise-layout-insert', blockType: insert.dataset.layoutInsert, after: insert.dataset.after}, location.origin);
       return;
     }
+    if (event.target.closest('[data-layout-remaining]')) {
+      window.parent.postMessage({type: 'cimaise-layout-customize-remaining'}, location.origin);
+      return;
+    }
     const block = event.target.closest('[data-layout-block]');
     if (block) window.parent.postMessage({type: 'cimaise-layout-select', id: block.dataset.layoutBlock}, location.origin);
   }, true);
   gallery.addEventListener('keydown', event => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (event.target.closest('[data-layout-remaining]')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.parent.postMessage({type: 'cimaise-layout-customize-remaining'}, location.origin);
+      return;
+    }
     const block = event.target.closest('[data-layout-block]');
     if (block) {
       event.preventDefault();

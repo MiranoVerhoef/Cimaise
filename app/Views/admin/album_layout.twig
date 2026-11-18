@@ -6,6 +6,7 @@
   <header class="layout-editor-toolbar">
     <div><a href="{{ base_path }}/admin/albums/{{ album.id }}/edit">← {{ trans('admin.layout.back') }}</a><h1>{{ album.title }}</h1></div>
     <div class="layout-editor-actions">
+      <a href="{{ base_path }}/album/{{ album.slug }}" target="_blank" rel="noopener">{{ trans('admin.albums.view_page') }}</a>
       <button type="button" data-action="undo" disabled>{{ trans('admin.layout.undo') }}</button>
       <button type="button" data-action="redo" disabled>{{ trans('admin.layout.redo') }}</button>
       <button type="button" data-action="default">{{ trans('admin.layout.use_default') }}</button>
@@ -65,6 +66,7 @@
     <header><h2 id="layout-picker-heading">{{ trans('admin.layout.choose_photos') }}</h2><button type="button" data-action="cancel-picker">{{ trans('admin.layout.cancel') }}</button></header>
     <input id="layout-photo-search" type="search" placeholder="{{ trans('admin.layout.search') }}" aria-label="{{ trans('admin.layout.search') }}">
     <p class="layout-help">{{ trans('admin.layout.library_help') }} <a href="{{ base_path }}/admin/albums/{{ album.id }}/edit">{{ trans('admin.layout.upload') }}</a></p>
+    <button type="button" data-action="select-all-picker">{{ trans('admin.media.select_all') }}</button>
     <div id="layout-picker-photos"></div>
     <footer><span id="layout-picker-count" role="status"></span><button type="button" class="layout-primary" data-action="apply-picker">{{ trans('admin.layout.apply') }}</button></footer>
   </dialog>

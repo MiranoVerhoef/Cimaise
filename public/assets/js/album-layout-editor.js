@@ -150,6 +150,7 @@
     pickerType = type;
     picker.dataset.existing = String(existing);
     picker.dataset.after = after || '';
+    action('select-all-picker').hidden = type !== 'grid';
     pickerIds = new Set(existing ? current().images : []);
     search.value = '';
     renderPicker();
@@ -220,6 +221,9 @@
       refresh();
     } else if (mode === 'choose' && current()) {
       openPicker(current().type, true);
+    } else if (mode === 'select-all-picker' && pickerType === 'grid') {
+      picker.querySelectorAll('input[name="layout-photo-selection"]').forEach(input => pickerIds.add(Number(input.value)));
+      renderPicker();
     } else if (mode === 'cancel-picker') {
       picker.close();
     } else if (mode === 'apply-picker') {
@@ -288,6 +292,11 @@
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
     if (event.data?.type === 'cimaise-layout-ready') preview();
+    if (event.data?.type === 'cimaise-layout-customize-remaining' && !saving) {
+      const placed = new Set(layout.blocks.flatMap(block => block.images || []));
+      const ids = photos.filter(photo => !placed.has(photo.id)).map(photo => photo.id).slice(0, 2000);
+      if (ids.length) insert(newBlock('grid', ids), layout.blocks.at(-1)?.id);
+    }
     if (event.data?.type === 'cimaise-layout-insert' && !saving && ['photo', 'grid', 'text'].includes(event.data.blockType)) {
       if (event.data.blockType === 'text') insert(newBlock('text'), event.data.after);
       else openPicker(event.data.blockType, false, event.data.after);

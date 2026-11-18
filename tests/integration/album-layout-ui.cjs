@@ -67,7 +67,8 @@ const assert = require('node:assert/strict');
     await page.locator('[data-action="apply-picker"]').click();
   }
   await choose('photo', 0);
-  await choose('grid', 1);
+  await frame.locator('[data-layout-remaining]').click();
+  await page.waitForFunction(() => document.getElementById('layout-selected-heading').textContent === 'Photo grid');
   await frame.locator('[data-layout-insert="text"]').last().click();
   await page.locator('[data-prop="text"]').fill('A personal story <script>window.badLayout = true</script>');
   await page.locator('[data-prop="text"]').blur();
@@ -113,6 +114,7 @@ const assert = require('node:assert/strict');
   await publicPage.locator('.album-layout .gallery-link').first().click();
   await publicPage.locator('.pswp--open').waitFor();
   await publicPage.keyboard.press('Escape');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({path: '/tmp/cimaise-album-layout-editor.png', fullPage: true});
   await publicPage.screenshot({path: '/tmp/cimaise-album-layout-public.png', fullPage: true});
   await upload();
