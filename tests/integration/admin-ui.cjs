@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
   async function saveForm(id) {
     const form = await page.locator(id).evaluate(element => ({ action: element.action, values: Object.fromEntries(new FormData(element)) }));
     const saved = await context.request.post(form.action, { form: form.values, maxRedirects: 0 });
-    assert.equal(saved.status(), 302, await saved.text());
+    assert.equal(saved.status(), 302, form.action + ': ' + (await saved.text()).slice(0, 1200));
   }
   const firstPaint = await context.newPage();
   let releaseNavigationScript;
