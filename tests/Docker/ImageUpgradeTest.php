@@ -149,8 +149,8 @@ PHP);
                 . '$db = new \App\Support\Database(database: "database/database.sqlite", isSqlite: true); '
                 . '$layout = new \App\Services\AlbumLayoutService($db); $layout->initialize(900); '
                 . '$base = ["blocks" => [["id" => "copy", "type" => "text", "text" => "Original layout"]]]; '
-                . '$layout->save(900, 0, $base, "publish"); $base["blocks"][0]["text"] = "Private draft"; '
-                . '$layout->save(900, 1, $base, "draft");'
+                . '$layout->save(900, 0, $layout->normalize($base, []), "publish"); $base["blocks"][0]["text"] = "Private draft"; '
+                . '$layout->save(900, 1, $layout->normalize($base, []), "draft");'
             ));
         }
 
@@ -190,8 +190,8 @@ PHP);
 
         if (getenv('CIMAISE_DOCKER_BASELINE_LAYOUTS') === '1') {
             $publicPage = $this->http('/album/suite-album');
-            self::assertStringContainsString('Original layout', $publicPage['body']);
-            self::assertStringNotContainsString('Private draft', $publicPage['body']);
+            self::assertTrue(str_contains($publicPage['body'], 'Original layout'), 'The original published layout is still visible');
+            self::assertFalse(str_contains($publicPage['body'], 'Private draft'), 'The saved draft is still private');
             $layouts = json_decode($this->exec('php -r ' . escapeshellarg(
                 'require "vendor/autoload.php"; '
                 . '$db = new \App\Support\Database(database: "database/database.sqlite", isSqlite: true); '
