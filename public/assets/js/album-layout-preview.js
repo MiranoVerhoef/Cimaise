@@ -120,7 +120,7 @@
       section.tabIndex = 0;
       section.setAttribute('aria-label', labels.grid);
       const content = document.createElement('div');
-      appendPhotos(content, Array.from(photos.keys()).filter(id => !used.has(id)), 3, 8);
+      appendPhotos(content, Array.from(photos.keys()).filter(id => !used.has(id)), layout.remaining_columns ?? 3, layout.remaining_gap ?? 8);
       section.append(content);
       gallery.append(section);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Services\AlbumLayoutService;
 use App\Support\Database;
+use App\Support\Updater;
 use PHPUnit\Framework\TestCase;
 
 final class AlbumLayoutServiceTest extends TestCase
@@ -19,6 +20,64 @@ final class AlbumLayoutServiceTest extends TestCase
         $this->layouts = new AlbumLayoutService($this->db);
     }
 
+    public function testMigrationCanUpgradeAnExistingDatabase(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $this->db->execute('DROP TABLE album_layout_versions');
+        $this->db->execute('DROP TABLE album_layouts');
+        $this->db->pdo()->exec((string) file_get_contents($root . '/database/migrations/migrate_1.4.31_sqlite.sql'));
+        $published = $this->layout();
+        $draft = $published;
+        $draft['blocks'][1]['text'] = 'Unpublished on the old image';
+        $publishedJson = json_encode($published, JSON_THROW_ON_ERROR);
+        $this->db->execute('INSERT INTO album_layouts VALUES (?, ?, ?, ?)', [
+            81, json_encode($draft, JSON_THROW_ON_ERROR), $publishedJson, 4,
+        ]);
+        $this->db->execute('INSERT INTO album_layout_versions VALUES (?, ?, ?, ?, ?)', [81, 3, 'publish', $publishedJson, null]);
+
+        $result = (new Updater($this->db))->runMigrations('1.4.31', '1.5.0', $root . '/database/migrations');
+        self::assertTrue($result['success'], (string) $result['error']);
+        self::assertSame(4, $this->layouts->state(81)['revision']);
+        self::assertSame($published, $this->layouts->published(81));
+        self::assertSame($draft, $this->layouts->state(81)['draft']);
+        self::assertSame($published, $this->layouts->snapshot(81, 3, 'publish'));
+        self::assertSame(5, $this->layouts->save(81, 4, $draft, 'publish'));
+        self::assertNotNull($this->layouts->state(81)['published_at']);
+    }
+
+    public function testVersionRetentionKeepsTwentySnapshots(): void
+    {
+        for ($i = 0; $i < 22; ++$i) {
+            $this->layouts->save(81, $i, $this->layout(), 'draft');
+        }
+
+        self::assertSame(range(22, 3), array_column($this->layouts->history(81), 'revision'));
+        self::assertNull($this->layouts->snapshot(81, 2, 'draft'));
+        $snapshot = $this->layouts->snapshot(81, 3, 'draft');
+        $this->layouts->save(81, 22, $snapshot, 'restore');
+        self::assertSame($snapshot, $this->layouts->state(81)['draft']);
+        self::assertNull($this->layouts->published(81));
+        self::assertSame('restore', $this->layouts->history(81)[0]['kind']);
+    }
+
+    public function testRowSplitSurvivesSaveAndOnlyAppliesToPhotoPairs(): void
+    {
+        $input = ['blocks' => [[
+            'id' => 'grid', 'type' => 'grid', 'images' => [11, 12, 13, 14, 15],
+            'columns' => 3, 'rows' => [
+                0 => ['split' => 'equal', 'fill' => false],
+                1 => ['split' => '30-70', 'fill' => true],
+            ],
+        ]]];
+        $layout = $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
+        $this->layouts->save(81, 0, $layout, 'publish');
+        self::assertSame([1 => ['split' => '30-70', 'fill' => true]],
+            $this->layouts->state(81)['published']['blocks'][0]['rows']);
+        $input['blocks'][0]['rows'][1]['split'] = 'arbitrary';
+        $this->expectException(InvalidArgumentException::class);
+        $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
+    }
+
     private function layout(): array
     {
         return $this->layouts->normalize([
@@ -31,19 +90,37 @@ final class AlbumLayoutServiceTest extends TestCase
         ], [11,12,13]);
     }
 
-    public function testOldInstallationUsesDefaultWithoutCreatingTables(): void
+    public function testReadingDoesNotCreateARow(): void
     {
-        $this->db->pdo()->exec('DROP TABLE album_layout_versions; DROP TABLE album_layouts');
         self::assertNull($this->layouts->state(81)['published']);
-        self::assertFalse($this->db->query("SELECT name FROM sqlite_master WHERE name='album_layouts'")->fetchColumn());
-        $this->layouts->initialize(81);
-        $this->layouts->initialize(81);
-        self::assertSame(0, $this->layouts->state(81)['revision']);
+        self::assertSame(0, (int) $this->db->query('SELECT COUNT(*) FROM album_layouts')->fetchColumn());
+    }
+
+    public function testMissingPhotosArePrunedOnReadAndSave(): void
+    {
+        $this->layouts->save(81, 0, $this->layout(), 'draft');
+        $state = $this->layouts->state(81, [12]);
+        self::assertTrue($state['photos_removed']);
+        self::assertSame(['copy', 'grid'], array_column($state['draft']['blocks'], 'id'));
+        self::assertSame([12], $state['draft']['blocks'][1]['images']);
+        $updated = $this->layouts->normalize($this->layout(), [12]);
+        self::assertSame($state['draft'], $updated);
+        self::assertSame(2, $this->layouts->save(81, $state['revision'], $updated, 'draft'));
+    }
+
+    public function testCorruptPublishedLayoutFallsBackWithoutLosingDraft(): void
+    {
+        $layout = $this->layout();
+        $this->layouts->save(81, 0, $layout, 'publish');
+        foreach (['broken JSON', '{"version":1,"blocks":[{"type":"unsupported"}]}'] as $json) {
+            $this->db->execute('UPDATE album_layouts SET published_json = ? WHERE album_id = ?', [$json, 81]);
+            self::assertNull($this->layouts->state(81)['published']);
+            self::assertSame($layout, $this->layouts->state(81)['draft']);
+        }
     }
 
     public function testDraftIsPrivateUntilPublishedAndDefaultKeepsTheDraft(): void
     {
-        $this->layouts->initialize(81);
         $layout = $this->layout();
         self::assertSame(1, $this->layouts->save(81, 0, $layout, 'draft'));
         self::assertNull($this->layouts->state(81)['published']);
@@ -61,7 +138,6 @@ final class AlbumLayoutServiceTest extends TestCase
 
     public function testStaleEditorCannotOverwritePublishedWork(): void
     {
-        $this->layouts->initialize(81);
         $this->layouts->save(81, 0, $this->layout(), 'publish');
         try {
             $this->layouts->save(81, 0, null, 'default');
@@ -72,65 +148,9 @@ final class AlbumLayoutServiceTest extends TestCase
         self::assertSame($this->layout(), $this->layouts->state(81)['published']);
     }
 
-    public function testVersionsPreserveExistingLayoutsAndRestoreOnlyTheDraft(): void
-    {
-        $layout = $this->layout();
-        $this->layouts->initialize(81);
-        $initial = json_encode($layout, JSON_THROW_ON_ERROR);
-        $this->db->execute('UPDATE album_layouts SET revision = 4, draft_json = ?, published_json = ? WHERE album_id = 81', [$initial, $initial]);
-        // Simulate an upgrade from an earlier prerelease at the same migration checkpoint.
-        $this->db->pdo()->exec('DROP TABLE album_layout_versions');
-        $this->layouts->initialize(81);
-        $new = $layout;
-        $new['blocks'][1]['text'] = 'New layout';
-        $this->layouts->save(81, 4, $new, 'publish');
-
-        self::assertSame([5, 4], array_column($this->layouts->history(81), 'revision'));
-        self::assertNull($this->layouts->snapshot(82, 4, 'publish'));
-        $snapshot = $this->layouts->snapshot(81, 4, 'publish');
-        self::assertSame($layout, $snapshot);
-        $restored = $this->layouts->normalize($this->layouts->removeMissingPhotos($snapshot, [11, 12]), [11, 12]);
-        $this->layouts->save(81, 5, $restored, 'restore');
-        self::assertSame($restored, $this->layouts->state(81)['draft']);
-        self::assertSame($new, $this->layouts->state(81)['published']);
-        self::assertSame([12], $restored['blocks'][2]['images']);
-        self::assertSame('restore', $this->layouts->history(81)[0]['kind']);
-    }
-
-    public function testVersionRetentionKeepsTwentySnapshots(): void
-    {
-        $this->layouts->initialize(81);
-        for ($i = 0; $i < 22; ++$i) {
-            $this->layouts->save(81, $i, $this->layout(), 'draft');
-        }
-
-        self::assertSame(range(22, 3), array_column($this->layouts->history(81), 'revision'));
-        self::assertNull($this->layouts->snapshot(81, 2, 'draft'));
-    }
-
-    public function testRowSplitSurvivesSaveAndOnlyAppliesToPhotoPairs(): void
-    {
-        $input = ['blocks' => [[
-            'id' => 'grid', 'type' => 'grid', 'images' => [11, 12, 13, 14, 15],
-            'columns' => 3, 'rows' => [
-                0 => ['split' => 'equal', 'fill' => false],
-                1 => ['split' => '30-70', 'fill' => true],
-            ],
-        ]]];
-        $layout = $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
-        $this->layouts->initialize(81);
-        $this->layouts->save(81, 0, $layout, 'publish');
-        self::assertSame([1 => ['split' => '30-70', 'fill' => true]],
-            $this->layouts->state(81)['published']['blocks'][0]['rows']);
-        $input['blocks'][0]['rows'][1]['split'] = 'arbitrary';
-        $this->expectException(InvalidArgumentException::class);
-        $this->layouts->normalize($input, [11, 12, 13, 14, 15]);
-    }
-
-    public function testUnauthorizedImageAndInvalidCssAreRejected(): void
+    public function testInvalidImageAndCssAreRejected(): void
     {
         foreach ([
-            ['id'=>'bad','type'=>'photo','images'=>[999]],
             ['id'=>'bad','type'=>'photo','images'=>['11']],
             ['id'=>'bad','type'=>'grid','width'=>'100%;color:red'],
             ['id'=>'bad','type'=>'grid','columns'=>0],
@@ -156,14 +176,157 @@ final class AlbumLayoutServiceTest extends TestCase
         self::assertSame([], $this->layouts->resolve($layout, $images)['remaining']);
     }
 
+    public function testRenderingUsesCallerProvidedRowsInLayoutOrderWithoutDuplicates(): void
+    {
+        $layout = $this->layout();
+        $layout['blocks'][0]['images'] = [12];
+        $images = [
+            ['id' => 14, 'gps_lat' => null],
+            ['id' => 12, 'gps_lat' => 52.09],
+            ['id' => 13, 'gps_lat' => null],
+        ];
+        $resolved = $this->layouts->resolve($layout, $images);
+        self::assertSame([$images[1]], $resolved['blocks'][0]['photos']);
+        self::assertSame([$images[2]], $resolved['blocks'][2]['photos']);
+        self::assertSame([$images[0]], $resolved['remaining']);
+    }
+
     public function testAlbumDeletionRemovesItsLayoutsOnly(): void
     {
         foreach ([81,82] as $id) {
-            $this->layouts->initialize($id);
             $this->layouts->save($id, 0, $this->layout(), 'publish');
         }
         $this->db->execute('DELETE FROM albums WHERE id=81');
         self::assertNull($this->layouts->state(81)['published']);
         self::assertSame($this->layout(), $this->layouts->state(82)['published']);
+    }
+
+    public function testSaveNormalizesTheLayoutItself(): void
+    {
+        // A caller that forgets normalize() must not store a layout that
+        // state() would later discard (missing version) or an invalid one.
+        $raw = ['blocks' => [['id' => 'copy', 'type' => 'text', 'text' => '  Hello  ']]];
+        $this->layouts->save(81, 0, $raw, 'publish');
+        $published = $this->layouts->state(81)['published'];
+        self::assertNotNull($published);
+        self::assertSame(1, $published['version']);
+        self::assertSame('Hello', $published['blocks'][0]['text']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->layouts->save(81, 1, ['blocks' => [['id' => 'x', 'type' => 'html']]], 'draft');
+    }
+
+    public function testOversizedLayoutIsRejectedBeforeReachingTheDatabase(): void
+    {
+        // 200 valid text blocks of escaped control characters encode to ~24 MB,
+        // more than MySQL MEDIUMTEXT can hold.
+        $text = 'a' . str_repeat("\x01", AlbumLayoutService::MAX_TEXT_CHARS - 2) . 'a';
+        $blocks = [];
+        for ($i = 0; $i < AlbumLayoutService::MAX_BLOCKS; $i++) {
+            $blocks[] = ['id' => "t{$i}", 'type' => 'text', 'text' => $text];
+        }
+        try {
+            $this->layouts->save(81, 0, ['blocks' => $blocks], 'draft');
+            self::fail('Oversized layout accepted');
+        } catch (InvalidArgumentException $error) {
+            self::assertStringContainsString('too large', $error->getMessage());
+        }
+        self::assertSame(0, $this->layouts->state(81)['revision']);
+        self::assertNull($this->layouts->state(81)['draft']);
+    }
+
+    public function testTimestampsTrackEditsAndPublishing(): void
+    {
+        $this->layouts->save(81, 0, $this->layout(), 'draft');
+        $state = $this->layouts->state(81);
+        self::assertNotNull($state['updated_at']);
+        self::assertNull($state['published_at']);
+
+        $this->layouts->save(81, 1, $this->layout(), 'publish');
+        self::assertNotNull($this->layouts->state(81)['published_at']);
+
+        $this->layouts->save(81, 2, null, 'default');
+        $state = $this->layouts->state(81);
+        self::assertNull($state['published_at']);
+        self::assertNotNull($state['updated_at']);
+    }
+
+    public function testRemainingGridSettingsAreValidatedAndResolved(): void
+    {
+        $defaults = $this->layout();
+        self::assertSame(3, $defaults['remaining_columns']);
+        self::assertSame(8, $defaults['remaining_gap']);
+
+        $custom = $this->layouts->normalize(['blocks' => [], 'remaining_columns' => 4, 'remaining_gap' => 24], null);
+        $resolved = $this->layouts->resolve($custom, [['id' => 11]]);
+        self::assertSame(4, $resolved['remaining_columns']);
+        self::assertSame(24, $resolved['remaining_gap']);
+
+        foreach ([['remaining_columns' => 0], ['remaining_columns' => 9], ['remaining_gap' => -1], ['remaining_gap' => '8']] as $bad) {
+            try {
+                $this->layouts->normalize(['blocks' => []] + $bad, null);
+                self::fail('Invalid remaining grid accepted: ' . json_encode($bad));
+            } catch (InvalidArgumentException) {
+                self::assertTrue(true);
+            }
+        }
+    }
+
+    public function testPublishingInvalidatesThePublicPageButDraftsDoNot(): void
+    {
+        $settings = new \App\Services\SettingsService($this->db);
+        $spy = new class ($settings, $this->db) extends \App\Services\PageCacheService {
+            /** @var list<string> */
+            public array $calls = [];
+            public function invalidateByTag(string $tag): int
+            {
+                $this->calls[] = 'tag:' . $tag;
+                return 0;
+            }
+            public function invalidate(string $type): int
+            {
+                $this->calls[] = 'key:' . $type;
+                return 0;
+            }
+        };
+        $layouts = new AlbumLayoutService($this->db, $spy);
+        $expected = ['tag:' . \App\Services\CacheTags::album(81), 'key:album_81'];
+
+        $layouts->save(81, 0, $this->layout(), 'draft');
+        self::assertSame([], $spy->calls, 'a private draft must not touch the public cache');
+
+        $layouts->save(81, 1, $this->layout(), 'publish');
+        self::assertSame($expected, $spy->calls);
+
+        $spy->calls = [];
+        $layouts->save(81, 2, null, 'default');
+        self::assertSame($expected, $spy->calls);
+    }
+
+    public function testMissingTableMeansNoPublishedLayout(): void
+    {
+        $this->db->pdo()->exec('DROP TABLE album_layouts');
+        self::assertNull($this->layouts->published(81));
+    }
+
+    public function testFirstSaveForAMissingAlbumIsNotFoundNotAConflict(): void
+    {
+        try {
+            $this->layouts->save(999, 0, $this->layout(), 'draft');
+            self::fail('Missing album accepted');
+        } catch (RuntimeException $error) {
+            self::assertSame(404, $error->getCode());
+        }
+        self::assertSame(0, (int) $this->db->query('SELECT COUNT(*) FROM album_layouts')->fetchColumn());
+    }
+
+    public function testOtherReadErrorsAreNotMistakenForNoLayout(): void
+    {
+        // A broken table (here: missing column) is a real error, unlike a
+        // table that does not exist yet before the 1.5.0 migration.
+        $this->db->pdo()->exec('DROP TABLE album_layouts');
+        $this->db->pdo()->exec('CREATE TABLE album_layouts (album_id INTEGER PRIMARY KEY)');
+        $this->expectException(\PDOException::class);
+        $this->layouts->published(81);
     }
 }

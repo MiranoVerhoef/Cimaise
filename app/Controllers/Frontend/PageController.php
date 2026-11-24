@@ -938,23 +938,72 @@ class PageController extends BaseController
         return $formatted;
     }
 
+    /**
+     * Resolve the cached layout spec against this request's (already
+     * privacy-masked) image rows. Empty when the album has no published layout.
+     *
+     * @param array<string, mixed> $data cacheable album page data
+     * @return array<string, mixed>
+     */
+    private function albumLayoutData(array $data): array
+    {
+        if (!isset($data['album_layout_spec']) || !is_array($data['album_layout_spec'])) {
+            return [];
+        }
+        $images = is_array($data['images'] ?? null) ? array_values($data['images']) : [];
+
+        $layout = (new \App\Services\AlbumLayoutService($this->db))->resolve(
+            $data['album_layout_spec'], $images
+        );
+        $displayed = [];
+        foreach ($layout['blocks'] as $block) {
+            foreach ($block['photos'] ?? [] as $photo) {
+                $displayed[] = $photo;
+            }
+        }
+
+        return [
+            'album_layout' => $layout,
+            'album_layout_images' => array_merge($displayed, $layout['remaining']),
+        ];
+    }
+
     public function album(Request $request, Response $response, array $args): Response
     {
-        $slug = $args['slug'] ?? '';
+        return $this->renderAlbum($request, $response, (string) ($args['slug'] ?? ''));
+    }
+
+    public function previewAlbumLayout(Request $request, Response $response, int $albumId): Response
+    {
+        if (!$this->isAdmin()) {
+            return $response->withStatus(403)->withHeader('Cache-Control', 'private, no-store');
+        }
+
+        $preview = $this->renderAlbum($request, $response, '', $albumId)
+            ->withHeader('Cache-Control', 'private, no-store')
+            ->withHeader('X-Robots-Tag', 'noindex, nofollow, noimageindex');
+        return $preview->getStatusCode() === 200
+            ? $preview->withHeader('X-Cimaise-Layout-Preview', '1')
+            : $preview;
+    }
+
+    private function renderAlbum(Request $request, Response $response, string $slug, ?int $previewAlbumId = null): Response
+    {
+        $layoutPreview = $previewAlbumId !== null;
         $params = $request->getQueryParams();
         $templateId = isset($params['template']) ? (int) $params['template'] : null;
         $pdo = $this->db->pdo();
         $templateService = new \App\Services\TemplateService($this->db);
 
+        $albumCondition = $layoutPreview ? 'a.id = :album' : 'a.slug = :album AND a.is_published = 1';
         $stmt = $pdo->prepare('
             SELECT a.*, c.name as category_name, c.slug as category_slug,
                    t.name as template_name, t.slug as template_slug, t.settings as template_settings, t.libs as template_libs
             FROM albums a 
             JOIN categories c ON c.id = a.category_id 
             LEFT JOIN templates t ON t.id = a.template_id
-            WHERE a.slug = :slug AND a.is_published = 1
-        ');
-        $stmt->execute([':slug' => $slug]);
+            WHERE ' . $albumCondition);
+        $stmt->execute([':album' => $previewAlbumId ?? $slug]);
         $album = $stmt->fetch();
 
         if (!$album) {
@@ -965,7 +1014,7 @@ class PageController extends BaseController
         }
 
         // Check if user is admin (admins bypass password/NSFW protection)
-        $isAdmin = $this->isAdmin();
+        $isAdmin = $layoutPreview || $this->isAdmin();
         $nsfwConsent = $this->hasNsfwConsent();
 
         // Password protection with session timeout - skip for admins
@@ -1053,6 +1102,7 @@ class PageController extends BaseController
                 return $this->view->render($response, $cached['template_file'], array_merge(
                     $cached['data'],
                     $this->albumRequestSeo($request, (array) $album, $cached['data']),
+                    $this->albumLayoutData($cached['data']),
                     [
                     'is_admin' => $isAdmin,
                     'nsfw_consent' => $nsfwConsent,
@@ -1074,6 +1124,7 @@ class PageController extends BaseController
                 return $this->view->render($response, $staleCached['template_file'], array_merge(
                     $staleCached['data'],
                     $this->albumRequestSeo($request, (array) $album, $staleCached['data']),
+                    $this->albumLayoutData($staleCached['data']),
                     [
                     'is_admin' => $isAdmin,
                     'nsfw_consent' => $nsfwConsent,
@@ -1511,6 +1562,19 @@ class PageController extends BaseController
             $image['fallback_src'] = $bestUrl ?: $lightboxUrl;
         }
 
+        if ($layoutPreview) {
+            // Use authenticated URLs for unpublished and protected images.
+            foreach ($images as &$image) {
+                $adminMedia = '/admin/media/images/' . (int) $image['id'];
+                $image['url'] = $image['fallback_src'] = $image['lightbox_url'] = $adminMedia . '/original';
+                foreach ($image['variants'] as &$variant) {
+                    $variant['path'] = $adminMedia . '/variants/' . $variant['variant'] . '.' . $variant['format'];
+                }
+                unset($variant);
+            }
+            unset($image);
+        }
+
         // Gallery meta mapped from album for consistency with gallery view
         $galleryMeta = [
             'id' => (int) $album['id'],
@@ -1642,17 +1706,20 @@ class PageController extends BaseController
         };
 
         $layoutService = new \App\Services\AlbumLayoutService($this->db);
-        $layoutState = $layoutService->state((int) $album['id']);
-        $layoutPreview = $isAdmin && ($request->getQueryParams()['layout_preview'] ?? '') === 'draft';
-        $albumLayout = $layoutPreview
-            ? ($layoutState['draft'] ?? $layoutState['published'] ?? ['version' => 1, 'blocks' => [], 'include_remaining' => true])
-            : $layoutState['published'];
-        if ($albumLayout !== null) {
+        if ($layoutPreview) {
+            $editorState = $layoutService->state((int) $album['id'], array_map('intval', array_column($images, 'id')));
+            $albumLayoutSpec = $editorState['draft'] ?? $editorState['published']
+                ?? $layoutService->normalize(['blocks' => []], null);
+        } else {
+            $albumLayoutSpec = $layoutService->published((int) $album['id']);
+        }
+        if ($albumLayoutSpec !== null) {
             $twigTemplate = 'frontend/gallery.twig';
             $availableTemplates = [];
             $templateSettings['layout'] = 'album_blocks';
+            $templateCustomCss = $templateCustomJs = $templateCustomTwig = null;
+            $customPageTemplate = $customPageTemplateId = null;
         }
-        $resolvedLayout = $albumLayout !== null ? $layoutService->resolve($albumLayout, $images) : null;
 
         $pageCustomCss = '';
         $pageCustomJs = '';
@@ -1757,16 +1824,9 @@ class PageController extends BaseController
             'layout_mode' => (string) ($settingsServiceForPage->get('home.masonry_layout_mode', 'fullwidth') ?? 'fullwidth'),
         ];
 
-        if ($layoutPreview) {
-            $response = $response->withHeader('X-Cimaise-Layout-Preview', '1')
-                ->withHeader('Cache-Control', 'private, no-store')
-                ->withHeader('X-Robots-Tag', 'noindex, nofollow');
-        }
-
         // Cacheable data (excludes session-specific vars: csrf, is_admin, nsfw_consent)
         $cacheableData = [
-            'album_layout' => $resolvedLayout,
-            'album_layout_preview' => $layoutPreview,
+            'album_layout_spec' => $albumLayoutSpec,
             'album' => $galleryMeta,
             'images' => $images,
             'template_name' => $template['name'] ?? '',
@@ -1818,10 +1878,19 @@ class PageController extends BaseController
                 'template_file' => $twigTemplate,
                 'data' => $cacheableData,
             ], CacheTags::albumRelated((int) $album['id'], (int) $album['category_id']));
+            // Write, then verify: a layout published while this page was being
+            // built may have invalidated the key BEFORE this write, which would
+            // bring the old layout back for the whole TTL. Re-read after the
+            // write and drop the entry if it changed; a publish landing after
+            // this read invalidates the entry itself.
+            if ((new \App\Services\AlbumLayoutService($this->db))->published((int) $album['id']) !== $albumLayoutSpec) {
+                $this->getPageCacheService()->invalidate($cacheKey);
+            }
         }
 
-        $rendered = $this->view->render($response, $twigTemplate, array_merge($cacheableData, [
+        $rendered = $this->view->render($response, $twigTemplate, array_merge($cacheableData, $this->albumLayoutData($cacheableData), [
             'is_admin' => $isAdmin,
+            'album_layout_preview' => $layoutPreview,
             'nsfw_consent' => $this->hasNsfwConsent(),
             'csrf' => $_SESSION['csrf'] ?? '',
         ]));
@@ -1834,9 +1903,6 @@ class PageController extends BaseController
         // revalidation; CacheMiddleware honours an existing private/no-cache.
         if (!empty($album['password_hash']) || !empty($album['is_nsfw'])) {
             $rendered = $rendered->withHeader('Cache-Control', 'private, no-cache, must-revalidate');
-        }
-        if ($layoutPreview) {
-            $rendered = $rendered->withHeader('Cache-Control', 'private, no-store');
         }
 
         return $rendered;

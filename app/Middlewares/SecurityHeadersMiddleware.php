@@ -33,6 +33,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
         $request = $request->withAttribute('csp_nonce', $nonce);
 
         $response = $handler->handle($request);
+        $layoutPreview = $response->getHeaderLine('X-Cimaise-Layout-Preview') === '1';
 
         // Check if this is an admin route
         $path = $request->getUri()->getPath();
@@ -43,7 +44,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
         // but dynamically-created scripts by libraries don't carry the nonce.
         // Admin is behind authentication, so the XSS risk from unsafe-inline is acceptable.
         // Frontend routes: strict nonce-based CSP with external image sources for galleries
-        if ($isAdminRoute) {
+        if ($isAdminRoute && !$layoutPreview) {
             $csp = "upgrade-insecure-requests; default-src 'self'; "
                  . "img-src 'self' data: blob:; "
                  . "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
@@ -79,7 +80,6 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
 
         // The controller marks only an authenticated, non-cacheable draft preview.
         // Allow that document inside the same site's admin editor.
-        $layoutPreview = $response->getHeaderLine('X-Cimaise-Layout-Preview') === '1';
         if ($layoutPreview) {
             $csp = str_replace("frame-ancestors 'none'", "frame-ancestors 'self'", $csp);
         }
