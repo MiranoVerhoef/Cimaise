@@ -8,7 +8,10 @@
 }
 .album-layout-row { display: flex; gap: var(--block-gap, 8px); align-items: start; }
 .album-layout-cell { flex-basis: 0; min-width: 0; }
-.album-layout-photo { width: 100%;
+@media (min-width: 640px) {
+  .album-layout-row--lone > .album-layout-cell {
+    flex: 0 0 calc((100% - (var(--block-columns) - 1) * var(--block-gap)) / var(--block-columns));
+  }
 }
 .album-layout .gallery-link, .album-layout picture, .album-layout img { display: block; width: 100%; }
 .album-layout img { height: auto; }

@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
   const form = await page.locator('#album-form').evaluate(form => ({
     action: form.action, values: Object.fromEntries(new FormData(form)),
   }));
+  delete form.values.is_published;
   const created = await context.request.post(form.action, {
     form: form.values, headers: {Accept: 'application/json'}, maxRedirects: 0,
   });
@@ -47,6 +48,15 @@ const assert = require('node:assert/strict');
   await upload();
   await upload();
   await upload();
+  // An unpublished album can be previewed before its public page exists.
+  const previewUrl = '/admin/albums/' + album.id + '/layout/preview';
+  const unpublishedPreview = await context.request.get(previewUrl);
+  assert.equal(unpublishedPreview.status(), 200);
+  assert.match(await unpublishedPreview.text(), /layout-preview-templates/);
+  const visitor = await browser.newContext({baseURL: 'http://localhost:8080'});
+  assert.equal((await visitor.request.get(previewUrl, {maxRedirects: 0})).status(), 302);
+  assert.equal((await visitor.request.get('/album/visual-layout-fixture')).status(), 404);
+
   // Publish the fixture using the normal album form.
   await page.goto('/admin/albums/' + album.id + '/edit');
   await page.locator('[name="is_published"]').check();
@@ -55,10 +65,9 @@ const assert = require('node:assert/strict');
   await page.locator('a[href$="/layout"]').click();
   const frame = page.frameLocator('#layout-preview');
   await frame.locator('#layout-preview-templates').waitFor({state: 'attached'});
-  const previewResponse = await context.request.get('/album/visual-layout-fixture?layout_preview=draft');
+  const previewResponse = await context.request.get(previewUrl);
   assert.equal(previewResponse.headers()['x-frame-options'], 'SAMEORIGIN');
   assert.match(previewResponse.headers()['cache-control'], /no-store/);
-  const visitor = await browser.newContext({baseURL: 'http://localhost:8080'});
   const publicPage = await visitor.newPage();
   await publicPage.goto('/album/visual-layout-fixture');
   assert.equal(await publicPage.locator('.album-layout').count(), 0, 'Normal uploads retain the default gallery');

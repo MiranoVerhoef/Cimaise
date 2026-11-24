@@ -79,7 +79,7 @@
         <button type="button" data-device="tablet" aria-pressed="false">{{ trans('admin.layout.tablet') }}</button>
         <button type="button" data-device="mobile" aria-pressed="false">{{ trans('admin.layout.mobile') }}</button>
       </div>
-      <div id="layout-preview-viewport"><iframe id="layout-preview" title="{{ trans('admin.layout.preview') }}" src="{{ base_path }}/album/{{ album.slug }}?layout_preview=draft"></iframe></div>
+      <div id="layout-preview-viewport"><iframe id="layout-preview" title="{{ trans('admin.layout.preview') }}" src="{{ base_path }}/admin/albums/{{ album.id }}/layout/preview"></iframe></div>
     </section>
   </div>
   <dialog id="layout-photo-picker" aria-labelledby="layout-picker-heading">

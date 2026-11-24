@@ -6,8 +6,6 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Services\AlbumLayoutService;
-use App\Services\PageCacheService;
-use App\Services\SettingsService;
 use App\Support\Database;
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -39,12 +37,12 @@ final class AlbumLayoutController extends BaseController
             return $response->withStatus(404);
         }
         $service = new AlbumLayoutService($this->db);
-        $service->initialize((int) $album['id']);
+        $images = $this->images((int) $album['id']);
         return $this->view->render($response->withHeader('Cache-Control', 'no-store'), 'admin/album_layout.twig', [
             'album' => $album,
-            'layout_state' => $service->state((int) $album['id']),
+            'layout_state' => $service->state((int) $album['id'], array_map('intval', array_column($images, 'id'))),
             'layout_history' => $service->history((int) $album['id']),
-            'layout_images' => $this->images((int) $album['id']),
+            'layout_images' => $images,
         ]);
     }
 
@@ -77,26 +75,22 @@ final class AlbumLayoutController extends BaseController
                     if ($snapshot === null) {
                         return $this->jsonResponse($response, ['error' => 'This layout version is no longer available.'], 404);
                     }
-                    $layout = $service->normalize($service->removeMissingPhotos($snapshot, $ids), $ids);
+                    $layout = $service->normalize($snapshot, $ids);
                 } else {
-                    if (!is_array($body['layout'] ?? null) || strlen(json_encode($body['layout'], JSON_THROW_ON_ERROR)) > 262144) {
+                    if (!is_array($body['layout'] ?? null)) {
                         throw new InvalidArgumentException('Layout is missing or too large.');
                     }
                     $layout = $service->normalize($body['layout'], $ids);
                 }
             }
             $revision = $service->save($albumId, $body['revision'], $layout, $action);
-        } catch (InvalidArgumentException $error) {
+        } catch (InvalidArgumentException | \JsonException $error) {
             return $this->jsonResponse($response, ['error' => $error->getMessage()], 422);
         } catch (\RuntimeException $error) {
             if ($error->getCode() !== 409) {
                 throw $error;
             }
             return $this->jsonResponse($response, ['error' => $error->getMessage()], 409);
-        }
-        if (in_array($action, ['publish', 'default'], true)) {
-            // Publishing must replace stale HTML on the very next visitor request.
-            (new PageCacheService(new SettingsService($this->db), $this->db))->clearAll();
         }
         return $this->jsonResponse($response, ['ok' => true, 'revision' => $revision, 'layout' => $layout,
             'history' => $service->history($albumId)])
