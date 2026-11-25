@@ -1,0 +1,52 @@
+name: Prepare Docker release artifacts
+on:
+  push:
+    branches: ["release/1.5.0-test.1-artifacts"]
+permissions:
+  contents: read
+jobs:
+  archive:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 0e49282695b5106da37ef64194bb36f53caaa16b
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build Docker archive
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          pull: true
+          tags: cimaise-local:1.5.0-test.1
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=0e49282695b5106da37ef64194bb36f53caaa16b
+          cache-from: type=gha,scope=linux-${{ matrix.arch }}
+          outputs: type=docker,dest=${{ runner.temp }}/cimaise.tar
+      - name: Encrypt archive for transfer
+        env:
+          RECIPIENT: age1kn4elv9v2xq8r68mg2xeustvjc94wy9u955wkmfve9r2czenmc7q0sjky5
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age >/dev/null
+          gzip -1 -c "$RUNNER_TEMP/cimaise.tar" | age --encrypt --recipient "$RECIPIENT" -o "$RUNNER_TEMP/cimaise.tar.gz.age"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: encrypted-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/cimaise.tar.gz.age
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
