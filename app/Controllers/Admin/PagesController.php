@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Services\AlbumGridMenu;
 use App\Services\CacheTags;
+use App\Services\NavigationService;
 use App\Services\ImagesService;
 use App\Services\PageCacheService;
 use App\Services\SettingsService;
@@ -124,7 +126,13 @@ class PagesController extends BaseController
             'home.masonry_layout_mode' => (string)($svc->get('home.masonry_layout_mode', 'fullwidth') ?? 'fullwidth'),
             'home.masonry_max_images' => (int)($svc->get('home.masonry_max_images', 0) ?? 0),
         ];
+        $storedMenu = $svc->get(AlbumGridMenu::SETTING);
+        $menuCategories = (new NavigationService($this->db))->getNavigationCategories();
         return $this->view->render($response, 'admin/pages/home.twig', [
+            'album_grid_menu_editor' => AlbumGridMenu::editorState($storedMenu, $menuCategories),
+            'album_grid_menu_automatic' => !is_array($storedMenu),
+            'album_grid_categories' => $menuCategories,
+            'album_grid_max_groups' => AlbumGridMenu::MAX_GROUPS,
             'settings' => $settings,
             'csrf' => $_SESSION['csrf'] ?? ''
         ]);
@@ -147,7 +155,18 @@ class PagesController extends BaseController
         if (!in_array($homeTemplate, ['classic', 'modern', 'album-grid', 'parallax', 'masonry', 'snap', 'gallery', 'editorial', 'justified', 'slideshow', 'split', 'bento', 'filmstrip'], true)) {
             $homeTemplate = 'classic';
         }
-        $svc->set('home.template', $homeTemplate);
+        $homeChanges = ['home.template' => $homeTemplate];
+        $menu = $data['album_grid_menu'] ?? null;
+        if ($homeTemplate === 'album-grid' && is_string($menu) && strlen($menu) <= 65536) {
+            $decodedMenu = json_decode($menu, true);
+            if ($menu === 'null') {
+                $homeChanges[AlbumGridMenu::SETTING] = null;
+            } elseif (is_array($decodedMenu)) {
+                $menuCategories = (new NavigationService($this->db))->getNavigationCategories();
+                $homeChanges[AlbumGridMenu::SETTING] = AlbumGridMenu::editorState($decodedMenu, $menuCategories);
+            }
+        }
+        $svc->setMany($homeChanges);
 
         // Pure Masonry settings
         $masonryGapH = (int)($data['masonry_gap_h'] ?? 0);
@@ -210,7 +229,7 @@ class PagesController extends BaseController
         // Invalidate home page cache and related caches
         $pageCache = new PageCacheService($svc, $this->db);
         $pageCache->invalidateByTags(CacheTags::homeRelated());
-        $pageCache->invalidateHome();
+        $pageCache->invalidateHome(allowStale: !array_key_exists(AlbumGridMenu::SETTING, $homeChanges));
 
         // Invalidate Twig globals cache (home settings affect layout)
         TwigGlobalsCache::invalidate();

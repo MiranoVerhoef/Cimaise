@@ -763,7 +763,7 @@ class SettingsController extends BaseController
     }
 
     /**
-     * Upload favicon source image (for text logo mode)
+     * Upload an image for the custom favicon
      */
     public function uploadFaviconSource(Request $request, Response $response): Response
     {
@@ -788,7 +788,8 @@ class SettingsController extends BaseController
         $stream = $file->getStream();
         $stream->rewind();
         $content = $stream->read(8192);
-        $stream->rewind();
+        // Release the upload handle before moving and re-encoding the file.
+        $stream->close();
 
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $mimeType = $finfo->buffer($content);
@@ -887,7 +888,7 @@ class SettingsController extends BaseController
     }
 
     /**
-     * Generate favicons from the favicon source image (for text logo mode)
+     * Generate favicons from the custom favicon source
      */
     public function generateFaviconsFromSource(Request $request, Response $response): Response
     {

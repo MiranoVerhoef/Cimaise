@@ -5,6 +5,9 @@
 - Integrate upstream Cimaise 1.5.0 and its layout storage, rendering and cache improvements.
 - Keep the fork's visual editor, mixed-width rows, drag reordering and version history. Upgrade existing layouts without replacing drafts or snapshots.
 - Allow admins to preview layouts for unpublished albums.
+- Add an Album Grid navigation editor with named submenus, top-level links, and category filters for homepage album covers.
+- Keep the Album Grid logo and sidebar aligned when navigating between short and long pages.
+- Add a separate Custom Favicon upload under Appearance, available in both logo modes.
 
 ## [1.4.31-test.3] - 2026-11-18
 

@@ -1132,7 +1132,9 @@ function initLightbox() {
                 prevBodyOverflow = document.body.style.overflow;
                 prevHtmlPadding = document.documentElement.style.paddingRight;
                 prevBodyPadding = document.body.style.paddingRight;
-                const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+                const root = document.documentElement;
+                const hasStableGutter = getComputedStyle(root).getPropertyValue('scrollbar-gutter').startsWith('stable');
+                const scrollbarWidth = hasStableGutter ? 0 : window.innerWidth - root.clientWidth;
                 document.documentElement.style.overflow = 'hidden';
                 document.body.style.overflow = 'hidden';
                 if (scrollbarWidth > 0) {
@@ -1812,7 +1814,9 @@ function openLightboxAt(index) {
                   fbPrevBodyOverflow = document.body.style.overflow;
                   fbPrevHtmlPadding = document.documentElement.style.paddingRight;
                   fbPrevBodyPadding = document.body.style.paddingRight;
-                  const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+                  const root = document.documentElement;
+                  const hasStableGutter = getComputedStyle(root).getPropertyValue('scrollbar-gutter').startsWith('stable');
+                  const scrollbarWidth = hasStableGutter ? 0 : window.innerWidth - root.clientWidth;
                   document.documentElement.style.overflow = 'hidden';
                   document.body.style.overflow = 'hidden';
                   if (scrollbarWidth > 0) {

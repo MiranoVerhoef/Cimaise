@@ -23,7 +23,7 @@ class TwigGlobalsCache
      * globals changes (new/renamed keys), so deployed caches with the old shape
      * are never served to templates expecting the new key.
      */
-    private const CACHE_KEY_PREFIX = 'twig_globals:v8:';
+    private const CACHE_KEY_PREFIX = 'twig_globals:v9:';
     private const TTL = 300; // 5 minutes
 
     /**
@@ -86,6 +86,10 @@ class TwigGlobalsCache
                 // Site identity
                 'site_title' => $siteTitle,
                 'site_home_template' => (string) $settings->get('home.template', 'classic'),
+                'album_grid_menu' => $isAdminRoute ? null : AlbumGridMenu::links(
+                    $settings->get(AlbumGridMenu::SETTING),
+                    (new NavigationService($db))->getNavigationCategories()
+                ),
                 'site_logo' => $settings->get('site.logo'),
                 'site_logo_dark' => $settings->get('site.logo_dark'),
                 'site_logo_variants' => $settings->get('site.logo_variants'),

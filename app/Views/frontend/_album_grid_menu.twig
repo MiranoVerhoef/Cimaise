@@ -1,0 +1,15 @@
+{% for category in album_grid_menu.links|default([]) %}
+  <a href="{{ base_path }}/category/{{ category.slug|e('url') }}">{{ category.name }}</a>
+{% endfor %}
+{% for group in album_grid_menu.groups|default([]) %}
+  {% if group.links is not empty %}
+    <details class="album-grid-menu-group">
+      <summary>{{ group.label ?: trans('filter.categories') }}</summary>
+      <div class="album-grid-menu-links">
+        {% for category in group.links %}
+          <a href="{{ base_path }}/category/{{ category.slug|e('url') }}">{{ category.name }}</a>
+        {% endfor %}
+      </div>
+    </details>
+  {% endif %}
+{% endfor %}

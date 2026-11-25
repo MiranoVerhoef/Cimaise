@@ -1,5 +1,9 @@
 <style nonce="{{ csp_nonce() }}">
   .album-grid-sidebar { display: none; }
+  .album-grid-menu-mobile, .album-grid-menu-links { display: grid; gap: .75rem; }
+  .album-grid-menu-group summary { width: fit-content; cursor: pointer; }
+  .album-grid-menu-links { border-inline-start: 1px solid #8886; margin-block-start: .75rem; padding-inline-start: 1rem; }
+  .album-grid-menu-mobile a { width: fit-content; }
   .album-grid-photo-rows { --photo-row-height: clamp(8rem, 19vw, 21rem); display: flex; flex-wrap: wrap; gap: 8px; }
   .album-grid-photo { flex: var(--photo-ratio) 1 calc(var(--photo-ratio) * var(--photo-row-height)); min-width: 0; height: var(--photo-row-height); }
   .album-grid-photo-rows::after { content: ""; flex: 999 0 0; }
@@ -11,6 +15,8 @@
   }
 
   @media (min-width: 1024px) {
+    /* Keep the same sidebar width on pages with and without vertical scrolling. */
+    html { scrollbar-gutter: stable; }
     body:has(.album-grid-shell) { background-color: #ededed; }
     html.dark body:has(.album-grid-shell) { background-color: var(--color-bg-primary, #171a1f); }
     #main-header { display: none; }

@@ -190,6 +190,7 @@ class CacheWarmService
         // full of eligible albums, stops the count leaking hidden albums, and
         // preserves data_hash parity with a request-built cache entry.
         $accessSql = (new HomeAlbumVisibility($this->db))->eligibleSql() . ' AND a.is_nsfw = 0';
+        $accessSql .= AlbumGridMenu::homeFilterSql($homeTemplate, $this->settings->get(AlbumGridMenu::SETTING));
 
         $countStmt = $pdo->prepare('SELECT COUNT(*) FROM albums a WHERE a.is_published = 1' . $accessSql);
         $countStmt->execute();
