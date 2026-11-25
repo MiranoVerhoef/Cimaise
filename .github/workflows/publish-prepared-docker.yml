@@ -1,0 +1,94 @@
+name: Publish verified Docker archives
+on:
+  push:
+    branches: ["release/1.5.0-test.1-publish"]
+permissions:
+  actions: read
+  contents: read
+  packages: write
+concurrency: cimaise-docker-1.5.0-test.1
+jobs:
+  import:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            sha256: d06ec3bed7ebf0d3572b5b63ba7526c5c879fa4f1dbf229bd831733aeda9d93e
+            runner: ubuntu-24.04
+          - arch: arm64
+            sha256: 4fdd034459a2db9e892aa3cfa81881f1df7a45b31a8039fbd6a351866cddaa17
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 45716024534
+          name: encrypted-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/transfer
+      - name: Verify and import scanned archive
+        env:
+          IDENTITY: ${{ secrets.CIMAISE_TEST_1501_TRANSFER }}
+          ARCHIVE_SHA: ${{ matrix.sha256 }}
+          ARCH: ${{ matrix.arch }}
+          SOURCE: 0e49282695b5106da37ef64194bb36f53caaa16b
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age >/dev/null
+          umask 077
+          key="$RUNNER_TEMP/transfer.agekey"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$IDENTITY" > "$key"
+          age --decrypt -i "$key" -o "$RUNNER_TEMP/cimaise.tar.gz" "$RUNNER_TEMP/transfer/cimaise.tar.gz.age"
+          printf '%s  %s\n' "$ARCHIVE_SHA" "$RUNNER_TEMP/cimaise.tar.gz" | sha256sum -c --status
+          docker load -i "$RUNNER_TEMP/cimaise.tar.gz"
+          image=cimaise-local:1.5.0-test.1
+          test "$(docker inspect --format '{{.Architecture}}' "$image")" = "$ARCH"
+          test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$SOURCE"
+          docker run --rm --entrypoint php "$image" -r 'echo "Release PHP ", PHP_VERSION, "\n"; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 && version_compare(PHP_VERSION, "8.5.12", ">=") ? 0 : 1);'
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Push verified platform image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          target="ghcr.io/${GITHUB_REPOSITORY,,}:1.5.0-test.1-${ARCH}"
+          docker tag cimaise-local:1.5.0-test.1 "$target"
+          docker push "$target"
+
+  publish:
+    needs: import
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish the multi-platform test tag and source ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: 0e49282695b5106da37ef64194bb36f53caaa16b
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:1.5.0-test.1"
+          if docker buildx imagetools inspect "$image" >/dev/null 2>&1; then
+            echo "The final test tag already exists"; exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.5.0-test.1" --silent 2>/dev/null; then
+            echo "The source tag already exists"; exit 1
+          fi
+          docker buildx imagetools create -t "$image" "$image-amd64" "$image-arm64"
+          docker buildx imagetools inspect "$image"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" --method POST -f ref=refs/tags/v1.5.0-test.1 -f "sha=$SOURCE" --silent
