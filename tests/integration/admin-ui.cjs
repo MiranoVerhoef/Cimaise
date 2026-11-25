@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--hide-scrollbars'] });
   const context = await browser.newContext({ baseURL: 'http://localhost:8080', viewport: { width: 1440, height: 1000 } });
   context.setDefaultTimeout(30000);
   const login = await context.request.get('/admin/login');
@@ -534,6 +534,29 @@ const assert = require('node:assert/strict');
   await page.locator('[name="logo_max_width"]').fill('96');
   await saveForm('#branding-form');
   assert.equal(await page.locator('[name="logo_max_width"]').inputValue(), '96');
+  const customFavicon = page.locator('#custom-favicon-heading').locator('..');
+  await customFavicon.waitFor();
+  await page.locator('[name="logo_type"][value="text"]').check();
+  assert.equal(await customFavicon.isVisible(), true);
+  await page.locator('[name="logo_type"][value="image"]').check();
+  const faviconUploadResponse = page.waitForResponse(response =>
+    response.url().endsWith('/admin/settings/favicon-source-upload') && response.request().method() === 'POST');
+  await customFavicon.locator('input[type="file"]').setInputFiles({
+    name: 'custom-favicon.jpg', mimeType: 'image/jpeg', buffer: await image.body(),
+  });
+  const faviconSource = await (await faviconUploadResponse).json();
+  assert.equal(faviconSource.ok, true);
+  await page.waitForFunction(path => document.getElementById('favicon_source').value === path, faviconSource.path);
+  const faviconForm = await customFavicon.locator('button[type="submit"]').evaluate(button => ({
+    action: button.formAction, values: Object.fromEntries(new FormData(button.form)),
+  }));
+  assert.equal((await context.request.post(faviconForm.action, { form: faviconForm.values, maxRedirects: 0 })).status(), 302);
+  const customIcon = await context.request.get('/favicon.ico');
+  assert.equal(customIcon.status(), 200);
+  assert.notDeepEqual(await customIcon.body(), faviconBefore);
+  await page.reload();
+  assert.equal(await page.locator('#site_logo').inputValue(), lightLogoPath);
+
   await page.goto('/admin/pages/about');
   await page.locator('[name="about_menu_label"]').fill('Contact');
   await page.locator('[name="about_title"]').fill('Contact');
@@ -573,11 +596,37 @@ const assert = require('node:assert/strict');
   await page.reload();
   await page.locator('#album-grid-home-info').waitFor();
   assert.equal(await page.locator('label[data-template="album-grid"] .fa-th-large').count(), 1);
+  const menuEditor = page.locator('#album-grid-menu-editor');
+  await menuEditor.locator('[data-menu-add]').click();
+  await menuEditor.locator('[data-menu-groups] input').last().fill('Featured work');
+  await menuEditor.locator('[data-menu-categories] select').first().selectOption({ label: 'Featured work' });
+  await menuEditor.locator('[data-menu-preview] summary').filter({ hasText: 'Featured work' }).waitFor();
+  await saveForm('#home-form');
+  await themedPage.goto('/contact');
+  await themedPage.locator('.album-grid-sidebar summary').filter({ hasText: 'Featured work' }).waitFor();
+  await page.reload();
+  assert.equal(await menuEditor.locator('[data-menu-groups] input').last().inputValue(), 'Featured work');
+  await menuEditor.locator('[data-menu-reset]').click();
+  await saveForm('#home-form');
+
   await themedPage.goto('/');
   const homeTile = themedPage.locator('.album-grid-covers [data-album-id="1"] > div > a');
   await homeTile.waitFor();
   const homeAlbumUrl = await homeTile.getAttribute('href');
+  // Use a viewport taller than Contact and force the home fixture to scroll.
+  await themedPage.setViewportSize({ width: 1440, height: 1800 });
+  await themedPage.evaluate(() => { document.body.style.minHeight = '120vh'; });
+  const sidebarOnLongPage = await themedPage.locator('.album-grid-sidebar').boundingBox();
+  await themedPage.locator('.album-grid-sidebar a[href="/contact"]').click();
+  await themedPage.waitForURL('**/contact');
+  assert.equal(await themedPage.evaluate(() => document.documentElement.scrollHeight <= innerHeight), true);
+  const sidebarOnShortPage = await themedPage.locator('.album-grid-sidebar').boundingBox();
+  assert.equal(sidebarOnShortPage.x, sidebarOnLongPage.x);
+  assert.equal(sidebarOnShortPage.width, sidebarOnLongPage.width);
+  await themedPage.setViewportSize({ width: 1440, height: 1000 });
+  await themedPage.goto('/');
   const homeSidebar = await themedPage.locator('.album-grid-sidebar').boundingBox();
+
   await homeTile.hover();
   await themedPage.waitForFunction(() => getComputedStyle(document.querySelector('.album-grid-covers [data-album-id="1"] .album-cover-details')).opacity === '1');
   assert.equal(await homeTile.locator('.album-cover-details strong').innerText(), 'Test');

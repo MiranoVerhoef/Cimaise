@@ -621,6 +621,11 @@ class PageController extends BaseController
             $accessSql .= ' AND a.is_nsfw = 0';
         }
 
+        $accessSql .= \App\Services\AlbumGridMenu::homeFilterSql(
+            $homeTemplate,
+            $svc->get(\App\Services\AlbumGridMenu::SETTING)
+        );
+
         // Total count of eligible published albums.
         $countStmt = $pdo->prepare('SELECT COUNT(*) FROM albums a WHERE a.is_published = 1' . $accessSql);
         $countStmt->execute();

@@ -10,9 +10,7 @@
       <a href="{{ base_path }}/">{{ trans('nav.home') }}</a>
       <a href="{{ galleries_url|default(base_path ~ '/galleries') }}">{{ trans('nav.galleries') }}</a>
       <a href="{{ about_url|default(base_path ~ '/about') }}">{{ about_menu_label|default(trans('nav.about'), true) }}</a>
-      {% for category in parent_categories|default([]) %}
-        <a href="{{ base_path }}/category/{{ category.slug|e('url') }}">{{ category.name }}</a>
-      {% endfor %}
+      {% include 'frontend/_album_grid_menu.twig' %}
     </nav>
     {% if social_profiles|default([]) %}
       <div class="album-grid-social">

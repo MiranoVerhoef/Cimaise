@@ -457,6 +457,11 @@
                     {% endif %}
                 </div>
                 
+                {% if album_grid_navigation %}
+                  <div class="album-grid-menu-mobile border-t border-gray-200 pt-3 px-3">
+                    {% include 'frontend/_album_grid_menu.twig' %}
+                  </div>
+                {% else %}
                 <!-- Mobile Categories -->
                 <div class="border-t border-gray-200 pt-4">
                     <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2 px-3">{{ trans('filter.categories') }}</div>
@@ -513,6 +518,8 @@
                         {% endfor %}
                     </div>
                 </div>
+
+                {% endif %}
 
                 <!-- Mobile Tags -->
                 {% if show_tags_in_header and nav_tags|default([])|length > 0 %}

@@ -31,6 +31,7 @@ class CategoriesController extends BaseController
     {
         // Invalidate navigation cache
         NavigationService::invalidateCache();
+        \App\Services\TwigGlobalsCache::invalidate();
 
         // Invalidate page caches using tags
         $settings = new SettingsService($this->db);

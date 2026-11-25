@@ -417,6 +417,7 @@
           </div>
         </div>
 
+        {% include 'admin/pages/_album_grid_menu.twig' %}
       </form>
     </div>
 
@@ -614,6 +615,7 @@
     </div>
   </div>
 
+  <script nonce="{{ csp_nonce() }}" src="{{ base_path }}/assets/js/album-grid-menu-editor.js?v={{ app_version }}"></script>
   <script nonce="{{ csp_nonce() }}" src="{{ base_path }}/assets/vendor/tinymce/tinymce.min.js"></script>
   <script nonce="{{ csp_nonce() }}">
     // Run immediately (works with SPA navigation)

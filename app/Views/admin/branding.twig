@@ -115,55 +115,54 @@
               </div>
             </div>
 
-            <!-- Favicon Source Image Upload (separate from logo) -->
-            <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h4 class="text-sm font-medium text-gray-900 mb-3">{{ trans('admin.settings.favicon_source') }}</h4>
-              <p class="text-xs text-gray-600 mb-4">{{ trans('admin.settings.favicon_source_desc') }}</p>
-
-              <input type="hidden" id="favicon_source" name="favicon_source" value="{{ settings['site.favicon_source'] ?? '' }}">
-              <div class="flex flex-col md:flex-row items-start gap-4">
-                <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {% if settings['site.favicon_source'] %}
-                    <img id="favicon-source-preview" src="{{ base_path ~ settings['site.favicon_source'] }}" alt="Favicon source" class="max-w-full max-h-full">
-                    <span id="favicon-source-placeholder" class="text-xs text-gray-500 text-center hidden">{{ trans('admin.settings.no_image') }}</span>
-                  {% else %}
-                    <img id="favicon-source-preview" src="" alt="Favicon source" class="max-w-full max-h-full hidden">
-                    <span id="favicon-source-placeholder" class="text-xs text-gray-500 text-center">{{ trans('admin.settings.no_image') }}</span>
-                  {% endif %}
-                </div>
-                <div class="flex-1">
-                  <div id="favicon-uppy" data-endpoint="{{ base_path }}/admin/settings/favicon-source-upload" data-csrf="{{ csrf }}"
-                       class="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
-                    <div class="flex flex-col items-center justify-center gap-2">
-                      <i class="fas fa-cloud-upload-alt text-xl text-gray-400"></i>
-                      <div class="font-medium text-sm">{{ trans('admin.settings.upload_favicon_source') }}</div>
-                      <div class="text-xs text-gray-500">{{ trans('admin.settings.favicon_source_formats') }}</div>
-                    </div>
-                  </div>
-                  <button id="favicon-source-clear" type="button" class="mt-2 text-sm text-red-600 hover:underline {{ settings['site.favicon_source'] ? '' : 'hidden' }}">
-                    <i class="fas fa-trash mr-1"></i>{{ trans('admin.settings.remove_image') }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Generate Favicons Button -->
-              <div class="mt-4 pt-4 border-t border-gray-200">
-                <button type="submit" formaction="{{ base_path }}/admin/settings/generate-favicons-from-source" formmethod="post"
-                        id="generate-favicons-text-btn"
-                        class="btn-secondary text-sm {{ settings['site.favicon_source'] ? '' : 'opacity-50 cursor-not-allowed' }}"
-                        {% if not settings['site.favicon_source'] %}disabled{% endif %}>
-                  <i class="fas fa-magic mr-2"></i>{{ trans('admin.settings.generate_favicons_button') }}
-                </button>
-                {% if not settings['site.favicon_source'] %}
-                  <p class="text-xs text-amber-600 mt-2"><i class="fas fa-info-circle mr-1"></i>{{ trans('admin.settings.upload_favicon_source_first') }}</p>
-                {% endif %}
-              </div>
-            </div>
           </div>
         </div>
 
 
   </div>
+  <section class="card p-6" aria-labelledby="custom-favicon-heading">
+    <h2 id="custom-favicon-heading" class="text-lg font-semibold text-gray-900 mb-2">{{ trans('admin.settings.favicon_source') }}</h2>
+    <p class="text-xs text-gray-600 mb-4">{{ trans('admin.settings.favicon_source_desc') }}</p>
+
+    <input type="hidden" id="favicon_source" name="favicon_source" value="{{ settings['site.favicon_source'] ?? '' }}">
+    <div class="flex flex-col md:flex-row items-start gap-4">
+      <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+        {% if settings['site.favicon_source'] %}
+          <img id="favicon-source-preview" src="{{ base_path ~ settings['site.favicon_source'] }}" alt="Favicon source" class="max-w-full max-h-full">
+          <span id="favicon-source-placeholder" class="text-xs text-gray-500 text-center hidden">{{ trans('admin.settings.no_image') }}</span>
+        {% else %}
+          <img id="favicon-source-preview" src="" alt="Favicon source" class="max-w-full max-h-full hidden">
+          <span id="favicon-source-placeholder" class="text-xs text-gray-500 text-center">{{ trans('admin.settings.no_image') }}</span>
+        {% endif %}
+      </div>
+      <div class="flex-1">
+        <div id="favicon-uppy" data-endpoint="{{ base_path }}/admin/settings/favicon-source-upload" data-csrf="{{ csrf }}"
+             class="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <i class="fas fa-cloud-upload-alt text-xl text-gray-400"></i>
+            <div class="font-medium text-sm">{{ trans('admin.settings.upload_favicon_source') }}</div>
+            <div class="text-xs text-gray-500">{{ trans('admin.settings.favicon_source_formats') }}</div>
+          </div>
+        </div>
+        <button id="favicon-source-clear" type="button" class="mt-2 text-sm text-red-600 hover:underline {{ settings['site.favicon_source'] ? '' : 'hidden' }}">
+          <i class="fas fa-trash mr-1"></i>{{ trans('admin.settings.remove_image') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Generate Favicons Button -->
+    <div class="mt-4 pt-4 border-t border-gray-200">
+      <button type="submit" formaction="{{ base_path }}/admin/settings/generate-favicons-from-source" formmethod="post"
+              id="generate-favicons-text-btn"
+              class="btn-secondary text-sm {{ settings['site.favicon_source'] ? '' : 'opacity-50 cursor-not-allowed' }}"
+              {% if not settings['site.favicon_source'] %}disabled{% endif %}>
+        <i class="fas fa-magic mr-2"></i>{{ trans('admin.settings.generate_favicons_button') }}
+      </button>
+      {% if not settings['site.favicon_source'] %}
+        <p class="text-xs text-amber-600 mt-2"><i class="fas fa-info-circle mr-1"></i>{{ trans('admin.settings.upload_favicon_source_first') }}</p>
+      {% endif %}
+    </div>
+  </section>
   <button type="submit" class="btn-primary"><i class="fas fa-save mr-2"></i>{{ trans('admin.common.save') }}</button>
 </form>
 <script nonce="{{ csp_nonce() }}">

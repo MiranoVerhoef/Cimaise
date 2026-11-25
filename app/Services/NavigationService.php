@@ -31,8 +31,8 @@ class NavigationService
 
         // Persistent cache via QueryCache
         $cache = QueryCache::getInstance();
-        self::$navigationCategoriesCache = $cache->remember('nav_categories', function () {
-            $stmt = $this->db->pdo()->prepare('SELECT id, name, slug FROM categories ORDER BY COALESCE(parent_id, 0) ASC, sort_order ASC, name ASC');
+        self::$navigationCategoriesCache = $cache->remember('nav_categories_v2', function () {
+            $stmt = $this->db->pdo()->prepare('SELECT id, name, slug, parent_id FROM categories ORDER BY COALESCE(parent_id, 0) ASC, sort_order ASC, name ASC');
             $stmt->execute();
             return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
         }, self::CACHE_TTL);
@@ -168,7 +168,7 @@ class NavigationService
         self::$parentCategoriesCache = [];
 
         $cache = QueryCache::getInstance();
-        $cache->forget('nav_categories');
+        $cache->forget('nav_categories_v2');
         $cache->forget('nav_parent_categories_nsfw');
         $cache->forget('nav_parent_categories_clean');
         self::invalidateTagsCache();

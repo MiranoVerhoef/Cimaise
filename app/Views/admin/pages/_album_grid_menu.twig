@@ -1,0 +1,39 @@
+{% set menu_key = 'admin.pages.home.album_grid_menu.' %}
+<section id="album-grid-menu-editor" class="card p-6 space-y-5 {{ settings['home.template'] != 'album-grid' ? 'hidden' : '' }}" aria-labelledby="album-grid-menu-heading">
+  <div>
+    <h3 id="album-grid-menu-heading" class="text-lg font-medium text-gray-900">{{ trans(menu_key ~ 'title') }}</h3>
+    <p class="text-sm text-gray-600 mt-1">{{ trans(menu_key ~ 'description') }}</p>
+  </div>
+  <input type="hidden" name="album_grid_menu" {% if settings['home.template'] != 'album-grid' %}disabled{% endif %}>
+  <div class="space-y-2" data-menu-groups></div>
+  <div class="flex flex-wrap gap-2">
+    <button type="button" data-menu-add class="btn-secondary">{{ trans(menu_key ~ 'add') }}</button>
+    <button type="button" data-menu-reset class="btn-secondary">{{ trans(menu_key ~ 'reset') }}</button>
+  </div>
+  {% if album_grid_categories %}
+    <div class="space-y-2">
+      <div class="flex flex-wrap items-baseline gap-2">
+        <h4 class="font-medium">{{ trans('filter.categories') }}</h4>
+        <p class="text-sm text-gray-600">{{ trans(menu_key ~ 'home_help') }}</p>
+      </div>
+      <div class="divide-y" data-menu-categories></div>
+    </div>
+  {% endif %}
+  <div class="rounded-lg border border-gray-200 p-4">
+    <h4 class="font-medium mb-3">{{ trans(menu_key ~ 'preview') }}</h4>
+    <ul class="space-y-2 list-none">
+      <li>{{ trans('nav.home') }}</li>
+      <li>{{ trans('nav.galleries') }}</li>
+      <li>{{ about_menu_label|default(trans('nav.about'), true) }}</li>
+    </ul>
+    <ul class="space-y-2 list-none mt-2" data-menu-preview aria-label="{{ trans(menu_key ~ 'preview') }}"></ul>
+  </div>
+  <script type="application/json" data-menu-data nonce="{{ csp_nonce() }}">{{ {
+    menu: album_grid_menu_editor, automatic: album_grid_menu_automatic, categories: album_grid_categories,
+    maxGroups: album_grid_max_groups, labels: {
+      categories: trans('filter.categories'), top: trans(menu_key ~ 'top'), hidden: trans(menu_key ~ 'hidden'),
+      newGroup: trans(menu_key ~ 'new_group'), name: trans(menu_key ~ 'name'), remove: trans(menu_key ~ 'remove'),
+      location: trans(menu_key ~ 'location'), home: trans(menu_key ~ 'home')
+    }
+  }|json_encode(15)|raw }}</script>
+</section>
