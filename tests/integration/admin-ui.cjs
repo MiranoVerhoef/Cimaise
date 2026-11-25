@@ -613,7 +613,6 @@ const assert = require('node:assert/strict');
   const homeTile = themedPage.locator('.album-grid-covers [data-album-id="1"] > div > a');
   await homeTile.waitFor();
   const homeAlbumUrl = await homeTile.getAttribute('href');
-  const homeSidebar = await themedPage.locator('.album-grid-sidebar').boundingBox();
   // Use a viewport taller than Contact and force the home fixture to scroll.
   await themedPage.setViewportSize({ width: 1440, height: 1800 });
   await themedPage.evaluate(() => { document.body.style.minHeight = '120vh'; });
@@ -626,6 +625,7 @@ const assert = require('node:assert/strict');
   assert.equal(sidebarOnShortPage.width, sidebarOnLongPage.width);
   await themedPage.setViewportSize({ width: 1440, height: 1000 });
   await themedPage.goto('/');
+  const homeSidebar = await themedPage.locator('.album-grid-sidebar').boundingBox();
 
   await homeTile.hover();
   await themedPage.waitForFunction(() => getComputedStyle(document.querySelector('.album-grid-covers [data-album-id="1"] .album-cover-details')).opacity === '1');

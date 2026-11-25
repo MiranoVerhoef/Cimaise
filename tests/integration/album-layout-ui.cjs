@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
   assert.equal(loggedIn.status(), 302);
   const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => errors.push(error.stack || error.message));
   await page.goto('/admin/albums/create');
   await page.locator('[name="title"]').fill('Visual layout fixture');
   await page.locator('[name="slug"]').fill('visual-layout-fixture');
